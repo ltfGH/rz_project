@@ -1,0 +1,8 @@
+{
+  "theme": "设备点检记录管理",
+  "softwareName": "设备点检记录管理软件",
+  "version": "1.0",
+  "appId": "00000000-0000-0000-0000-000000000001",
+  "routes": ["dashboard", "records", "operation", "history"],
+  "createdAt": "2026-08-28T12:00:00"
+}

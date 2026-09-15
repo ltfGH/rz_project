@@ -1,0 +1,8 @@
+{
+  "theme": "@@THEME@@",
+  "softwareName": "@@SOFTWARE_NAME@@",
+  "version": "1.0",
+  "appId": "@@APP_ID@@",
+  "routes": ["dashboard", "records", "operation", "history"],
+  "createdAt": "@@CREATED_AT@@"
+}

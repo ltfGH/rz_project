@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>申请表</title>
+<style>
+@page { size: A4; margin: 19mm 25mm; }
+body { margin: 0; color: #000; font-family: SimSun, serif; font-size: 9pt; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+col.section { width: 7%; } col.label { width: 20%; } col.value { width: 31%; } col.label-short { width: 18%; } col.value-short { width: 24%; }
+td { border: 1px solid #000; padding: 4px 5px; vertical-align: middle; line-height: 1.3; }
+td.section-title { padding: 3px 1px; text-align: center; font-weight: bold; }
+td.label { text-align: center; }
+td.long-text { vertical-align: top; }
+</style>
+</head>
+<body>
+<table>
+<colgroup><col class="section"><col class="label"><col class="value"><col class="label-short"><col class="value-short"></colgroup>
+<tr><td class="section-title" rowspan="2">软<br>件<br>基<br>本<br>信<br>息</td><td class="label">软件名称</td><td data-field="software_name">@@SOFTWARE_NAME@@</td><td class="label">版本号</td><td data-field="version">V1.0</td></tr>
+<tr><td class="label">软件简称</td><td data-field="short_name">【申请人填写】</td><td class="label">分类号</td><td data-field="classification">【申请人填写】</td></tr>
+<tr><td class="label" colspan="2">开发完成日期</td><td data-field="completion_date" colspan="3">【申请人填写】</td></tr>
+<tr><td class="label" colspan="2">公司成立日期</td><td data-field="company_date" colspan="3">【申请人填写】</td></tr>
+<tr><td class="label" colspan="2">软件分类</td><td data-field="category" colspan="3">□应用软件　□中间件　□嵌入式软件　□操作系统</td></tr>
+<tr><td class="section-title" rowspan="11">软<br>件<br>功<br>能<br>和<br>技<br>术<br>特<br>点</td><td class="label">开发的硬件环境</td><td data-field="development_hardware" colspan="3">CPU：Intel Core i5 或同等性能处理器；内存：8GB；存储：20GB 可用空间</td></tr>
+<tr><td class="label">运行的硬件环境</td><td data-field="runtime_hardware" colspan="3">CPU：Intel Core i3 或同等性能处理器；内存：4GB；存储：2GB 可用空间</td></tr>
+<tr><td class="label">开发该软件的操作系统</td><td data-field="development_os" colspan="3">Windows 10/11 64位</td></tr>
+<tr><td class="label">软件开发环境/开发工具</td><td data-field="development_tools" colspan="3">Visual Studio Code、HTML5、CSS3、JavaScript</td></tr>
+<tr><td class="label">该软件的运行平台/操作系统</td><td data-field="runtime_platform" colspan="3">Windows 10/11 64位</td></tr>
+<tr><td class="label">软件运行支撑环境/支持软件</td><td data-field="runtime_support" colspan="3">Microsoft Edge 或 Google Chrome；无需外部数据库</td></tr>
+<tr><td class="label">编程语言</td><td data-field="language">HTML、CSS、JavaScript</td><td class="label">源程序量</td><td data-field="source_quantity">【生成时按实际源码统计填写】</td></tr>
+<tr><td class="label">开发目的</td><td data-field="development_purpose" colspan="3">围绕目标业务提供离线记录管理、查询统计和核心业务操作能力。</td></tr>
+<tr><td class="label">面向领域/行业</td><td data-field="industry" colspan="3">【申请人填写】</td></tr>
+<tr><td class="label">软件的主要功能</td><td class="long-text" data-field="main_functions" colspan="3">软件包含仪表盘、记录管理、核心操作和历史记录四个模块，支持业务记录新增、编辑、删除、查询，本地数据保存，统计概览以及面向主题的核心业务处理。</td></tr>
+<tr><td class="label">软件的技术特点</td><td class="long-text" data-field="technical_features" colspan="3">□APP　□游戏软件　□教育软件　□金融软件　□医疗软件　□地理信息软件　□云计算软件　□信息安全软件　□大数据软件　□人工智能软件　□VR软件　□5G软件　□小程序　□物联网软件　□智慧城市软件<br>采用离线浏览器架构和模块化设计，使用本机浏览器存储保存演示数据，无需部署服务器或外部数据库。</td></tr>
+</table>
+</body>
+</html>

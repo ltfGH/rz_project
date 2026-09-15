@@ -1,0 +1,8 @@
+{
+  "innoSetup": {
+    "version": "6.7.3",
+    "url": "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe",
+    "publisherSubjectContains": "O=Pyrsys B.V.",
+    "installArguments": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER"]
+  }
+}
