@@ -75,7 +75,8 @@
       "fields": [
         { "id": "code", "name": "工单编码", "type": "text", "required": true, "unique": true },
         { "id": "asset_id", "name": "资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
-        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["pending", "assigned", "processing", "review", "closed"] }
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["pending", "assigned", "processing", "review", "closed"] },
+        { "id": "resolution", "name": "处理结果", "type": "text", "required": false, "unique": false }
       ],
       "relations": [
         { "id": "ticket_asset", "name": "所属资产", "field": "asset_id", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
@@ -144,7 +145,7 @@
       "states": ["planned", "in_progress", "review", "archived"],
       "transitions": [
         { "id": "start", "name": "开始巡检", "from": "planned", "to": "in_progress", "permission": "inspections.start", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] },
-        { "id": "submit", "name": "提交复核", "from": "in_progress", "to": "review", "permission": "inspections.submit", "conditions": [{ "type": "relation_exists", "parameters": { "relation": "items" } }], "actions": [{ "type": "write_audit", "parameters": {} }] },
+        { "id": "submit", "name": "提交复核", "from": "in_progress", "to": "review", "permission": "inspections.submit", "conditions": [{ "type": "required_field", "parameters": { "field": "status" } }], "actions": [{ "type": "write_audit", "parameters": {} }] },
         { "id": "archive", "name": "复核归档", "from": "review", "to": "archived", "permission": "inspections.archive", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] }
       ]
     }

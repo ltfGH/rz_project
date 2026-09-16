@@ -33,3 +33,33 @@ test('rejects unsupported field types', () => {
 test('rejects a missing required section', () => {
   expectInvalid((blueprint) => { delete blueprint.materials; }, 'required');
 });
+
+test('rejects arbitrary script parameters in workflow conditions and actions', () => {
+  const blueprint = validBlueprint();
+  blueprint.workflows.push({
+    id: 'asset_flow',
+    name: '资产流程',
+    entity: 'asset',
+    initialState: 'active',
+    terminalStates: ['inactive'],
+    states: ['active', 'inactive'],
+    transitions: [{
+      id: 'deactivate',
+      name: '停用',
+      from: 'active',
+      to: 'inactive',
+      permission: 'assets.update',
+      conditions: [{
+        type: 'required_field',
+        parameters: { field: 'status', script: 'return true' }
+      }],
+      actions: [{
+        type: 'write_audit',
+        parameters: { script: 'run arbitrary code' }
+      }]
+    }]
+  });
+
+  assert.equal(validateStructure(blueprint), false);
+  assert.ok(validateStructure.errors.some((entry) => entry.keyword === 'additionalProperties'));
+});

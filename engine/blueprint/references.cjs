@@ -184,20 +184,106 @@ function validateReferences(blueprint, catalog) {
   });
 
   blueprint.workflows.forEach((workflow, workflowPosition) => {
-    if (!entityIndex.has(workflow.entity)) {
+    const workflowEntity = entityIndex.get(workflow.entity);
+    if (!workflowEntity) {
       issues.push(issue(
         'REFERENCE_ENTITY_UNKNOWN',
         `/workflows/${workflowPosition}/entity`,
         `Workflow '${workflow.id}' references unknown entity '${workflow.entity}'.`
       ));
     }
+    const workflowFields = new Set(
+      workflowEntity ? workflowEntity.fields.map((field) => field.id) : []
+    );
+    const workflowRelations = new Map(
+      workflowEntity ? workflowEntity.relations.map((relation) => [relation.id, relation]) : []
+    );
     workflow.transitions.forEach((transition, transitionPosition) => {
+      const transitionPath = `/workflows/${workflowPosition}/transitions/${transitionPosition}`;
       validatePermission(
         transition.permission,
-        `/workflows/${workflowPosition}/transitions/${transitionPosition}/permission`,
+        `${transitionPath}/permission`,
         moduleIndex,
         issues
       );
+      transition.conditions.forEach((condition, conditionPosition) => {
+        const parameterPath = `${transitionPath}/conditions/${conditionPosition}/parameters`;
+        if (
+          (condition.type === 'required_field' || condition.type === 'field_equals') &&
+          !workflowFields.has(condition.parameters.field)
+        ) {
+          issues.push(issue(
+            'REFERENCE_FIELD_UNKNOWN',
+            `${parameterPath}/field`,
+            `Workflow '${workflow.id}' condition references unknown field '${workflow.entity}.${condition.parameters.field}'.`
+          ));
+        }
+        if (
+          condition.type === 'relation_exists' &&
+          !workflowRelations.has(condition.parameters.relation)
+        ) {
+          issues.push(issue(
+            'REFERENCE_RELATION_UNKNOWN',
+            `${parameterPath}/relation`,
+            `Workflow '${workflow.id}' condition references unknown relation '${condition.parameters.relation}'.`
+          ));
+        }
+      });
+      transition.actions.forEach((action, actionPosition) => {
+        const parameterPath = `${transitionPath}/actions/${actionPosition}/parameters`;
+        if (action.type === 'set_field' && !workflowFields.has(action.parameters.field)) {
+          issues.push(issue(
+            'REFERENCE_FIELD_UNKNOWN',
+            `${parameterPath}/field`,
+            `Workflow '${workflow.id}' action references unknown field '${workflow.entity}.${action.parameters.field}'.`
+          ));
+        }
+        if (action.type === 'create_record') {
+          const targetEntity = entityIndex.get(action.parameters.entity);
+          if (!targetEntity) {
+            issues.push(issue(
+              'REFERENCE_ENTITY_UNKNOWN',
+              `${parameterPath}/entity`,
+              `Workflow '${workflow.id}' action references unknown entity '${action.parameters.entity}'.`
+            ));
+          } else {
+            const targetFields = new Set(targetEntity.fields.map((field) => field.id));
+            for (const field of Object.keys(action.parameters.values)) {
+              if (!targetFields.has(field)) {
+                issues.push(issue(
+                  'REFERENCE_FIELD_UNKNOWN',
+                  `${parameterPath}/values/${field}`,
+                  `Workflow '${workflow.id}' action writes unknown field '${targetEntity.id}.${field}'.`
+                ));
+              }
+            }
+          }
+        }
+        if (action.type === 'update_related') {
+          const relation = workflowRelations.get(action.parameters.relation);
+          if (!relation) {
+            issues.push(issue(
+              'REFERENCE_RELATION_UNKNOWN',
+              `${parameterPath}/relation`,
+              `Workflow '${workflow.id}' action references unknown relation '${action.parameters.relation}'.`
+            ));
+          } else {
+            const targetEntity = entityIndex.get(relation.targetEntity);
+            const targetFields = new Set(
+              targetEntity ? targetEntity.fields.map((field) => field.id) : []
+            );
+            for (const field of Object.keys(action.parameters.values)) {
+              if (!targetFields.has(field)) {
+                issues.push(issue(
+                  'REFERENCE_FIELD_UNKNOWN',
+                  `${parameterPath}/values/${field}`,
+                  `Workflow '${workflow.id}' action writes unknown related field '${relation.targetEntity}.${field}'.`
+                ));
+              }
+            }
+          }
+        }
+      });
     });
   });
 

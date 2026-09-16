@@ -21,7 +21,19 @@ const ajv = new Ajv2020({
   code: { source: true }
 });
 const validate = ajv.compile(schema);
-const source = `'use strict';\n${standaloneCode(ajv, validate)}`;
+const source = `'use strict';\n${standaloneCode(ajv, validate)}`
+  .replaceAll(
+    'require("ajv/dist/runtime/equal").default',
+    'require("node:util").isDeepStrictEqual'
+  )
+  .replaceAll(
+    'require("ajv/dist/runtime/ucs2length").default',
+    '((value) => [...value].length)'
+  );
+
+if (/require\(["']ajv\//.test(source)) {
+  throw new Error('Generated validator contains an unbundled Ajv runtime dependency.');
+}
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, source, 'utf8');

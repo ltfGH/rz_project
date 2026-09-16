@@ -19,6 +19,16 @@ function run(args) {
   });
 }
 
+function copyDirectory(source, destination) {
+  fs.mkdirSync(destination, { recursive: true });
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const sourcePath = path.join(source, entry.name);
+    const destinationPath = path.join(destination, entry.name);
+    if (entry.isDirectory()) copyDirectory(sourcePath, destinationPath);
+    else fs.copyFileSync(sourcePath, destinationPath);
+  }
+}
+
 test('returns exit zero and JSON for a blueprint that can generate', () => {
   const result = run(['--input', path.join(fixtureRoot, 'enterprise-ops.valid.json')]);
 
@@ -83,4 +93,24 @@ test('rejects blueprint files larger than five MiB before parsing', (t) => {
 
   assert.equal(result.status, 2);
   assert.match(result.stderr, /5 MiB/);
+});
+
+test('runs from an isolated production tree without node_modules', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'blueprint-runtime-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const isolatedEngine = path.join(directory, 'engine');
+  fs.mkdirSync(isolatedEngine, { recursive: true });
+  copyDirectory(path.join(engineRoot, 'blueprint'), path.join(isolatedEngine, 'blueprint'));
+  copyDirectory(path.join(engineRoot, 'config'), path.join(isolatedEngine, 'config'));
+  const inputPath = path.join(directory, 'blueprint.json');
+  fs.copyFileSync(path.join(fixtureRoot, 'enterprise-ops.valid.json'), inputPath);
+
+  const result = childProcess.spawnSync(
+    process.execPath,
+    [path.join(isolatedEngine, 'blueprint', 'cli.cjs'), '--input', inputPath],
+    { cwd: directory, encoding: 'utf8', windowsHide: true }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).canGenerate, true);
 });

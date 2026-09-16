@@ -159,3 +159,64 @@ test('reports every unsupported requirement as a generation-blocking issue', () 
   ]);
   assert.ok(issues.every((entry) => entry.severity === 'error'));
 });
+
+test('rejects workflow conditions that reference unknown fields or relations', () => {
+  const blueprint = validBlueprint();
+  blueprint.workflows.push({
+    id: 'asset_flow', name: '资产流程', entity: 'asset',
+    initialState: 'active', terminalStates: ['inactive'], states: ['active', 'inactive'],
+    transitions: [{
+      id: 'deactivate', name: '停用', from: 'active', to: 'inactive',
+      permission: 'assets.update',
+      conditions: [
+        { type: 'required_field', parameters: { field: 'missing_field' } },
+        { type: 'relation_exists', parameters: { relation: 'missing_relation' } }
+      ],
+      actions: []
+    }]
+  });
+
+  expectIssue(
+    blueprint,
+    'REFERENCE_FIELD_UNKNOWN',
+    '/workflows/0/transitions/0/conditions/0/parameters/field'
+  );
+  expectIssue(
+    blueprint,
+    'REFERENCE_RELATION_UNKNOWN',
+    '/workflows/0/transitions/0/conditions/1/parameters/relation'
+  );
+});
+
+test('rejects workflow actions that reference unknown fields, entities, or relations', () => {
+  const blueprint = validBlueprint();
+  blueprint.workflows.push({
+    id: 'asset_flow', name: '资产流程', entity: 'asset',
+    initialState: 'active', terminalStates: ['inactive'], states: ['active', 'inactive'],
+    transitions: [{
+      id: 'deactivate', name: '停用', from: 'active', to: 'inactive',
+      permission: 'assets.update', conditions: [],
+      actions: [
+        { type: 'set_field', parameters: { field: 'missing_field', value: false } },
+        { type: 'create_record', parameters: { entity: 'missing_entity', values: {} } },
+        { type: 'update_related', parameters: { relation: 'missing_relation', values: {} } }
+      ]
+    }]
+  });
+
+  expectIssue(
+    blueprint,
+    'REFERENCE_FIELD_UNKNOWN',
+    '/workflows/0/transitions/0/actions/0/parameters/field'
+  );
+  expectIssue(
+    blueprint,
+    'REFERENCE_ENTITY_UNKNOWN',
+    '/workflows/0/transitions/0/actions/1/parameters/entity'
+  );
+  expectIssue(
+    blueprint,
+    'REFERENCE_RELATION_UNKNOWN',
+    '/workflows/0/transitions/0/actions/2/parameters/relation'
+  );
+});

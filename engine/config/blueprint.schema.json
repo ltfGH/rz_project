@@ -239,28 +239,112 @@
       }
     },
     "condition": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "parameters"],
-      "properties": {
-        "type": { "enum": ["required_field", "field_equals", "relation_exists"] },
-        "parameters": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "required_field" },
+            "parameters": {
+              "type": "object", "additionalProperties": false, "required": ["field"],
+              "properties": { "field": { "$ref": "#/$defs/identifier" } }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "field_equals" },
+            "parameters": {
+              "type": "object", "additionalProperties": false, "required": ["field", "value"],
+              "properties": {
+                "field": { "$ref": "#/$defs/identifier" },
+                "value": { "$ref": "#/$defs/jsonValue" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "relation_exists" },
+            "parameters": {
+              "type": "object", "additionalProperties": false, "required": ["relation"],
+              "properties": { "relation": { "$ref": "#/$defs/identifier" } }
+            }
+          }
         }
-      }
+      ]
     },
     "transactionAction": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["type", "parameters"],
-      "properties": {
-        "type": { "enum": ["set_field", "create_record", "update_related", "append_event", "write_audit"] },
-        "parameters": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "set_field" },
+            "parameters": {
+              "type": "object", "additionalProperties": false, "required": ["field", "value"],
+              "properties": {
+                "field": { "$ref": "#/$defs/identifier" },
+                "value": { "$ref": "#/$defs/jsonValue" }
+              }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "create_record" },
+            "parameters": {
+              "type": "object", "additionalProperties": false, "required": ["entity", "values"],
+              "properties": {
+                "entity": { "$ref": "#/$defs/identifier" },
+                "values": { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+              }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "update_related" },
+            "parameters": {
+              "type": "object", "additionalProperties": false, "required": ["relation", "values"],
+              "properties": {
+                "relation": { "$ref": "#/$defs/identifier" },
+                "values": { "type": "object", "additionalProperties": { "$ref": "#/$defs/jsonValue" } }
+              }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "append_event" },
+            "parameters": {
+              "type": "object", "additionalProperties": false,
+              "properties": { "eventType": { "$ref": "#/$defs/identifier" } }
+            }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["type", "parameters"],
+          "properties": {
+            "type": { "const": "write_audit" },
+            "parameters": {
+              "type": "object", "additionalProperties": false,
+              "properties": { "action": { "$ref": "#/$defs/identifier" } }
+            }
+          }
         }
-      }
+      ]
     },
     "transition": {
       "type": "object",
