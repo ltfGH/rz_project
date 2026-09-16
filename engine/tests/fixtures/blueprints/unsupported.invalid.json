@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "software": {
+    "id": "equipment_control",
+    "name": "设备自动控制软件",
+    "version": "1.0.0",
+    "purpose": "管理设备并执行专业自动控制",
+    "targetUsers": ["设备管理员"],
+    "boundaries": ["离线桌面运行"],
+    "loginMode": "required"
+  },
+  "archetypes": ["asset_registry"],
+  "capabilities": ["entity_crud", "relationships", "audit"],
+  "coverage": {
+    "supported": ["设备台账"],
+    "unsupported": ["自动控制生产设备"]
+  },
+  "plugins": [{ "id": "asset_registry", "config": {} }],
+  "modules": [{ "id": "assets", "name": "设备台账", "route": "assets", "entity": "asset", "actions": ["list", "create", "update", "view"] }],
+  "entities": [{
+    "id": "asset", "name": "设备", "retention": "protected", "history": false, "systemManaged": false,
+    "fields": [{ "id": "code", "name": "设备编码", "type": "text", "required": true, "unique": true }],
+    "relations": []
+  }],
+  "roles": [{ "id": "admin", "name": "管理员", "permissions": ["assets.list", "assets.create", "assets.update", "assets.view"] }],
+  "workflows": [],
+  "dashboards": [],
+  "demoData": { "seed": 20260916, "entityMinimums": { "asset": 20 } },
+  "materials": {
+    "developmentPurpose": "形成设备台账",
+    "industry": "设备管理",
+    "technicalFeatures": ["离线运行"]
+  }
+}

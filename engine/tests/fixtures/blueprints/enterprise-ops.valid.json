@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "1.0",
+  "software": {
+    "id": "enterprise_ops",
+    "name": "企业服务运维管理软件",
+    "version": "1.0.0",
+    "purpose": "管理服务资产、告警、工单与巡检闭环",
+    "targetUsers": ["管理员", "调度人员", "工程师", "复核人员"],
+    "boundaries": ["离线桌面运行", "不连接生产监控设备", "不调用外部大模型"],
+    "loginMode": "required"
+  },
+  "archetypes": ["asset_registry", "inspection_rectification", "work_order_service"],
+  "capabilities": ["entity_crud", "relationships", "workflow", "transactions", "audit"],
+  "coverage": {
+    "supported": ["服务资产台账", "告警转工单", "工单闭环", "巡检整改闭环", "操作审计"],
+    "unsupported": []
+  },
+  "plugins": [
+    { "id": "asset_registry", "config": {} },
+    { "id": "inspection_rectification", "config": { "review_required": true } },
+    { "id": "work_order_service", "config": { "priority_levels": ["low", "normal", "high", "urgent"] } }
+  ],
+  "modules": [
+    { "id": "users", "name": "用户管理", "route": "users", "entity": "user", "actions": ["list", "create", "update", "view"] },
+    { "id": "services", "name": "服务目录", "route": "services", "entity": "service", "actions": ["list", "create", "update", "view"] },
+    { "id": "assets", "name": "资产台账", "route": "assets", "entity": "asset", "actions": ["list", "create", "update", "view"] },
+    { "id": "alerts", "name": "告警中心", "route": "alerts", "entity": "alert", "actions": ["list", "create", "acknowledge", "view"] },
+    { "id": "tickets", "name": "工单协同", "route": "tickets", "entity": "ticket", "actions": ["list", "create", "assign", "accept", "resolve", "close", "view"] },
+    { "id": "ticket_events", "name": "工单事件", "route": "ticket_events", "entity": "ticket_event", "actions": ["list", "view"] },
+    { "id": "inspections", "name": "巡检中心", "route": "inspections", "entity": "inspection", "actions": ["list", "create", "start", "submit", "archive", "view"] },
+    { "id": "inspection_items", "name": "巡检明细", "route": "inspection_items", "entity": "inspection_item", "actions": ["list", "view"] },
+    { "id": "audit_events", "name": "操作审计", "route": "audit_events", "entity": "audit_event", "actions": ["list", "view"] }
+  ],
+  "entities": [
+    {
+      "id": "user", "name": "用户", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "username", "name": "账号", "type": "text", "required": true, "unique": true },
+        { "id": "role", "name": "角色", "type": "enum", "required": true, "unique": false, "options": ["admin", "dispatcher", "engineer", "reviewer"] }
+      ],
+      "relations": []
+    },
+    {
+      "id": "service", "name": "服务", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "服务编码", "type": "text", "required": true, "unique": true },
+        { "id": "name", "name": "服务名称", "type": "text", "required": true, "unique": false }
+      ],
+      "relations": []
+    },
+    {
+      "id": "asset", "name": "资产", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "资产编码", "type": "text", "required": true, "unique": true },
+        { "id": "service_id", "name": "所属服务", "type": "reference", "required": true, "unique": false, "reference": { "entity": "service", "field": "code" } },
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["active", "inactive"] }
+      ],
+      "relations": [
+        { "id": "asset_service", "name": "所属服务", "field": "service_id", "targetEntity": "service", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "alert", "name": "告警", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "告警编码", "type": "text", "required": true, "unique": true },
+        { "id": "asset_id", "name": "资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["new", "acknowledged", "recovered"] }
+      ],
+      "relations": [
+        { "id": "alert_asset", "name": "所属资产", "field": "asset_id", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "ticket", "name": "工单", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "工单编码", "type": "text", "required": true, "unique": true },
+        { "id": "asset_id", "name": "资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["pending", "assigned", "processing", "review", "closed"] }
+      ],
+      "relations": [
+        { "id": "ticket_asset", "name": "所属资产", "field": "asset_id", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "ticket_event", "name": "工单事件", "retention": "append_only", "history": true, "systemManaged": true,
+      "fields": [
+        { "id": "code", "name": "事件编码", "type": "text", "required": true, "unique": true },
+        { "id": "ticket_id", "name": "工单", "type": "reference", "required": true, "unique": false, "reference": { "entity": "ticket", "field": "code" } }
+      ],
+      "relations": [
+        { "id": "event_ticket", "name": "所属工单", "field": "ticket_id", "targetEntity": "ticket", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "inspection", "name": "巡检", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "巡检编码", "type": "text", "required": true, "unique": true },
+        { "id": "asset_id", "name": "资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["planned", "in_progress", "review", "archived"] }
+      ],
+      "relations": [
+        { "id": "inspection_asset", "name": "所属资产", "field": "asset_id", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "inspection_item", "name": "巡检明细", "retention": "protected", "history": true, "systemManaged": true,
+      "fields": [
+        { "id": "code", "name": "明细编码", "type": "text", "required": true, "unique": true },
+        { "id": "inspection_id", "name": "巡检", "type": "reference", "required": true, "unique": false, "reference": { "entity": "inspection", "field": "code" } },
+        { "id": "result", "name": "结果", "type": "enum", "required": true, "unique": false, "options": ["normal", "abnormal"] }
+      ],
+      "relations": [
+        { "id": "item_inspection", "name": "所属巡检", "field": "inspection_id", "targetEntity": "inspection", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "audit_event", "name": "审计事件", "retention": "append_only", "history": true, "systemManaged": true,
+      "fields": [
+        { "id": "code", "name": "审计编码", "type": "text", "required": true, "unique": true },
+        { "id": "action", "name": "操作", "type": "text", "required": true, "unique": false }
+      ],
+      "relations": []
+    }
+  ],
+  "roles": [
+    { "id": "admin", "name": "管理员", "permissions": ["users.list", "users.create", "users.update", "users.view", "services.list", "services.create", "services.update", "services.view", "assets.list", "assets.create", "assets.update", "assets.view", "alerts.list", "alerts.create", "alerts.acknowledge", "alerts.view", "tickets.list", "tickets.create", "tickets.view", "ticket_events.list", "ticket_events.view", "inspections.list", "inspections.create", "inspections.view", "inspection_items.list", "inspection_items.view", "audit_events.list", "audit_events.view"] },
+    { "id": "dispatcher", "name": "调度人员", "permissions": ["tickets.list", "tickets.assign", "tickets.view", "alerts.list", "alerts.acknowledge", "alerts.view"] },
+    { "id": "engineer", "name": "工程师", "permissions": ["tickets.list", "tickets.accept", "tickets.resolve", "tickets.view", "inspections.list", "inspections.start", "inspections.submit", "inspections.view", "inspection_items.list", "inspection_items.view"] },
+    { "id": "reviewer", "name": "复核人员", "permissions": ["tickets.list", "tickets.close", "tickets.view", "inspections.list", "inspections.archive", "inspections.view", "audit_events.list", "audit_events.view"] }
+  ],
+  "workflows": [
+    {
+      "id": "ticket_flow", "name": "工单闭环", "entity": "ticket", "initialState": "pending", "terminalStates": ["closed"],
+      "states": ["pending", "assigned", "processing", "review", "closed"],
+      "transitions": [
+        { "id": "assign", "name": "分派", "from": "pending", "to": "assigned", "permission": "tickets.assign", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "accept", "name": "受理", "from": "assigned", "to": "processing", "permission": "tickets.accept", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }] },
+        { "id": "resolve", "name": "提交解决", "from": "processing", "to": "review", "permission": "tickets.resolve", "conditions": [{ "type": "required_field", "parameters": { "field": "resolution" } }], "actions": [{ "type": "append_event", "parameters": {} }] },
+        { "id": "close", "name": "复核关闭", "from": "review", "to": "closed", "permission": "tickets.close", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] }
+      ]
+    },
+    {
+      "id": "inspection_flow", "name": "巡检闭环", "entity": "inspection", "initialState": "planned", "terminalStates": ["archived"],
+      "states": ["planned", "in_progress", "review", "archived"],
+      "transitions": [
+        { "id": "start", "name": "开始巡检", "from": "planned", "to": "in_progress", "permission": "inspections.start", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] },
+        { "id": "submit", "name": "提交复核", "from": "in_progress", "to": "review", "permission": "inspections.submit", "conditions": [{ "type": "relation_exists", "parameters": { "relation": "items" } }], "actions": [{ "type": "write_audit", "parameters": {} }] },
+        { "id": "archive", "name": "复核归档", "from": "review", "to": "archived", "permission": "inspections.archive", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] }
+      ]
+    }
+  ],
+  "dashboards": [
+    { "id": "asset_total", "name": "纳管资产", "entity": "asset", "aggregation": "count", "filters": [] },
+    { "id": "pending_tickets", "name": "待办工单", "entity": "ticket", "aggregation": "count", "filters": [{ "field": "status", "operator": "ne", "value": "closed" }] },
+    { "id": "active_alerts", "name": "未恢复告警", "entity": "alert", "aggregation": "count", "filters": [{ "field": "status", "operator": "ne", "value": "recovered" }] }
+  ],
+  "demoData": {
+    "seed": 20260916,
+    "entityMinimums": { "user": 8, "service": 20, "asset": 120, "alert": 260, "ticket": 360, "ticket_event": 500, "inspection": 240, "inspection_item": 600, "audit_event": 500 }
+  },
+  "materials": {
+    "developmentPurpose": "形成企业服务资源、异常、处置和巡检过程的离线闭环管理能力",
+    "industry": "企业信息技术运维",
+    "technicalFeatures": ["Electron 离线桌面运行", "SQLite 关系数据持久化", "状态机与跨表事务", "角色权限与操作审计"]
+  }
+}
