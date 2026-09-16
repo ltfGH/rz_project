@@ -1,0 +1,47 @@
+{
+  "catalogVersion": "1.0",
+  "plugins": [
+    {
+      "id": "asset_registry",
+      "name": "资产生命周期",
+      "description": "提供资产状态、责任关系和受限停用规则。",
+      "compatibleArchetypes": ["asset_registry"],
+      "configKeys": { "required": [], "optional": ["inactive_states"] }
+    },
+    {
+      "id": "inspection_rectification",
+      "name": "巡检整改闭环",
+      "description": "提供检查项执行、异常转整改和复核归档。",
+      "compatibleArchetypes": ["inspection_rectification"],
+      "configKeys": { "required": [], "optional": ["severity_levels", "review_required"] }
+    },
+    {
+      "id": "work_order_service",
+      "name": "工单服务闭环",
+      "description": "提供工单分派、处理、复核关闭及服务期限。",
+      "compatibleArchetypes": ["work_order_service", "inspection_rectification"],
+      "configKeys": { "required": [], "optional": ["priority_levels", "sla_hours"] }
+    },
+    {
+      "id": "inventory_batch",
+      "name": "库存批次事务",
+      "description": "提供批次库存、出入库流水和库存预警。",
+      "compatibleArchetypes": ["inventory_batch"],
+      "configKeys": { "required": ["quantity_scale"], "optional": ["expiry_warning_days"] }
+    },
+    {
+      "id": "project_task",
+      "name": "项目任务进度",
+      "description": "提供里程碑、任务进度、风险和交付关联。",
+      "compatibleArchetypes": ["project_task"],
+      "configKeys": { "required": [], "optional": ["progress_mode"] }
+    },
+    {
+      "id": "application_archive",
+      "name": "申请审批归档",
+      "description": "提供申请审批、文件归档和到期提醒。",
+      "compatibleArchetypes": ["application_archive", "inventory_batch", "project_task"],
+      "configKeys": { "required": [], "optional": ["approval_levels", "reminder_days"] }
+    }
+  ]
+}

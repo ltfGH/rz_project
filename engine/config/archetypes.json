@@ -1,0 +1,47 @@
+{
+  "catalogVersion": "1.0",
+  "archetypes": [
+    {
+      "id": "asset_registry",
+      "name": "台账与资产",
+      "description": "管理分类、资产、责任人、状态和生命周期。",
+      "allowedPlugins": ["asset_registry"],
+      "requiredCapabilities": ["entity_crud", "relationships", "audit"]
+    },
+    {
+      "id": "inspection_rectification",
+      "name": "巡检与整改",
+      "description": "管理计划、检查项、执行记录、异常、整改和复核闭环。",
+      "allowedPlugins": ["inspection_rectification", "work_order_service"],
+      "requiredCapabilities": ["entity_crud", "workflow", "transactions", "audit"]
+    },
+    {
+      "id": "work_order_service",
+      "name": "工单与服务",
+      "description": "管理受理、分派、处理、复核、关闭和服务期限。",
+      "allowedPlugins": ["work_order_service"],
+      "requiredCapabilities": ["entity_crud", "workflow", "transactions", "audit"]
+    },
+    {
+      "id": "inventory_batch",
+      "name": "库存与批次",
+      "description": "管理物料、批次、入库、领用、退库和库存预警。",
+      "allowedPlugins": ["inventory_batch", "application_archive"],
+      "requiredCapabilities": ["entity_crud", "relationships", "transactions", "audit"]
+    },
+    {
+      "id": "project_task",
+      "name": "项目与任务",
+      "description": "管理项目、里程碑、任务、进度、风险和交付物。",
+      "allowedPlugins": ["project_task", "application_archive"],
+      "requiredCapabilities": ["entity_crud", "workflow", "relationships", "audit"]
+    },
+    {
+      "id": "application_archive",
+      "name": "申请与归档",
+      "description": "管理申请、审批、证照、文件、到期提醒和归档。",
+      "allowedPlugins": ["application_archive"],
+      "requiredCapabilities": ["entity_crud", "workflow", "attachments", "audit"]
+    }
+  ]
+}
