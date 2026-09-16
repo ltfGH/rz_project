@@ -12,9 +12,12 @@ export class PermissionService {
   }
 
   require(actor: ActorDto, permission: string): void {
-    const permissions = this.#permissions.get(actor.roleId);
-    if (!permissions?.has(permission)) {
+    if (!this.allows(actor, permission)) {
       throw new AppError('PERMISSION_DENIED', '当前用户没有执行此操作的权限。');
     }
+  }
+
+  allows(actor: ActorDto, permission: string): boolean {
+    return this.#permissions.get(actor.roleId)?.has(permission) ?? false;
   }
 }
