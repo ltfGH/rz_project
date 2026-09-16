@@ -13,3 +13,15 @@
 安装包未进行商业代码签名，Windows SmartScreen 可能显示未识别发布者提示。这不影响安装包的标准安装与卸载结构。
 
 本工具用于准备和整理材料，不保证审批结果。最终材料内容、权属信息及申报合规性由申请人负责核对。
+
+业务蓝图开发检查
+
+以下命令用于修改蓝图协议、目录或校验器后的开发检查：
+
+npm --prefix engine ci
+npm --prefix engine run build:blueprint-validator
+npm --prefix engine run test:blueprint
+node engine/blueprint/cli.cjs --input <绝对路径到蓝图.json>
+powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/Run-All.ps1
+
+npm 依赖只用于从 JSON Schema 重新生成已纳入源码的独立校验器。生成器正常验证业务蓝图时只需要现有 Node.js，不需要运行 npm install，也不需要联网。
