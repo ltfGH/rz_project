@@ -1,0 +1,12 @@
+{
+  "name": "rz-project-generator-engine",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build:blueprint-validator": "node tools/build-blueprint-validator.cjs",
+    "test:blueprint": "node --test tests/blueprint/*.test.js"
+  },
+  "devDependencies": {
+    "ajv": "8.17.1"
+  }
+}

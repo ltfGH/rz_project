@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.rz-project/schema/blueprint-1.0.json",
+  "title": "Offline business software blueprint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "software",
+    "archetypes",
+    "capabilities",
+    "coverage",
+    "plugins",
+    "modules",
+    "entities",
+    "roles",
+    "workflows",
+    "dashboards",
+    "demoData",
+    "materials"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "software": { "$ref": "#/$defs/software" },
+    "archetypes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/identifier" }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/identifier" }
+    },
+    "coverage": { "$ref": "#/$defs/coverage" },
+    "plugins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/pluginSelection" }
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/module" }
+    },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entity" }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/role" }
+    },
+    "workflows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/workflow" }
+    },
+    "dashboards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dashboard" }
+    },
+    "demoData": { "$ref": "#/$defs/demoData" },
+    "materials": { "$ref": "#/$defs/materials" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,63}$"
+    },
+    "nonBlank": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "software": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "version", "purpose", "targetUsers", "boundaries", "loginMode"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "purpose": { "$ref": "#/$defs/nonBlank" },
+        "targetUsers": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonBlank" }
+        },
+        "boundaries": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonBlank" }
+        },
+        "loginMode": { "enum": ["required", "optional", "disabled"] }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["supported", "unsupported"],
+      "properties": {
+        "supported": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonBlank" }
+        },
+        "unsupported": {
+          "type": "array", "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonBlank" }
+        }
+      }
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    },
+    "pluginSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "config"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "config": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      }
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "route", "entity", "actions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "route": { "$ref": "#/$defs/identifier" },
+        "entity": { "$ref": "#/$defs/identifier" },
+        "actions": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    },
+    "fieldReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity", "field"],
+      "properties": {
+        "entity": { "$ref": "#/$defs/identifier" },
+        "field": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type", "required", "unique"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "type": {
+          "enum": ["text", "integer", "decimal", "boolean", "date", "datetime", "enum", "reference"]
+        },
+        "required": { "type": "boolean" },
+        "unique": { "type": "boolean" },
+        "default": { "$ref": "#/$defs/jsonValue" },
+        "options": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonBlank" }
+        },
+        "reference": { "$ref": "#/$defs/fieldReference" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "enum" } }, "required": ["type"] },
+          "then": { "required": ["options"], "properties": { "options": true } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "reference" } }, "required": ["type"] },
+          "then": { "required": ["reference"], "properties": { "reference": true } }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "field", "targetEntity", "targetField", "onDelete"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "field": { "$ref": "#/$defs/identifier" },
+        "targetEntity": { "$ref": "#/$defs/identifier" },
+        "targetField": { "$ref": "#/$defs/identifier" },
+        "onDelete": { "enum": ["restrict", "cascade", "set_null"] }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "retention", "history", "systemManaged", "fields", "relations"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "retention": { "enum": ["mutable", "protected", "append_only"] },
+        "history": { "type": "boolean" },
+        "systemManaged": { "type": "boolean" },
+        "fields": {
+          "type": "array", "minItems": 1,
+          "items": { "$ref": "#/$defs/field" }
+        },
+        "relations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/relation" }
+        }
+      }
+    },
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "permissions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "permissions": {
+          "type": "array", "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}\\.[a-z][a-z0-9_]{1,63}$" }
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "parameters"],
+      "properties": {
+        "type": { "enum": ["required_field", "field_equals", "relation_exists"] },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      }
+    },
+    "transactionAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "parameters"],
+      "properties": {
+        "type": { "enum": ["set_field", "create_record", "update_related", "append_event", "write_audit"] },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "from", "to", "permission", "conditions", "actions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "from": { "$ref": "#/$defs/identifier" },
+        "to": { "$ref": "#/$defs/identifier" },
+        "permission": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}\\.[a-z][a-z0-9_]{1,63}$" },
+        "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/transactionAction" } }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "entity", "initialState", "terminalStates", "states", "transitions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "entity": { "$ref": "#/$defs/identifier" },
+        "initialState": { "$ref": "#/$defs/identifier" },
+        "terminalStates": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "states": {
+          "type": "array", "minItems": 2, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "transitions": {
+          "type": "array", "minItems": 1,
+          "items": { "$ref": "#/$defs/transition" }
+        }
+      }
+    },
+    "dashboardFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operator", "value"],
+      "properties": {
+        "field": { "$ref": "#/$defs/identifier" },
+        "operator": { "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in"] },
+        "value": { "$ref": "#/$defs/jsonValue" }
+      }
+    },
+    "dashboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "entity", "aggregation", "filters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "entity": { "$ref": "#/$defs/identifier" },
+        "aggregation": { "enum": ["count", "sum", "average", "minimum", "maximum"] },
+        "field": { "$ref": "#/$defs/identifier" },
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/dashboardFilter" } }
+      }
+    },
+    "demoData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "entityMinimums"],
+      "properties": {
+        "seed": { "type": "integer", "minimum": 1 },
+        "entityMinimums": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 100000 }
+        }
+      }
+    },
+    "materials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["developmentPurpose", "industry", "technicalFeatures"],
+      "properties": {
+        "developmentPurpose": { "$ref": "#/$defs/nonBlank" },
+        "industry": { "$ref": "#/$defs/nonBlank" },
+        "technicalFeatures": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonBlank" }
+        }
+      }
+    }
+  }
+}
