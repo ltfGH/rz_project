@@ -107,6 +107,7 @@ test('runs the production asset pack workflow against real SQLite', (t) => {
       requirePermission: (currentActor, permission) => permissions.require(currentActor, permission),
       appendAudit: (currentConnection, entry) => audit.append(currentConnection, entry),
       blockers: [],
+      assigneeExists: (assignee) => assignee === '责任岗位-01',
       now: () => new Date('2026-09-17T08:00:00.000Z'),
       eventCode: () => `AEVT-ACC-${++eventSequence}`
     })

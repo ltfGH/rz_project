@@ -64,6 +64,7 @@ function context(connection: any, overrides: Partial<AssetLifecycleContext> = {}
     requirePermission: () => undefined,
     appendAudit: () => undefined,
     blockers: [],
+    assigneeExists: () => true,
     now: () => new Date('2026-09-17T08:00:00.000Z'),
     eventCode: () => `AEVT-${++eventSequence}`,
     ...overrides

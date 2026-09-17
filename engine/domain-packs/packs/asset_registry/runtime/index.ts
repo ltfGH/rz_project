@@ -43,6 +43,7 @@ export interface AssetLifecycleContext {
   readonly requirePermission: (actor: AssetLifecycleActor, permission: string) => void;
   readonly appendAudit: (connection: DatabaseSync, entry: AssetAuditEntry) => void;
   readonly blockers: readonly AssetLifecycleBlocker[];
+  readonly assigneeExists: (assignee: string, connection: DatabaseSync) => boolean;
   readonly now: () => Date;
   readonly eventCode: () => string;
 }
@@ -228,6 +229,11 @@ export class AssetLifecycleService {
     const asset = readAsset(request.assetId, context.connection);
     if (asset.version !== request.expectedVersion) {
       throw new AppError('VERSION_CONFLICT', 'Asset was changed by another operation.');
+    }
+    if (!context.assigneeExists(assignee, context.connection)) {
+      throw new AppError('VALIDATION_FAILED', 'Assignee does not exist in the identity registry.', {
+        fieldErrors: [{ field: 'assignee', message: 'Unknown assignee.' }]
+      });
     }
     const active = context.connection.prepare(
       'SELECT id, version, assignee FROM biz_asset_responsibility WHERE asset_code = ? AND active = 1 ORDER BY id DESC LIMIT 1'

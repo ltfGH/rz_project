@@ -66,6 +66,7 @@ function context(connection: any, overrides: Partial<AssetLifecycleContext> = {}
     requirePermission: () => undefined,
     appendAudit: () => undefined,
     blockers: [],
+    assigneeExists: () => true,
     now: () => new Date('2026-09-17T08:00:00.000Z'),
     eventCode: () => `AEVT-RULE-${++eventSequence}`,
     ...overrides
@@ -194,6 +195,58 @@ test('generic entity writes cannot bypass asset status or responsibility rules',
     'SELECT COUNT(*) AS count FROM biz_asset_responsibility'
   ).get() as { count: number };
   assert.equal(responsibilities.count, 0);
+});
+
+test('rejects an assignee not present in the caller-owned identity registry', (t) => {
+  const { database, repository, asset } = setup(t);
+  const service = new AssetLifecycleService();
+  assert.throws(() => database.transaction((connection) => service.assignResponsibility({
+    assetId: asset.id,
+    expectedVersion: asset.version,
+    responsibilityCode: 'RESP-UNKNOWN',
+    assignee: 'UNKNOWN',
+    reason: '无效责任分配'
+  }, context(connection, { assigneeExists: () => false }))), code('VALIDATION_FAILED'));
+  assert.equal(repository.get('asset', asset.id, actor).version, 1);
+  const history = database.prepare(
+    `SELECT
+      (SELECT COUNT(*) FROM biz_asset_responsibility) AS responsibility_count,
+      (SELECT COUNT(*) FROM biz_asset_event) AS event_count`
+  ).get() as { responsibility_count: number; event_count: number };
+  assert.deepEqual({ ...history }, { responsibility_count: 0, event_count: 0 });
+});
+
+test('rolls back a responsibility replacement when the late audit append fails', (t) => {
+  const { database, repository, asset } = setup(t);
+  const service = new AssetLifecycleService();
+  const first = database.transaction((connection) => service.assignResponsibility({
+    assetId: asset.id,
+    expectedVersion: 1,
+    responsibilityCode: 'RESP-1',
+    assignee: '岗位-A',
+    reason: '首次分配'
+  }, context(connection)));
+
+  assert.throws(() => database.transaction((connection) => service.assignResponsibility({
+    assetId: asset.id,
+    expectedVersion: first.assetVersion,
+    responsibilityCode: 'RESP-2',
+    assignee: '岗位-B',
+    reason: '责任换绑'
+  }, context(connection, {
+    appendAudit: () => { throw new Error('audit failed after responsibility replacement'); }
+  }))), /audit failed after responsibility replacement/);
+
+  assert.equal(repository.get('asset', asset.id, actor).version, 2);
+  const responsibilities = database.prepare(
+    'SELECT code, assignee, active, ended_at FROM biz_asset_responsibility ORDER BY id'
+  ).all() as Array<{ code: string; assignee: string; active: number; ended_at: string | null }>;
+  assert.deepEqual(
+    responsibilities.map((row) => ({ ...row })),
+    [{ code: 'RESP-1', assignee: '岗位-A', active: 1, ended_at: null }]
+  );
+  const events = database.prepare('SELECT COUNT(*) AS count FROM biz_asset_event').get() as { count: number };
+  assert.equal(events.count, 1);
 });
 
 function code(expected: string): (error: unknown) => boolean {
