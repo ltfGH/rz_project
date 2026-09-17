@@ -1,0 +1,106 @@
+{
+  "fragmentVersion": "1.0",
+  "pack": { "id": "asset_registry", "version": "1.0.0" },
+  "owns": {
+    "entities": ["asset_category", "asset", "asset_responsibility", "asset_event"],
+    "modules": ["asset_categories", "assets", "asset_responsibilities", "asset_events"],
+    "workflows": ["asset_lifecycle"],
+    "roles": ["asset_admin", "asset_viewer"]
+  },
+  "publicExtensionPoints": [
+    { "id": "asset.fields", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
+    { "id": "asset.relations", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
+    { "id": "asset.module.actions", "targetKind": "module", "targetId": "assets", "allowedOperations": ["append"] },
+    { "id": "asset.lifecycle.transitions", "targetKind": "workflow", "targetId": "asset_lifecycle", "allowedOperations": ["add_transition"] }
+  ],
+  "extensions": [],
+  "blueprint": {
+    "entities": [
+      {
+        "id": "asset_category", "name": "资产分类", "retention": "protected", "history": false, "systemManaged": false,
+        "fields": [
+          { "id": "code", "name": "分类编码", "type": "text", "required": true, "unique": true },
+          { "id": "name", "name": "分类名称", "type": "text", "required": true, "unique": false },
+          { "id": "active", "name": "启用", "type": "boolean", "required": true, "unique": false, "default": true }
+        ],
+        "relations": []
+      },
+      {
+        "id": "asset", "name": "资产", "retention": "protected", "history": false, "systemManaged": false,
+        "fields": [
+          { "id": "code", "name": "资产编码", "type": "text", "required": true, "unique": true },
+          { "id": "name", "name": "资产名称", "type": "text", "required": true, "unique": false },
+          { "id": "category_code", "name": "资产分类", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset_category", "field": "code" } },
+          { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["active", "maintenance", "inactive"], "default": "active" },
+          { "id": "location", "name": "位置", "type": "text", "required": false, "unique": false }
+        ],
+        "relations": [
+          { "id": "asset_category_relation", "name": "所属分类", "field": "category_code", "targetEntity": "asset_category", "targetField": "code", "onDelete": "restrict" }
+        ]
+      },
+      {
+        "id": "asset_responsibility", "name": "责任关系", "retention": "protected", "history": true, "systemManaged": false,
+        "fields": [
+          { "id": "code", "name": "责任编码", "type": "text", "required": true, "unique": true },
+          { "id": "asset_code", "name": "资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
+          { "id": "assignee", "name": "责任人", "type": "text", "required": true, "unique": false },
+          { "id": "started_at", "name": "开始时间", "type": "datetime", "required": true, "unique": false },
+          { "id": "ended_at", "name": "结束时间", "type": "datetime", "required": false, "unique": false },
+          { "id": "active", "name": "当前责任", "type": "boolean", "required": true, "unique": false, "default": true }
+        ],
+        "relations": [
+          { "id": "responsibility_asset", "name": "所属资产", "field": "asset_code", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+        ]
+      },
+      {
+        "id": "asset_event", "name": "资产状态事件", "retention": "append_only", "history": true, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "事件编码", "type": "text", "required": true, "unique": true },
+          { "id": "asset_code", "name": "资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
+          { "id": "event_type", "name": "事件类型", "type": "enum", "required": true, "unique": false, "options": ["created", "status_changed", "responsibility_changed"] },
+          { "id": "from_status", "name": "原状态", "type": "text", "required": false, "unique": false },
+          { "id": "to_status", "name": "新状态", "type": "text", "required": false, "unique": false },
+          { "id": "reason", "name": "原因", "type": "text", "required": true, "unique": false },
+          { "id": "occurred_at", "name": "发生时间", "type": "datetime", "required": true, "unique": false }
+        ],
+        "relations": [
+          { "id": "event_asset", "name": "所属资产", "field": "asset_code", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+        ]
+      }
+    ],
+    "modules": [
+      { "id": "asset_categories", "name": "资产分类", "route": "asset_categories", "entity": "asset_category", "actions": ["list", "create", "update", "view"] },
+      { "id": "assets", "name": "资产台账", "route": "assets", "entity": "asset", "actions": ["list", "create", "update", "view", "change_status"] },
+      { "id": "asset_responsibilities", "name": "责任关系", "route": "asset_responsibilities", "entity": "asset_responsibility", "actions": ["list", "create", "view", "end"] },
+      { "id": "asset_events", "name": "状态历史", "route": "asset_events", "entity": "asset_event", "actions": ["list", "view"] }
+    ],
+    "workflows": [{
+      "id": "asset_lifecycle", "name": "资产生命周期", "entity": "asset", "initialState": "active", "terminalStates": ["inactive"],
+      "states": ["active", "maintenance", "inactive"],
+      "transitions": [
+        { "id": "start_maintenance", "name": "进入维护", "from": "active", "to": "maintenance", "permission": "assets.change_status", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "finish_maintenance", "name": "恢复运行", "from": "maintenance", "to": "active", "permission": "assets.change_status", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "deactivate_active", "name": "停用资产", "from": "active", "to": "inactive", "permission": "assets.change_status", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "deactivate_maintenance", "name": "维护后停用", "from": "maintenance", "to": "inactive", "permission": "assets.change_status", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "reactivate", "name": "重新启用", "from": "inactive", "to": "active", "permission": "assets.change_status", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] }
+      ]
+    }],
+    "roles": [
+      { "id": "asset_admin", "name": "资产管理员", "permissions": ["asset_categories.list", "asset_categories.create", "asset_categories.update", "asset_categories.view", "assets.list", "assets.create", "assets.update", "assets.view", "assets.change_status", "asset_responsibilities.list", "asset_responsibilities.create", "asset_responsibilities.view", "asset_responsibilities.end", "asset_events.list", "asset_events.view"] },
+      { "id": "asset_viewer", "name": "资产查看人员", "permissions": ["asset_categories.list", "asset_categories.view", "assets.list", "assets.view", "asset_responsibilities.list", "asset_responsibilities.view", "asset_events.list", "asset_events.view"] }
+    ],
+    "dashboards": [
+      { "id": "asset_total", "name": "资产总数", "entity": "asset", "aggregation": "count", "filters": [] },
+      { "id": "asset_active", "name": "运行资产", "entity": "asset", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "active" }] },
+      { "id": "asset_maintenance", "name": "维护资产", "entity": "asset", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "maintenance" }] }
+    ]
+  },
+  "seed": {
+    "records": {
+      "asset_category": [{ "code": "CAT-001", "name": "通用设备", "active": true }],
+      "asset": [{ "code": "AST-001", "name": "示例资产", "category_code": "CAT-001", "status": "active", "location": "【申请人填写】" }],
+      "asset_responsibility": [{ "code": "RESP-001", "asset_code": "AST-001", "assignee": "【申请人填写】", "started_at": "2026-01-01T00:00:00.000Z", "ended_at": null, "active": true }],
+      "asset_event": [{ "code": "AEVT-001", "asset_code": "AST-001", "event_type": "created", "from_status": null, "to_status": "active", "reason": "初始化", "occurred_at": "2026-01-01T00:00:00.000Z" }]
+    }
+  }
+}

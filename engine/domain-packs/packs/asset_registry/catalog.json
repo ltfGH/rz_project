@@ -1,0 +1,21 @@
+{
+  "catalogVersion": "1.0",
+  "id": "asset_registry",
+  "version": "1.0.0",
+  "name": "台账与资产",
+  "description": "提供资产分类、台账、责任关系和生命周期状态能力",
+  "blueprintSchemaVersions": ["1.0"],
+  "runtimeVersions": ["1.0.0"],
+  "provides": ["asset.core"],
+  "requires": [],
+  "allowedDependencies": [],
+  "migrationsVersion": 1,
+  "entrypoints": {
+    "fragment": "blueprint.json",
+    "runtime": "runtime/index.ts",
+    "ui": "ui/index.ts",
+    "seed": "seed/index.ts",
+    "tests": "tests/index.ts"
+  },
+  "uiSlots": ["entity.detail.tabs", "entity.detail.actions", "dashboard.sections"]
+}
