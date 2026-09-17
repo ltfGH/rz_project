@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0",
+  "software": {
+    "id": "task_collaboration",
+    "name": "离线任务协同管理软件",
+    "version": "1.0.0",
+    "purpose": "管理资产关联任务及多角色处理闭环",
+    "targetUsers": ["调度人员", "处理人员", "复核人员"],
+    "boundaries": ["离线桌面运行", "不连接外部业务系统"],
+    "loginMode": "required"
+  },
+  "archetypes": ["project_task"],
+  "capabilities": ["entity_crud", "workflow", "relationships", "audit"],
+  "coverage": { "supported": ["资产台账", "任务闭环", "操作审计"], "unsupported": [] },
+  "plugins": [],
+  "modules": [
+    { "id": "assets", "name": "资产台账", "route": "assets", "entity": "asset", "actions": ["list", "view"] },
+    { "id": "tasks", "name": "任务协同", "route": "tasks", "entity": "task", "actions": ["list", "view", "assign", "accept", "resolve", "close"] },
+    { "id": "task_events", "name": "任务记录", "route": "task_events", "entity": "task_event", "actions": ["list", "view"] }
+  ],
+  "entities": [
+    {
+      "id": "asset", "name": "资产", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "资产编码", "type": "text", "required": true, "unique": true },
+        { "id": "name", "name": "资产名称", "type": "text", "required": true, "unique": false },
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["active", "inactive"] }
+      ],
+      "relations": []
+    },
+    {
+      "id": "task", "name": "任务", "retention": "protected", "history": false, "systemManaged": false,
+      "fields": [
+        { "id": "code", "name": "任务编码", "type": "text", "required": true, "unique": true },
+        { "id": "title", "name": "任务标题", "type": "text", "required": true, "unique": false },
+        { "id": "asset_code", "name": "关联资产", "type": "reference", "required": true, "unique": false, "reference": { "entity": "asset", "field": "code" } },
+        { "id": "status", "name": "状态", "type": "enum", "required": true, "unique": false, "options": ["pending", "assigned", "processing", "review", "closed"] },
+        { "id": "priority", "name": "优先级", "type": "enum", "required": true, "unique": false, "options": ["normal", "high", "urgent"] }
+      ],
+      "relations": [
+        { "id": "task_asset", "name": "关联资产", "field": "asset_code", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+      ]
+    },
+    {
+      "id": "task_event", "name": "任务记录", "retention": "append_only", "history": true, "systemManaged": true,
+      "fields": [
+        { "id": "code", "name": "记录编码", "type": "text", "required": true, "unique": true },
+        { "id": "task_code", "name": "任务", "type": "reference", "required": true, "unique": false, "reference": { "entity": "task", "field": "code" } },
+        { "id": "note", "name": "处理说明", "type": "text", "required": true, "unique": false }
+      ],
+      "relations": [
+        { "id": "event_task", "name": "所属任务", "field": "task_code", "targetEntity": "task", "targetField": "code", "onDelete": "restrict" }
+      ]
+    }
+  ],
+  "roles": [
+    { "id": "dispatcher", "name": "调度人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.assign"] },
+    { "id": "operator", "name": "处理人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.accept", "tasks.resolve"] },
+    { "id": "reviewer", "name": "复核人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.close", "task_events.list", "task_events.view"] }
+  ],
+  "workflows": [{
+    "id": "task_flow", "name": "任务处理流程", "entity": "task", "initialState": "pending", "terminalStates": ["closed"],
+    "states": ["pending", "assigned", "processing", "review", "closed"],
+    "transitions": [
+      { "id": "assign", "name": "分派任务", "from": "pending", "to": "assigned", "permission": "tasks.assign", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] },
+      { "id": "accept", "name": "接受任务", "from": "assigned", "to": "processing", "permission": "tasks.accept", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] },
+      { "id": "resolve", "name": "提交处理", "from": "processing", "to": "review", "permission": "tasks.resolve", "conditions": [{ "type": "required_field", "parameters": { "field": "title" } }], "actions": [{ "type": "append_event", "parameters": {} }] },
+      { "id": "close", "name": "复核关闭", "from": "review", "to": "closed", "permission": "tasks.close", "conditions": [], "actions": [{ "type": "write_audit", "parameters": {} }] }
+    ]
+  }],
+  "dashboards": [
+    { "id": "asset_total", "name": "纳管资产", "entity": "asset", "aggregation": "count", "filters": [] },
+    { "id": "task_pending", "name": "待办任务", "entity": "task", "aggregation": "count", "filters": [{ "field": "status", "operator": "ne", "value": "closed" }] },
+    { "id": "task_closed", "name": "已关闭任务", "entity": "task", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "closed" }] }
+  ],
+  "demoData": { "seed": 20260917, "entityMinimums": { "asset": 5, "task": 30, "task_event": 0 } },
+  "materials": {
+    "developmentPurpose": "形成可追溯的离线任务协同闭环",
+    "industry": "企业内部运营管理",
+    "technicalFeatures": ["Electron 离线桌面运行", "SQLite 持久化", "角色权限", "状态流程与审计"]
+  }
+}

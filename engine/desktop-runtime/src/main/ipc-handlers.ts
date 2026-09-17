@@ -20,7 +20,7 @@ export interface RuntimeServices {
   dashboard: { read(actor: ActorDto): unknown };
   maintenance: {
     createBackup(destinationDirectory: string, actor: ActorDto): Promise<unknown>;
-    inspectBackup(databasePath: string, manifestPath: string): unknown;
+    inspectBackup(databasePath: string, manifestPath: string, actor: ActorDto): unknown;
     restoreBackup(inspection: unknown, confirmation: string, actor: ActorDto): unknown;
   };
 }
@@ -102,9 +102,10 @@ export function registerIpcHandlers(ipc: IpcRegistrar, services: RuntimeServices
     request.destinationDirectory as string, actorFor(services, request)
   ));
   register(IPC_CHANNELS.maintenanceInspectRestore, (request) => {
-    actorFor(services, request);
     return services.maintenance.inspectBackup(
-      request.databasePath as string, request.manifestPath as string
+      request.databasePath as string,
+      request.manifestPath as string,
+      actorFor(services, request)
     );
   });
   register(IPC_CHANNELS.maintenanceRestore, (request) => services.maintenance.restoreBackup(

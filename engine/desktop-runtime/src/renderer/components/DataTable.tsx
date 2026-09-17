@@ -1,9 +1,10 @@
 import { Download, Plus, Search } from 'lucide-react';
 import type { EntityRecordDto, PageDto } from '../../shared/dto';
 
-export function DataTable({ page, onSearch }: {
+export function DataTable({ page, onSearch, onView }: {
   page: PageDto<EntityRecordDto>;
   onSearch(value: string): void;
+  onView?(record: EntityRecordDto): void;
 }) {
   const columns = page.items[0] ? Object.keys(page.items[0].values) : [];
   return (
@@ -29,7 +30,7 @@ export function DataTable({ page, onSearch }: {
               <tr key={record.id}>
                 <td>{record.id}</td>
                 {columns.map((column) => <td key={column}>{String(record.values[column] ?? '')}</td>)}
-                <td><button className="text-button">查看</button></td>
+                <td><button className="text-button" aria-label={`查看 ${String(record.values.code ?? record.id)}`} onClick={() => onView?.(record)}>查看</button></td>
               </tr>
             ))}</tbody>
           </table>

@@ -5,6 +5,8 @@ export function WorkflowActions({ actions, onExecute }: {
   onExecute(action: AllowedTransitionDto): void;
 }) {
   return <div className="workflow-actions">{actions.map((action) => (
-    <button key={action.transitionId} className="primary-button" onClick={() => onExecute(action)}>{action.name}</button>
+    <button key={action.transitionId} className="primary-button" onClick={() => {
+      if (window.confirm(`确认执行“${action.name}”？`)) onExecute(action);
+    }}>{action.name}</button>
   ))}</div>;
 }
