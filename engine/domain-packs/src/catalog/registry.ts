@@ -19,4 +19,11 @@ export class PackRegistry {
     if (!pack) throw new Error(`Pack '${packKey}' is not registered.`);
     return pack;
   }
+
+  versions(id: string): readonly string[] {
+    return Object.freeze([...this.#packs.values()]
+      .filter((pack) => pack.catalog.id === id)
+      .map((pack) => pack.catalog.version)
+      .sort());
+  }
 }
