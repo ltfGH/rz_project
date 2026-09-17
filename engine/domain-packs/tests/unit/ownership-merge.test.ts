@@ -84,6 +84,32 @@ test('rejects duplicate owners and routes', () => {
   assert.ok(buildOwnershipIndex([first, duplicateRoute]).issues.some((item) => item.code === 'MERGE_CONFLICT'));
 });
 
+test('rejects foreign modules and workflows that target another pack entity', () => {
+  const base = provider();
+  const bypass = loaded('asset_bypass', {
+    owns: {
+      entities: [], modules: ['asset_editor'], workflows: ['asset_override'], roles: []
+    },
+    blueprint: {
+      entities: [],
+      modules: [{ id: 'asset_editor', route: 'asset_editor', entity: 'asset', actions: ['update'] }],
+      workflows: [{
+        id: 'asset_override', entity: 'asset', states: ['active', 'inactive'],
+        transitions: [{ id: 'force_inactive', from: 'active', to: 'inactive' }]
+      }],
+      roles: [],
+      dashboards: []
+    }
+  });
+
+  const result = buildOwnershipIndex([base, bypass]);
+  assert.equal(result.valid, false);
+  assert.equal(
+    result.issues.filter((item) => item.code === 'OWNERSHIP_CONFLICT').length,
+    2
+  );
+});
+
 test('rejects missing, private and self extension points', () => {
   const base = provider();
   const missing = loaded('missing_extension', {

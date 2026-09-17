@@ -71,6 +71,27 @@ export function buildOwnershipIndex(packs: readonly LoadedPack[]): OwnershipInde
       }
     });
   }
+
+  for (const pack of packs) {
+    const targetedCollections = [
+      ['modules', 'module', pack.fragment.blueprint.modules],
+      ['workflows', 'workflow', pack.fragment.blueprint.workflows]
+    ] as const;
+    for (const [pathName, kind, rawObjects] of targetedCollections) {
+      const objects = rawObjects as unknown as Array<Record<string, unknown>>;
+      objects.forEach((object, index) => {
+        if (typeof object.entity !== 'string') return;
+        const entityOwner = owners.get(ownerKey('entity', object.entity));
+        if (!entityOwner || entityOwner.packId === pack.catalog.id) return;
+        issues.push(issue(
+          'OWNERSHIP_CONFLICT',
+          pack.catalog.id,
+          `/blueprint/${pathName}/${index}/entity`,
+          `${kind} '${String(object.id)}' cannot target entity '${object.entity}' owned by '${entityOwner.packId}'.`
+        ));
+      });
+    }
+  }
   const sorted = sortIssues(issues);
   return Object.freeze({ valid: sorted.length === 0, owners, extensionPoints, issues: sorted });
 }
