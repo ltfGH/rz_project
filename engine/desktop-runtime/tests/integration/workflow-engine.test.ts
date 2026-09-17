@@ -66,7 +66,7 @@ function workflowBlueprint(): RuntimeBlueprint {
       }
     ],
     roles: [
-      { id: 'operator', name: '处理人', permissions: ['tasks.list', 'tasks.close', 'tasks.view'] },
+      { id: 'operator', name: '处理人', permissions: ['projects.create', 'tasks.create', 'tasks.list', 'tasks.close', 'tasks.view'] },
       { id: 'viewer', name: '只读人员', permissions: ['tasks.list', 'tasks.view'] }
     ],
     workflows: [{
@@ -171,12 +171,19 @@ test('executes whitelisted actions, event and audit in one transaction', (t) => 
 });
 
 test('rolls back the main state when a later action fails', (t) => {
-  const { repository, engine, taskRecord } = setup(t);
+  const { database, repository, engine, taskRecord } = setup(t);
   const processing = engine.execute({
     workflowId: 'task_flow', transitionId: 'start', recordId: taskRecord.id,
     expectedVersion: 1, actor: operator, input: {}
   });
-  repository.create('task_event', { code: 'EVENT-CLOSE', task_code: 'TASK-1' }, operator);
+  database.prepare(
+    `INSERT INTO biz_task_event
+      (code, task_code, version, created_at, updated_at)
+     VALUES (?, ?, 1, ?, ?)`
+  ).run(
+    'EVENT-CLOSE', 'TASK-1',
+    '2026-09-16T08:00:00.000Z', '2026-09-16T08:00:00.000Z'
+  );
 
   assert.throws(() => engine.execute({
     workflowId: 'task_flow', transitionId: 'close', recordId: taskRecord.id,

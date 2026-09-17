@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import catalog from '../../packs/asset_registry/catalog.json';
 import { assetUiDescriptor } from '../../packs/asset_registry/ui/index';
 
 test('registers only asset detail tabs and actions as pure descriptors', () => {
@@ -8,6 +9,7 @@ test('registers only asset detail tabs and actions as pure descriptors', () => {
     [...assetUiDescriptor.slots],
     ['entity.detail.tabs', 'entity.detail.actions']
   );
+  assert.deepEqual(catalog.uiSlots, [...assetUiDescriptor.slots]);
   assert.deepEqual(
     assetUiDescriptor.extensions.map((extension) => extension.id),
     ['asset.responsibilities.tab', 'asset.status_history.tab', 'asset.status.actions']

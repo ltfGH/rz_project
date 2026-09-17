@@ -17,5 +17,5 @@
     "seed": "seed/index.ts",
     "tests": "tests/index.ts"
   },
-  "uiSlots": ["entity.detail.tabs", "entity.detail.actions", "dashboard.sections"]
+  "uiSlots": ["entity.detail.tabs", "entity.detail.actions"]
 }

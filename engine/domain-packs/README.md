@@ -1,6 +1,6 @@
 # Domain Pack Composer
 
-This package defines and composes versioned domain-pack catalogs and blueprint fragments. It is the protocol/composer foundation for the six production domain packs; those business implementations are separate tasks.
+This package defines and composes versioned domain-pack catalogs, blueprint fragments and constrained runtime extensions. It is the protocol/composer foundation for six production domain packs.
 
 ## Commands
 
@@ -41,6 +41,8 @@ The files use canonical JSON and are published through a sibling staging directo
 - Merge conflicts never use last-write-wins behavior.
 - The final blueprint must pass the existing blueprint validator.
 
-## Current Scope
+## Production Packs
 
-`tests/fixtures/packs/asset-provider` is a protocol fixture, not a production domain pack. The six production packs will be implemented and acceptance-tested in subsequent plans.
+- `packs/asset_registry`: production asset registry pack with four related entities, an explicit lifecycle service, responsibility history, deterministic seed data, constrained UI descriptors and a real-SQLite acceptance scenario. See [asset_registry/README.md](packs/asset_registry/README.md).
+
+`tests/fixtures/packs/asset-provider` remains a protocol fixture and must not be used as a production pack. The other five planned production packs are implemented in later work units.
