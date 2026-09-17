@@ -1,6 +1,6 @@
 import { AppError } from '../../../../desktop-runtime/src/shared/errors';
 
-import { calculateDeadline } from './sla';
+import { calculateDeadline, evaluateDeadline } from './sla';
 import type {
   AcceptWorkOrderRequest,
   AddProcessingRecordRequest,
@@ -12,6 +12,7 @@ import type {
   WorkOrderContext,
   WorkOrderPriority,
   WorkOrderResult,
+  WorkOrderSlaStatus,
   WorkOrderStatus
 } from './types';
 
@@ -524,6 +525,16 @@ export class WorkOrderService {
     }));
     return resultFrom(row, {
       status: 'closed', version: row.version + 1, closedAt: occurredAt
+    });
+  }
+
+  readSlaStatus(workOrderId: number, context: WorkOrderContext): WorkOrderSlaStatus {
+    context.requirePermission(context.actor, 'work_orders.view');
+    const row = readWorkOrder(workOrderId, context);
+    const now = context.now();
+    return Object.freeze({
+      response: evaluateDeadline(row.accepted_at, row.response_due_at, now),
+      resolution: evaluateDeadline(row.closed_at, row.resolution_due_at, now)
     });
   }
 }

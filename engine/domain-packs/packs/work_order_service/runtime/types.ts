@@ -96,3 +96,8 @@ export interface WorkOrderResult {
   readonly submittedAt: string | null;
   readonly closedAt: string | null;
 }
+
+export interface WorkOrderSlaStatus {
+  readonly response: 'pending' | 'met' | 'overdue';
+  readonly resolution: 'pending' | 'met' | 'overdue';
+}
