@@ -25,3 +25,9 @@ node engine/blueprint/cli.cjs --input <绝对路径到蓝图.json>
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/Run-All.ps1
 
 npm 依赖只用于从 JSON Schema 重新生成已纳入源码的独立校验器。生成器正常验证业务蓝图时只需要现有 Node.js，不需要运行 npm install，也不需要联网。
+
+桌面业务底座开发
+
+新桌面业务底座位于 engine/desktop-runtime，采用 Electron、React、TypeScript 和 SQLite。当前阶段它与原有四页面模板并存，不改变“开始生成.bat”的现有行为。
+
+进入 engine/desktop-runtime 后，可以依次执行 npm ci、npm run typecheck、npm run test:unit、npm run test:integration、npm run build、npm run test:e2e 和 npm run dist:win。详细安全边界、测试账号及打包验证方式见该目录 README.md。
