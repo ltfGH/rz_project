@@ -12,9 +12,10 @@
     "test:e2e": "playwright test",
     "build:runtime": "tsc -p tsconfig.json && vite build --config vite.preload.config.mts",
     "build:renderer": "vite build",
-    "build": "npm run build:runtime && npm run build:renderer && node tools/copy-runtime-resources.cjs",
+    "prepare:icon": "node tools/generate-icon.cjs",
+    "build": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/copy-runtime-resources.cjs",
     "start": "electron .",
-    "dist:win": "npm run build && electron-builder --win nsis --x64"
+    "dist:win": "node tools/clean-installers.cjs && npm run build && electron-builder --win nsis --x64"
   },
   "dependencies": {
     "lucide-react": "1.46.0",
@@ -32,6 +33,7 @@
     "electron-builder": "26.15.3",
     "tsx": "4.23.13",
     "typescript": "7.0.2",
-    "vite": "8.3.0"
+    "vite": "8.3.0",
+    "yaml": "2.9.1"
   }
 }

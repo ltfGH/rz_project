@@ -101,6 +101,11 @@ async function start(): Promise<void> {
     }
   };
   registerIpcHandlers(registrar, services);
+  if (process.argv.includes('--verify')) {
+    database.close();
+    app.exit(0);
+    return;
+  }
   createMainWindow(rendererPath(), preloadPath());
   app.on('before-quit', () => {
     try { database.close(); } catch { }

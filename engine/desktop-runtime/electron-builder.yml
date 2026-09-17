@@ -1,0 +1,35 @@
+appId: cn.rzproject.desktop.runtime
+productName: 离线任务协同管理软件
+artifactName: '${productName} V${version} 安装包.${ext}'
+asar: true
+npmRebuild: false
+compression: normal
+directories:
+  buildResources: build
+  output: dist/installers
+files:
+  - dist/runtime/**/*
+  - dist/renderer/**/*
+  - package.json
+extraResources:
+  - from: dist/resources
+    to: runtime-resources
+    filter:
+      - '**/*'
+win:
+  executableName: 离线任务协同管理软件
+  icon: build/icon.svg
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  differentialPackage: false
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+  runAfterFinish: false
