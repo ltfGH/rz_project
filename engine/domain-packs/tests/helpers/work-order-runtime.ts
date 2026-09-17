@@ -21,6 +21,14 @@ export const admin: ActorDto = {
   userId: 99, username: 'work-admin-01', displayName: '工单配置岗位-01', roleId: 'work_order_admin'
 };
 
+export const handler: ActorDto = {
+  userId: 2, username: 'handler-01', displayName: '处理岗位-01', roleId: 'work_order_handler'
+};
+
+export const reviewer: ActorDto = {
+  userId: 3, username: 'reviewer-01', displayName: '复核岗位-01', roleId: 'work_order_reviewer'
+};
+
 let orderSequence = 0;
 let eventSequence = 0;
 

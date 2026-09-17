@@ -46,6 +46,18 @@ export interface CreateWorkOrderRequest {
   readonly priority: WorkOrderPriority;
 }
 
+export interface DispatchWorkOrderRequest {
+  readonly workOrderId: number;
+  readonly expectedVersion: number;
+  readonly handlerId: string;
+  readonly reason: string;
+}
+
+export interface AcceptWorkOrderRequest {
+  readonly workOrderId: number;
+  readonly expectedVersion: number;
+}
+
 export interface WorkOrderResult {
   readonly workOrderId: number;
   readonly workOrderCode: string;
@@ -54,4 +66,6 @@ export interface WorkOrderResult {
   readonly slaPolicyCode: string;
   readonly responseDueAt: string;
   readonly resolutionDueAt: string;
+  readonly handlerId: string | null;
+  readonly acceptedAt: string | null;
 }
