@@ -44,5 +44,6 @@ The files use canonical JSON and are published through a sibling staging directo
 ## Production Packs
 
 - `packs/asset_registry`: production asset registry pack with four related entities, an explicit lifecycle service, responsibility history, deterministic seed data, constrained UI descriptors and a real-SQLite acceptance scenario. See [asset_registry/README.md](packs/asset_registry/README.md).
+- `packs/work_order_service`: standalone production work-order pack with service catalogs, fixed SLA deadlines, dispatch/handling/review separation, append-only events, deterministic seed data and a real-SQLite acceptance scenario. See [work_order_service/README.md](packs/work_order_service/README.md).
 
-`tests/fixtures/packs/asset-provider` remains a protocol fixture and must not be used as a production pack. The other five planned production packs are implemented in later work units.
+`tests/fixtures/packs/asset-provider` remains a protocol fixture and must not be used as a production pack. The other four planned production packs and optional cross-pack bridges are implemented in later work units.
