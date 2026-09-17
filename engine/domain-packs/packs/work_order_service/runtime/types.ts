@@ -58,6 +58,30 @@ export interface AcceptWorkOrderRequest {
   readonly expectedVersion: number;
 }
 
+export interface AddProcessingRecordRequest {
+  readonly workOrderId: number;
+  readonly expectedVersion: number;
+  readonly content: string;
+}
+
+export interface SubmitResolutionRequest {
+  readonly workOrderId: number;
+  readonly expectedVersion: number;
+  readonly resolution: string;
+}
+
+export interface RejectWorkOrderReviewRequest {
+  readonly workOrderId: number;
+  readonly expectedVersion: number;
+  readonly reason: string;
+}
+
+export interface ApproveWorkOrderCloseRequest {
+  readonly workOrderId: number;
+  readonly expectedVersion: number;
+  readonly comment: string;
+}
+
 export interface WorkOrderResult {
   readonly workOrderId: number;
   readonly workOrderCode: string;
@@ -68,4 +92,7 @@ export interface WorkOrderResult {
   readonly resolutionDueAt: string;
   readonly handlerId: string | null;
   readonly acceptedAt: string | null;
+  readonly resolution: string | null;
+  readonly submittedAt: string | null;
+  readonly closedAt: string | null;
 }

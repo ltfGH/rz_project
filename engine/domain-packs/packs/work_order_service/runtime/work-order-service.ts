@@ -3,8 +3,12 @@ import { AppError } from '../../../../desktop-runtime/src/shared/errors';
 import { calculateDeadline } from './sla';
 import type {
   AcceptWorkOrderRequest,
+  AddProcessingRecordRequest,
+  ApproveWorkOrderCloseRequest,
   CreateWorkOrderRequest,
   DispatchWorkOrderRequest,
+  RejectWorkOrderReviewRequest,
+  SubmitResolutionRequest,
   WorkOrderContext,
   WorkOrderPriority,
   WorkOrderResult,
@@ -29,6 +33,9 @@ interface WorkOrderRow {
   readonly version: number;
   readonly handler_id: string | null;
   readonly accepted_at: string | null;
+  readonly resolution: string | null;
+  readonly submitted_at: string | null;
+  readonly closed_at: string | null;
   readonly sla_policy_code: string;
   readonly response_due_at: string;
   readonly resolution_due_at: string;
@@ -49,7 +56,8 @@ function required(value: string, field: string): string {
 
 function readWorkOrder(workOrderId: number, context: WorkOrderContext): WorkOrderRow {
   const row = context.connection.prepare(
-    `SELECT id, code, status, version, handler_id, accepted_at, sla_policy_code,
+    `SELECT id, code, status, version, handler_id, accepted_at, resolution,
+            submitted_at, closed_at, sla_policy_code,
             response_due_at, resolution_due_at
      FROM biz_work_order WHERE id = ?`
   ).get(workOrderId) as WorkOrderRow | undefined;
@@ -70,6 +78,9 @@ function resultFrom(
     version: number;
     handlerId: string | null;
     acceptedAt: string | null;
+    resolution: string | null;
+    submittedAt: string | null;
+    closedAt: string | null;
   }>> = {}
 ): WorkOrderResult {
   return Object.freeze({
@@ -81,14 +92,23 @@ function resultFrom(
     responseDueAt: row.response_due_at,
     resolutionDueAt: row.resolution_due_at,
     handlerId: changes.handlerId === undefined ? row.handler_id : changes.handlerId,
-    acceptedAt: changes.acceptedAt === undefined ? row.accepted_at : changes.acceptedAt
+    acceptedAt: changes.acceptedAt === undefined ? row.accepted_at : changes.acceptedAt,
+    resolution: changes.resolution === undefined ? row.resolution : changes.resolution,
+    submittedAt: changes.submittedAt === undefined ? row.submitted_at : changes.submittedAt,
+    closedAt: changes.closedAt === undefined ? row.closed_at : changes.closedAt
   });
 }
 
 function appendEvent(
   context: WorkOrderContext,
   row: WorkOrderRow,
-  eventType: 'dispatched' | 'accepted',
+  eventType:
+    | 'dispatched'
+    | 'accepted'
+    | 'processing_recorded'
+    | 'resolution_submitted'
+    | 'review_rejected'
+    | 'closed',
   fromStatus: WorkOrderStatus,
   toStatus: WorkOrderStatus,
   content: string,
@@ -113,6 +133,24 @@ function appendEvent(
     occurredAt
   );
   return eventCode;
+}
+
+function assertCurrentHandler(row: WorkOrderRow, context: WorkOrderContext): void {
+  if (row.handler_id !== context.actor.username) {
+    throw new AppError('PERMISSION_DENIED', 'Only the assigned handler can change this work order.');
+  }
+  if (!context.identityHasRole(context.actor.username, 'work_order_handler', context.connection)) {
+    throw new AppError('PERMISSION_DENIED', 'Current identity is not an active work order handler.');
+  }
+}
+
+function assertReviewer(row: WorkOrderRow, context: WorkOrderContext): void {
+  if (!context.identityHasRole(context.actor.username, 'work_order_reviewer', context.connection)) {
+    throw new AppError('PERMISSION_DENIED', 'Current identity is not an active work order reviewer.');
+  }
+  if (row.handler_id === context.actor.username) {
+    throw new AppError('PERMISSION_DENIED', 'The handler cannot review the same work order.');
+  }
 }
 
 export class WorkOrderService {
@@ -230,7 +268,10 @@ export class WorkOrderService {
       responseDueAt,
       resolutionDueAt,
       handlerId: null,
-      acceptedAt: null
+      acceptedAt: null,
+      resolution: null,
+      submittedAt: null,
+      closedAt: null
     });
   }
 
@@ -286,12 +327,7 @@ export class WorkOrderService {
     if (row.status !== 'pending_acceptance') {
       throw new AppError('INVALID_TRANSITION', 'Work order cannot be accepted from its current state.');
     }
-    if (row.handler_id !== context.actor.username) {
-      throw new AppError('PERMISSION_DENIED', 'Only the assigned handler can accept this work order.');
-    }
-    if (!context.identityHasRole(context.actor.username, 'work_order_handler', context.connection)) {
-      throw new AppError('PERMISSION_DENIED', 'Current identity is not an active work order handler.');
-    }
+    assertCurrentHandler(row, context);
     const occurredAt = context.now().toISOString();
     const update = context.connection.prepare(
       `UPDATE biz_work_order
@@ -320,6 +356,174 @@ export class WorkOrderService {
     }));
     return resultFrom(row, {
       status: 'processing', version: row.version + 1, acceptedAt: occurredAt
+    });
+  }
+
+  addProcessingRecord(
+    request: AddProcessingRecordRequest,
+    context: WorkOrderContext
+  ): WorkOrderResult {
+    const permission = 'work_orders.add_processing_record';
+    context.requirePermission(context.actor, permission);
+    const content = required(request.content, 'content');
+    const row = readWorkOrder(request.workOrderId, context);
+    assertVersion(row, request.expectedVersion);
+    if (row.status !== 'processing') {
+      throw new AppError('INVALID_TRANSITION', 'Processing records require a processing work order.');
+    }
+    assertCurrentHandler(row, context);
+    const occurredAt = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_work_order
+       SET version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(occurredAt, row.id, request.expectedVersion);
+    if (Number(update.changes) !== 1) {
+      throw new AppError('VERSION_CONFLICT', 'Work order was changed by another operation.');
+    }
+    const eventCode = appendEvent(
+      context, row, 'processing_recorded', 'processing', 'processing', content, occurredAt
+    );
+    context.appendAudit(context.connection, Object.freeze({
+      actor: context.actor,
+      permission,
+      entityId: 'work_order',
+      recordId: row.id,
+      result: 'success',
+      details: Object.freeze({ eventCode })
+    }));
+    return resultFrom(row, { version: row.version + 1 });
+  }
+
+  submitResolution(
+    request: SubmitResolutionRequest,
+    context: WorkOrderContext
+  ): WorkOrderResult {
+    const permission = 'work_orders.submit_resolution';
+    context.requirePermission(context.actor, permission);
+    const resolution = required(request.resolution, 'resolution');
+    const row = readWorkOrder(request.workOrderId, context);
+    assertVersion(row, request.expectedVersion);
+    if (row.status !== 'processing') {
+      throw new AppError('INVALID_TRANSITION', 'Resolution can only be submitted while processing.');
+    }
+    assertCurrentHandler(row, context);
+    const history = context.connection.prepare(
+      `SELECT COUNT(*) AS count FROM biz_work_order_event
+       WHERE work_order_code = ? AND event_type = 'processing_recorded'`
+    ).get(row.code) as { count: number };
+    if (Number(history.count) === 0) {
+      throw new AppError('INVALID_TRANSITION', 'At least one processing record is required.');
+    }
+    const occurredAt = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_work_order
+       SET status = 'pending_review', resolution = ?, submitted_at = ?,
+           version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(resolution, occurredAt, occurredAt, row.id, request.expectedVersion);
+    if (Number(update.changes) !== 1) {
+      throw new AppError('VERSION_CONFLICT', 'Work order was changed by another operation.');
+    }
+    const eventCode = appendEvent(
+      context,
+      row,
+      'resolution_submitted',
+      'processing',
+      'pending_review',
+      resolution,
+      occurredAt
+    );
+    context.appendAudit(context.connection, Object.freeze({
+      actor: context.actor,
+      permission,
+      entityId: 'work_order',
+      recordId: row.id,
+      result: 'success',
+      details: Object.freeze({ eventCode })
+    }));
+    return resultFrom(row, {
+      status: 'pending_review',
+      version: row.version + 1,
+      resolution,
+      submittedAt: occurredAt
+    });
+  }
+
+  rejectReview(
+    request: RejectWorkOrderReviewRequest,
+    context: WorkOrderContext
+  ): WorkOrderResult {
+    const permission = 'work_orders.review';
+    context.requirePermission(context.actor, permission);
+    const reason = required(request.reason, 'reason');
+    const row = readWorkOrder(request.workOrderId, context);
+    assertVersion(row, request.expectedVersion);
+    if (row.status !== 'pending_review') {
+      throw new AppError('INVALID_TRANSITION', 'Only a pending review can be rejected.');
+    }
+    assertReviewer(row, context);
+    const occurredAt = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_work_order
+       SET status = 'processing', resolution = NULL, submitted_at = NULL,
+           version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(occurredAt, row.id, request.expectedVersion);
+    if (Number(update.changes) !== 1) {
+      throw new AppError('VERSION_CONFLICT', 'Work order was changed by another operation.');
+    }
+    const eventCode = appendEvent(
+      context, row, 'review_rejected', 'pending_review', 'processing', reason, occurredAt
+    );
+    context.appendAudit(context.connection, Object.freeze({
+      actor: context.actor,
+      permission,
+      entityId: 'work_order',
+      recordId: row.id,
+      result: 'success',
+      details: Object.freeze({ eventCode, reason })
+    }));
+    return resultFrom(row, {
+      status: 'processing', version: row.version + 1, resolution: null, submittedAt: null
+    });
+  }
+
+  approveClose(
+    request: ApproveWorkOrderCloseRequest,
+    context: WorkOrderContext
+  ): WorkOrderResult {
+    const permission = 'work_orders.review';
+    context.requirePermission(context.actor, permission);
+    const comment = required(request.comment, 'comment');
+    const row = readWorkOrder(request.workOrderId, context);
+    assertVersion(row, request.expectedVersion);
+    if (row.status !== 'pending_review') {
+      throw new AppError('INVALID_TRANSITION', 'Only a pending review can be closed.');
+    }
+    assertReviewer(row, context);
+    const occurredAt = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_work_order
+       SET status = 'closed', closed_at = ?, version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(occurredAt, occurredAt, row.id, request.expectedVersion);
+    if (Number(update.changes) !== 1) {
+      throw new AppError('VERSION_CONFLICT', 'Work order was changed by another operation.');
+    }
+    const eventCode = appendEvent(
+      context, row, 'closed', 'pending_review', 'closed', comment, occurredAt
+    );
+    context.appendAudit(context.connection, Object.freeze({
+      actor: context.actor,
+      permission,
+      entityId: 'work_order',
+      recordId: row.id,
+      result: 'success',
+      details: Object.freeze({ eventCode, comment, closedAt: occurredAt })
+    }));
+    return resultFrom(row, {
+      status: 'closed', version: row.version + 1, closedAt: occurredAt
     });
   }
 }
