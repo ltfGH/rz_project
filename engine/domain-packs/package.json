@@ -8,7 +8,7 @@
     "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "test": "npm run test:unit && npm run test:integration",
-    "build": "tsc -p tsconfig.json",
+    "build": "node tools/build-cli.cjs",
     "compose": "node --import tsx src/cli.ts"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "24.13.5",
+    "esbuild": "0.28.2",
     "tsx": "4.23.13",
     "typescript": "7.0.2"
   }

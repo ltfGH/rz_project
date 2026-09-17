@@ -9,3 +9,4 @@ __pycache__/
 /engine/desktop-runtime/dist/
 /engine/desktop-runtime/test-results/
 /engine/desktop-runtime/playwright-report/
+/engine/domain-packs/dist/

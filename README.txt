@@ -31,3 +31,7 @@ npm 依赖只用于从 JSON Schema 重新生成已纳入源码的独立校验器
 新桌面业务底座位于 engine/desktop-runtime，采用 Electron、React、TypeScript 和 SQLite。当前阶段它与原有四页面模板并存，不改变“开始生成.bat”的现有行为。
 
 进入 engine/desktop-runtime 后，可以依次执行 npm ci、npm run typecheck、npm run test:unit、npm run test:integration、npm run build、npm run test:e2e 和 npm run dist:win。详细安全边界、测试账号及打包验证方式见该目录 README.md。
+
+领域包组合器开发
+
+领域包协议与组合器位于 engine/domain-packs。进入该目录后执行 npm ci、npm run typecheck、npm test 和 npm run build。组合器只加载显式绝对路径的领域包，生成 canonical blueprint、版本锁和组合报告；当前测试 fixture 不代表六个生产领域包已经完成。
