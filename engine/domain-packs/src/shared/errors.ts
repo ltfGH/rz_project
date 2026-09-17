@@ -11,7 +11,8 @@ export type CompositionIssueCode =
   | 'MERGE_CONFLICT'
   | 'UI_SLOT_CONFLICT'
   | 'SEED_CONFLICT'
-  | 'COMPOSED_BLUEPRINT_INVALID';
+  | 'COMPOSED_BLUEPRINT_INVALID'
+  | 'UNSUPPORTED_REQUIREMENT';
 
 export type IssueSeverity = 'error' | 'warning' | 'info';
 

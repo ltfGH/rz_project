@@ -67,8 +67,12 @@ export function loadPack(packRoot: string): LoadedPack {
   const catalog = parseCatalog(readJson(catalogPath, 'catalog.json'));
   const fragmentPath = resolveEntry(root, catalog.entrypoints.fragment, 'Blueprint entrypoint');
   const fragment = parseFragment(readJson(fragmentPath, 'blueprint.json'));
-  for (const [name, relative] of Object.entries(catalog.entrypoints)) {
-    resolveEntry(root, relative, `${name} entrypoint`);
+  const entrypointDigests = {} as Record<keyof typeof catalog.entrypoints, string>;
+  for (const [name, relative] of Object.entries(catalog.entrypoints) as Array<
+    [keyof typeof catalog.entrypoints, string]
+  >) {
+    const entryPath = resolveEntry(root, relative, `${name} entrypoint`);
+    entrypointDigests[name] = createHash('sha256').update(fs.readFileSync(entryPath)).digest('hex');
   }
   if (fragment.pack.id !== catalog.id || fragment.pack.version !== catalog.version) {
     throw new Error(
@@ -81,7 +85,8 @@ export function loadPack(packRoot: string): LoadedPack {
     root,
     catalog,
     fragment,
-    digest: sha256(`${catalogCanonical}${fragmentCanonical}`),
-    fragmentDigest: sha256(fragmentCanonical)
+    digest: sha256(`${catalogCanonical}${fragmentCanonical}${canonicalJson(entrypointDigests)}`),
+    fragmentDigest: sha256(fragmentCanonical),
+    entrypointDigests: Object.freeze(entrypointDigests)
   });
 }

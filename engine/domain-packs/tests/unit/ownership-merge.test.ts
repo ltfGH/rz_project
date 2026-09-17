@@ -14,6 +14,10 @@ function loaded(
     root: `C:\\packs\\${id}`,
     digest: `${id}-digest`,
     fragmentDigest: `${id}-fragment`,
+    entrypointDigests: {
+      fragment: '1'.repeat(64), runtime: '2'.repeat(64), ui: '3'.repeat(64),
+      seed: '4'.repeat(64), tests: '5'.repeat(64)
+    },
     catalog: {
       catalogVersion: '1.0', id, version: '1.0.0', name: id, description: id,
       blueprintSchemaVersions: ['1.0'], runtimeVersions: ['1.0.0'],

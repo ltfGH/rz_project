@@ -66,6 +66,7 @@ export interface LoadedPack {
   readonly fragment: PackFragment;
   readonly digest: string;
   readonly fragmentDigest: string;
+  readonly entrypointDigests: Readonly<Record<keyof PackEntrypoints, string>>;
 }
 
 export interface PackSelection {
