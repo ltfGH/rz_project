@@ -1,0 +1,134 @@
+{
+  "fragmentVersion": "1.0",
+  "pack": { "id": "work_order_service", "version": "1.0.0" },
+  "owns": {
+    "entities": ["service_catalog", "sla_policy", "work_order", "work_order_event"],
+    "modules": ["service_catalogs", "sla_policies", "work_orders", "work_order_events"],
+    "workflows": ["work_order_lifecycle"],
+    "roles": ["work_order_dispatcher", "work_order_handler", "work_order_reviewer", "work_order_admin"]
+  },
+  "publicExtensionPoints": [
+    { "id": "work_order.fields", "targetKind": "entity", "targetId": "work_order", "allowedOperations": ["append"] },
+    { "id": "work_order.relations", "targetKind": "entity", "targetId": "work_order", "allowedOperations": ["append"] },
+    { "id": "work_order.detail.tabs", "targetKind": "entity", "targetId": "work_order", "allowedOperations": ["append"] },
+    { "id": "work_order.lifecycle.transitions", "targetKind": "workflow", "targetId": "work_order_lifecycle", "allowedOperations": ["add_transition"] },
+    { "id": "work_order.create.sources", "targetKind": "entity", "targetId": "work_order", "allowedOperations": ["append"] }
+  ],
+  "extensions": [],
+  "blueprint": {
+    "entities": [
+      {
+        "id": "service_catalog", "name": "服务目录", "retention": "protected", "history": false, "systemManaged": false,
+        "fields": [
+          { "id": "code", "name": "服务编码", "type": "text", "required": true, "unique": true },
+          { "id": "name", "name": "服务名称", "type": "text", "required": true, "unique": false },
+          { "id": "description", "name": "服务说明", "type": "text", "required": false, "unique": false },
+          { "id": "active", "name": "启用", "type": "boolean", "required": true, "unique": false, "default": true }
+        ],
+        "relations": []
+      },
+      {
+        "id": "sla_policy", "name": "SLA策略", "retention": "protected", "history": false, "systemManaged": false,
+        "fields": [
+          { "id": "code", "name": "策略编码", "type": "text", "required": true, "unique": true },
+          { "id": "name", "name": "策略名称", "type": "text", "required": true, "unique": false },
+          { "id": "service_code", "name": "服务目录", "type": "reference", "required": true, "unique": false, "reference": { "entity": "service_catalog", "field": "code" } },
+          { "id": "priority", "name": "优先级", "type": "enum", "required": true, "unique": false, "options": ["low", "normal", "high", "urgent"] },
+          { "id": "response_minutes", "name": "响应时限分钟", "type": "integer", "required": true, "unique": false },
+          { "id": "resolution_minutes", "name": "解决时限分钟", "type": "integer", "required": true, "unique": false },
+          { "id": "active", "name": "启用", "type": "boolean", "required": true, "unique": false, "default": true }
+        ],
+        "relations": [
+          { "id": "sla_service", "name": "所属服务", "field": "service_code", "targetEntity": "service_catalog", "targetField": "code", "onDelete": "restrict" }
+        ]
+      },
+      {
+        "id": "work_order", "name": "工单", "retention": "protected", "history": false, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "工单编码", "type": "text", "required": true, "unique": true },
+          { "id": "title", "name": "工单标题", "type": "text", "required": true, "unique": false },
+          { "id": "description", "name": "问题描述", "type": "text", "required": true, "unique": false },
+          { "id": "service_code", "name": "服务目录", "type": "reference", "required": true, "unique": false, "reference": { "entity": "service_catalog", "field": "code" } },
+          { "id": "sla_policy_code", "name": "SLA策略", "type": "reference", "required": true, "unique": false, "reference": { "entity": "sla_policy", "field": "code" } },
+          { "id": "priority", "name": "优先级", "type": "enum", "required": true, "unique": false, "options": ["low", "normal", "high", "urgent"] },
+          { "id": "status", "name": "工单状态", "type": "enum", "required": true, "unique": false, "options": ["pending_dispatch", "pending_acceptance", "processing", "pending_review", "closed"], "default": "pending_dispatch" },
+          { "id": "requester_id", "name": "创建人", "type": "text", "required": true, "unique": false },
+          { "id": "handler_id", "name": "处理人", "type": "text", "required": false, "unique": false },
+          { "id": "resolution", "name": "解决说明", "type": "text", "required": false, "unique": false },
+          { "id": "response_due_at", "name": "响应截止时间", "type": "datetime", "required": true, "unique": false },
+          { "id": "resolution_due_at", "name": "解决截止时间", "type": "datetime", "required": true, "unique": false },
+          { "id": "accepted_at", "name": "受理时间", "type": "datetime", "required": false, "unique": false },
+          { "id": "submitted_at", "name": "提交解决时间", "type": "datetime", "required": false, "unique": false },
+          { "id": "closed_at", "name": "复核关闭时间", "type": "datetime", "required": false, "unique": false }
+        ],
+        "relations": [
+          { "id": "work_order_service", "name": "所属服务", "field": "service_code", "targetEntity": "service_catalog", "targetField": "code", "onDelete": "restrict" },
+          { "id": "work_order_sla", "name": "适用SLA", "field": "sla_policy_code", "targetEntity": "sla_policy", "targetField": "code", "onDelete": "restrict" }
+        ]
+      },
+      {
+        "id": "work_order_event", "name": "工单事件", "retention": "append_only", "history": true, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "事件编码", "type": "text", "required": true, "unique": true },
+          { "id": "work_order_code", "name": "工单", "type": "reference", "required": true, "unique": false, "reference": { "entity": "work_order", "field": "code" } },
+          { "id": "event_type", "name": "事件类型", "type": "enum", "required": true, "unique": false, "options": ["created", "dispatched", "accepted", "processing_recorded", "resolution_submitted", "review_rejected", "closed"] },
+          { "id": "from_status", "name": "原状态", "type": "text", "required": false, "unique": false },
+          { "id": "to_status", "name": "新状态", "type": "text", "required": false, "unique": false },
+          { "id": "actor_id", "name": "操作人", "type": "text", "required": true, "unique": false },
+          { "id": "content", "name": "事件内容", "type": "text", "required": true, "unique": false },
+          { "id": "occurred_at", "name": "发生时间", "type": "datetime", "required": true, "unique": false }
+        ],
+        "relations": [
+          { "id": "event_work_order", "name": "所属工单", "field": "work_order_code", "targetEntity": "work_order", "targetField": "code", "onDelete": "restrict" }
+        ]
+      }
+    ],
+    "modules": [
+      { "id": "service_catalogs", "name": "服务目录", "route": "service_catalogs", "entity": "service_catalog", "actions": ["list", "create", "update", "view"] },
+      { "id": "sla_policies", "name": "SLA策略", "route": "sla_policies", "entity": "sla_policy", "actions": ["list", "create", "update", "view"] },
+      { "id": "work_orders", "name": "工单管理", "route": "work_orders", "entity": "work_order", "actions": ["list", "view", "create_order", "dispatch", "accept", "add_processing_record", "submit_resolution", "review"] },
+      { "id": "work_order_events", "name": "工单历史", "route": "work_order_events", "entity": "work_order_event", "actions": ["list", "view"] }
+    ],
+    "workflows": [{
+      "id": "work_order_lifecycle", "name": "工单处理闭环", "entity": "work_order", "initialState": "pending_dispatch", "terminalStates": ["closed"],
+      "states": ["pending_dispatch", "pending_acceptance", "processing", "pending_review", "closed"],
+      "transitions": [
+        { "id": "dispatch", "name": "派单", "from": "pending_dispatch", "to": "pending_acceptance", "permission": "work_orders.dispatch", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "redispatch", "name": "重新派单", "from": "pending_acceptance", "to": "pending_acceptance", "permission": "work_orders.dispatch", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "accept", "name": "受理", "from": "pending_acceptance", "to": "processing", "permission": "work_orders.accept", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "submit_resolution", "name": "提交解决", "from": "processing", "to": "pending_review", "permission": "work_orders.submit_resolution", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "reject_review", "name": "驳回返工", "from": "pending_review", "to": "processing", "permission": "work_orders.review", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "approve_close", "name": "复核关闭", "from": "pending_review", "to": "closed", "permission": "work_orders.review", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] }
+      ]
+    }],
+    "roles": [
+      { "id": "work_order_dispatcher", "name": "工单调度人员", "permissions": ["service_catalogs.list", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "work_orders.list", "work_orders.view", "work_orders.create_order", "work_orders.dispatch", "work_order_events.list", "work_order_events.view"] },
+      { "id": "work_order_handler", "name": "工单处理人员", "permissions": ["service_catalogs.list", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "work_orders.list", "work_orders.view", "work_orders.accept", "work_orders.add_processing_record", "work_orders.submit_resolution", "work_order_events.list", "work_order_events.view"] },
+      { "id": "work_order_reviewer", "name": "工单复核人员", "permissions": ["service_catalogs.list", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "work_orders.list", "work_orders.view", "work_orders.review", "work_order_events.list", "work_order_events.view"] },
+      { "id": "work_order_admin", "name": "工单配置管理员", "permissions": ["service_catalogs.list", "service_catalogs.create", "service_catalogs.update", "service_catalogs.view", "sla_policies.list", "sla_policies.create", "sla_policies.update", "sla_policies.view", "work_orders.list", "work_orders.view", "work_order_events.list", "work_order_events.view"] }
+    ],
+    "dashboards": [
+      { "id": "work_order_total", "name": "工单总数", "entity": "work_order", "aggregation": "count", "filters": [] },
+      { "id": "work_order_pending_dispatch", "name": "待分派工单", "entity": "work_order", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "pending_dispatch" }] },
+      { "id": "work_order_processing", "name": "处理中工单", "entity": "work_order", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "processing" }] },
+      { "id": "work_order_pending_review", "name": "待复核工单", "entity": "work_order", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "pending_review" }] },
+      { "id": "work_order_closed", "name": "已关闭工单", "entity": "work_order", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "closed" }] }
+    ]
+  },
+  "seed": {
+    "records": {
+      "service_catalog": [
+        { "code": "SVC-001", "name": "通用服务", "description": "离线工单演示服务", "active": true }
+      ],
+      "sla_policy": [
+        { "code": "SLA-001", "name": "普通优先级策略", "service_code": "SVC-001", "priority": "normal", "response_minutes": 60, "resolution_minutes": 480, "active": true }
+      ],
+      "work_order": [
+        { "code": "WO-001", "title": "示例服务请求", "description": "用于验收工单闭环", "service_code": "SVC-001", "sla_policy_code": "SLA-001", "priority": "normal", "status": "pending_dispatch", "requester_id": "调度岗位-01", "handler_id": null, "resolution": null, "response_due_at": "2026-01-01T01:00:00.000Z", "resolution_due_at": "2026-01-01T08:00:00.000Z", "accepted_at": null, "submitted_at": null, "closed_at": null }
+      ],
+      "work_order_event": [
+        { "code": "WOEVT-001", "work_order_code": "WO-001", "event_type": "created", "from_status": null, "to_status": "pending_dispatch", "actor_id": "调度岗位-01", "content": "初始化工单", "occurred_at": "2026-01-01T00:00:00.000Z" }
+      ]
+    }
+  }
+}

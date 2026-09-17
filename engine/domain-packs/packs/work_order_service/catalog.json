@@ -1,0 +1,21 @@
+{
+  "catalogVersion": "1.0",
+  "id": "work_order_service",
+  "version": "1.0.0",
+  "name": "工单与服务",
+  "description": "提供服务目录、SLA固化、工单处理复核闭环和只追加事件能力",
+  "blueprintSchemaVersions": ["1.0"],
+  "runtimeVersions": ["1.0.0"],
+  "provides": ["work_order.core"],
+  "requires": [],
+  "allowedDependencies": [],
+  "migrationsVersion": 1,
+  "entrypoints": {
+    "fragment": "blueprint.json",
+    "runtime": "runtime/index.ts",
+    "ui": "ui/index.ts",
+    "seed": "seed/index.ts",
+    "tests": "tests/index.ts"
+  },
+  "uiSlots": ["entity.detail.tabs", "entity.detail.actions", "dashboard.sections"]
+}
