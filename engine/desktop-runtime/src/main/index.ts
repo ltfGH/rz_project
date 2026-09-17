@@ -76,7 +76,7 @@ async function start(): Promise<void> {
     metadata: {
       read: () => ({
         software: blueprint.software,
-        modules: blueprint.modules ?? [],
+        modules: (blueprint.modules ?? []).filter((module) => module.id !== 'maintenance'),
         entities: blueprint.entities ?? [],
         workflows: blueprint.workflows ?? []
       })
@@ -85,14 +85,16 @@ async function start(): Promise<void> {
     workflows,
     dashboard,
     maintenance: {
-      createBackup: (destinationDirectory, actor) => backup.createBackup(destinationDirectory, actor),
+      createBackup: (actor) => backup.createBackup(path.join(app.getPath('userData'), 'backups'), actor),
       inspectBackup: (backupDatabasePath, backupManifestPath, actor) => {
         permissions.require(actor, 'maintenance.restore');
         return backup.inspectBackup(backupDatabasePath, backupManifestPath);
       },
-      restoreBackup: (inspection, confirmation, actor) => (
-        backup.restoreBackup(inspection as BackupInspection, confirmation, actor)
-      )
+      restoreBackup: (inspection, confirmation, actor) => {
+        const result = backup.restoreBackup(inspection as BackupInspection, confirmation, actor);
+        setTimeout(() => { app.relaunch(); app.exit(0); }, 100);
+        return result;
+      }
     }
   };
   const registrar: IpcRegistrar = {

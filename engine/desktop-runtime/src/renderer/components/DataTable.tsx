@@ -1,10 +1,11 @@
-import { Download, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import type { EntityRecordDto, PageDto } from '../../shared/dto';
 
-export function DataTable({ page, onSearch, onView }: {
+export function DataTable({ page, onSearch, onView, onCreate }: {
   page: PageDto<EntityRecordDto>;
   onSearch(value: string): void;
   onView?(record: EntityRecordDto): void;
+  onCreate?: (() => void) | undefined;
 }) {
   const columns = page.items[0] ? Object.keys(page.items[0].values) : [];
   return (
@@ -16,8 +17,7 @@ export function DataTable({ page, onSearch, onView }: {
           <input placeholder="搜索记录" onChange={(event) => onSearch(event.target.value)} />
         </label>
         <div className="toolbar-actions">
-          <button className="secondary-button"><Download size={16} />导出</button>
-          <button className="primary-button"><Plus size={16} />新增</button>
+          {onCreate && <button className="primary-button" onClick={onCreate}><Plus size={16} />新增</button>}
         </div>
       </div>
       {page.items.length === 0 ? (

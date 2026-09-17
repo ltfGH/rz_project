@@ -76,12 +76,14 @@ tbody tr:hover { background: #f8fbfa; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .entity-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .entity-form label { display: grid; gap: 6px; font-size: 13px; }
+.form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; padding-top: 8px; }
 .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
 .detail-grid div { padding: 12px; border-bottom: 1px solid #e1e6ea; }.detail-grid dt { color: #687985; font-size: 12px; }.detail-grid dd { margin: 5px 0 0; }
 .detail-drawer { position: fixed; z-index: 5; top: 62px; right: 0; bottom: 0; width: min(460px, calc(100vw - 220px)); padding: 18px; overflow: auto; background: #fff; border-left: 1px solid #cfd8df; box-shadow: -10px 0 26px rgba(29, 42, 52, .1); }
 .detail-header { height: 42px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #dce3e8; }
 .detail-header h3 { margin: 0; font-size: 16px; }
 .detail-drawer .workflow-actions { padding-top: 18px; justify-content: flex-end; }
+.edit-button { margin-top: 18px; }
 
 @media (max-width: 1180px) {
   .app-layout { grid-template-columns: 190px minmax(0, 1fr); }

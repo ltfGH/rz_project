@@ -16,7 +16,8 @@
   "modules": [
     { "id": "assets", "name": "资产台账", "route": "assets", "entity": "asset", "actions": ["list", "view"] },
     { "id": "tasks", "name": "任务协同", "route": "tasks", "entity": "task", "actions": ["list", "view", "assign", "accept", "resolve", "close"] },
-    { "id": "task_events", "name": "任务记录", "route": "task_events", "entity": "task_event", "actions": ["list", "view"] }
+    { "id": "task_events", "name": "任务记录", "route": "task_events", "entity": "task_event", "actions": ["list", "view"] },
+    { "id": "maintenance", "name": "数据与备份", "route": "maintenance", "entity": "asset", "actions": ["backup", "restore"] }
   ],
   "entities": [
     {
@@ -56,7 +57,7 @@
   "roles": [
     { "id": "dispatcher", "name": "调度人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.assign"] },
     { "id": "operator", "name": "处理人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.accept", "tasks.resolve"] },
-    { "id": "reviewer", "name": "复核人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.close", "task_events.list", "task_events.view"] }
+    { "id": "reviewer", "name": "复核人员", "permissions": ["assets.list", "assets.view", "tasks.list", "tasks.view", "tasks.close", "task_events.list", "task_events.view", "maintenance.backup", "maintenance.restore"] }
   ],
   "workflows": [{
     "id": "task_flow", "name": "任务处理流程", "entity": "task", "initialState": "pending", "terminalStates": ["closed"],

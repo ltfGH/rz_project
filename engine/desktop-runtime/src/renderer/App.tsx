@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type { RuntimeModule } from '../shared/blueprint';
+import type { RuntimeEntity, RuntimeModule } from '../shared/blueprint';
 import type { ActorDto } from '../shared/dto';
 import { AppShell } from './components/AppShell';
 import { Dashboard } from './components/Dashboard';
@@ -12,6 +12,7 @@ import { unwrap } from './utils';
 interface Metadata {
   readonly software: { readonly name: string };
   readonly modules: readonly RuntimeModule[];
+  readonly entities?: readonly RuntimeEntity[];
 }
 
 interface LoginResult {
@@ -55,6 +56,7 @@ export function App() {
 
   if (!session || !metadata) return <LoginScreen onLogin={login} />;
   const module = metadata.modules.find((item) => item.id === selected);
+  const entity = metadata.entities?.find((item) => item.id === module?.entity);
   return (
     <AppShell
       softwareName={metadata.software.name}
@@ -65,8 +67,8 @@ export function App() {
       onLogout={() => void logout()}
     >
       {selected === 'dashboard' ? <Dashboard metrics={metrics} />
-        : selected === 'maintenance' ? <MaintenanceScreen />
-          : module ? <ModuleScreen token={session.token} module={module} />
+        : selected === 'maintenance' ? <MaintenanceScreen token={session.token} />
+          : module ? <ModuleScreen token={session.token} module={module} entity={entity} />
             : <Dashboard metrics={metrics} />}
     </AppShell>
   );

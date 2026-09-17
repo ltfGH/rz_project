@@ -60,7 +60,7 @@ export const IPC_REQUEST_SCHEMAS = {
     input: values
   }).strict(),
   [IPC_CHANNELS.dashboardRead]: z.object({ token }).strict(),
-  [IPC_CHANNELS.maintenanceBackup]: z.object({ token, destinationDirectory: z.string().min(1).max(32767) }).strict(),
+  [IPC_CHANNELS.maintenanceBackup]: z.object({ token }).strict(),
   [IPC_CHANNELS.maintenanceInspectRestore]: z.object({
     token, databasePath: z.string().min(1).max(32767), manifestPath: z.string().min(1).max(32767)
   }).strict(),

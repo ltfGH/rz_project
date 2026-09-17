@@ -21,7 +21,7 @@ export interface BusinessApi {
   };
   readonly dashboard: { read(token: string): Promise<unknown> };
   readonly maintenance: {
-    backup(token: string, destinationDirectory: string): Promise<unknown>;
+    backup(token: string): Promise<unknown>;
     inspectRestore(token: string, databasePath: string, manifestPath: string): Promise<unknown>;
     restore(token: string, inspection: unknown, confirmation: string): Promise<unknown>;
   };
@@ -53,7 +53,7 @@ export function createBusinessApi(invoke: IpcInvoke): BusinessApi {
     }),
     dashboard: frozen({ read: (token: string) => invoke(IPC_CHANNELS.dashboardRead, { token }) }),
     maintenance: frozen({
-      backup: (token: string, destinationDirectory: string) => invoke(IPC_CHANNELS.maintenanceBackup, { token, destinationDirectory }),
+      backup: (token: string) => invoke(IPC_CHANNELS.maintenanceBackup, { token }),
       inspectRestore: (token: string, databasePath: string, manifestPath: string) => (
         invoke(IPC_CHANNELS.maintenanceInspectRestore, { token, databasePath, manifestPath })
       ),

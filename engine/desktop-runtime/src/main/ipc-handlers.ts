@@ -19,7 +19,7 @@ export interface RuntimeServices {
   workflows: Pick<WorkflowEngine, 'allowedActions' | 'execute'>;
   dashboard: { read(actor: ActorDto): unknown };
   maintenance: {
-    createBackup(destinationDirectory: string, actor: ActorDto): Promise<unknown>;
+    createBackup(actor: ActorDto): Promise<unknown>;
     inspectBackup(databasePath: string, manifestPath: string, actor: ActorDto): unknown;
     restoreBackup(inspection: unknown, confirmation: string, actor: ActorDto): unknown;
   };
@@ -98,8 +98,8 @@ export function registerIpcHandlers(ipc: IpcRegistrar, services: RuntimeServices
     input: request.input as ExecuteTransitionRequest['input']
   }));
   register(IPC_CHANNELS.dashboardRead, (request) => services.dashboard.read(actorFor(services, request)));
-  register(IPC_CHANNELS.maintenanceBackup, (request) => services.maintenance.createBackup(
-    request.destinationDirectory as string, actorFor(services, request)
+  register(IPC_CHANNELS.maintenanceBackup, (request) => (
+    services.maintenance.createBackup(actorFor(services, request))
   ));
   register(IPC_CHANNELS.maintenanceInspectRestore, (request) => {
     return services.maintenance.inspectBackup(
