@@ -81,7 +81,10 @@ export const packFragmentSchema = z.object({
   extensions: z.array(z.object({
     point: dottedId,
     operation: mergeOperation,
-    path: z.string().regex(/^\/(?:[^/~]|~[01])+(?:\/(?:[^/~]|~[01])*)*$/),
+    path: z.union([
+      z.literal('/'),
+      z.string().regex(/^\/(?:[^/~]|~[01])+(?:\/(?:[^/~]|~[01])*)*$/)
+    ]),
     value: jsonValue
   }).strict()),
   blueprint: z.object({

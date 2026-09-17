@@ -55,7 +55,9 @@ export interface PackFragment {
   readonly publicExtensionPoints: readonly PublicExtensionPoint[];
   readonly extensions: readonly FragmentExtension[];
   readonly blueprint: Readonly<Record<string, JsonValue>>;
-  readonly seed: Readonly<Record<string, JsonValue>>;
+  readonly seed: Readonly<{
+    records: Readonly<Record<string, readonly Readonly<Record<string, JsonValue>>[]>>;
+  }>;
 }
 
 export interface LoadedPack {
