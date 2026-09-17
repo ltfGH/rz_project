@@ -1,0 +1,25 @@
+{
+  "fragmentVersion": "1.0",
+  "pack": { "id": "asset_registry", "version": "1.0.0" },
+  "owns": {
+    "entities": ["asset"],
+    "modules": ["assets"],
+    "workflows": [],
+    "roles": []
+  },
+  "publicExtensionPoints": [{
+    "id": "asset.detail.tabs",
+    "targetKind": "entity",
+    "targetId": "asset",
+    "allowedOperations": ["append"]
+  }],
+  "extensions": [],
+  "blueprint": {
+    "entities": [{ "id": "asset", "name": "资产", "fields": [] }],
+    "modules": [{ "id": "assets", "name": "资产台账", "entity": "asset" }],
+    "workflows": [],
+    "roles": [],
+    "dashboards": []
+  },
+  "seed": { "records": { "asset": [{ "code": "AST-001" }] } }
+}

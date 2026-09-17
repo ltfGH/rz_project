@@ -1,0 +1,21 @@
+{
+  "catalogVersion": "1.0",
+  "id": "asset_registry",
+  "version": "1.0.0",
+  "name": "台账与资产",
+  "description": "提供资产台账核心能力",
+  "blueprintSchemaVersions": ["1.0"],
+  "runtimeVersions": ["1.0.0"],
+  "provides": ["asset.core"],
+  "requires": [],
+  "allowedDependencies": [],
+  "migrationsVersion": 1,
+  "entrypoints": {
+    "fragment": "blueprint.json",
+    "runtime": "runtime/index.js",
+    "ui": "ui/index.js",
+    "seed": "seed/index.json",
+    "tests": "tests/index.js"
+  },
+  "uiSlots": ["entity.detail.tabs"]
+}
