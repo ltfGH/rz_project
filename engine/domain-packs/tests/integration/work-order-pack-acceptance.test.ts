@@ -75,6 +75,8 @@ test('loads, activates and runs the production work order pack against real SQLi
     migrations: ['work_order_service:work_order_service.v1'],
     services: ['work_order_service:work_order.lifecycle'],
     ipc: [
+      'work_order_service:sla_policy.create',
+      'work_order_service:sla_policy.update',
       'work_order_service:work_order.create',
       'work_order_service:work_order.dispatch',
       'work_order_service:work_order.accept',
@@ -82,14 +84,16 @@ test('loads, activates and runs the production work order pack against real SQLi
       'work_order_service:work_order.submit_resolution',
       'work_order_service:work_order.reject_review',
       'work_order_service:work_order.approve_close',
-      'work_order_service:work_order.sla_status'
+      'work_order_service:work_order.sla_status',
+      'work_order_service:work_order.dashboard_summary'
     ],
     ui: [
       'work_order_service:work_order.processing.tab',
       'work_order_service:work_order.history.tab',
       'work_order_service:work_order.sla.tab',
       'work_order_service:work_order.lifecycle.actions',
-      'work_order_service:work_order.sla.dashboard'
+      'work_order_service:work_order.sla.dashboard',
+      'work_order_service:sla_policy.manage.actions'
     ],
     acceptance: ['work_order_service:work_order.lifecycle.acceptance']
   });
@@ -128,7 +132,8 @@ test('loads, activates and runs the production work order pack against real SQLi
       identityHasRole: (identityId, roleId) => (
         (identityId === dispatcher.username && roleId === dispatcher.roleId) ||
         (identityId === handler.username && roleId === handler.roleId) ||
-        (identityId === reviewer.username && roleId === reviewer.roleId)
+        (identityId === reviewer.username && roleId === reviewer.roleId) ||
+        (identityId === admin.username && roleId === admin.roleId)
       ),
       now: () => new Date('2026-09-17T08:00:00.000Z'),
       orderCode: () => `WO-ACC-${++orderSequence}`,
@@ -136,7 +141,8 @@ test('loads, activates and runs the production work order pack against real SQLi
     })
   });
   assert.deepEqual(result, {
-    finalStatus: 'closed', finalVersion: 9, eventCount: 9, auditCount: 9,
-    responseSla: 'met', resolutionSla: 'met', totalMetric: 1, closedMetric: 1
+    finalStatus: 'closed', finalVersion: 9, eventCount: 9, auditCount: 10,
+    responseSla: 'met', resolutionSla: 'met', totalMetric: 1, closedMetric: 1,
+    overdueMetric: 0
   });
 });

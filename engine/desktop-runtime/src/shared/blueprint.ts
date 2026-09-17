@@ -43,6 +43,15 @@ export interface RuntimeEntity {
   readonly systemManaged: boolean;
   readonly fields: readonly RuntimeField[];
   readonly relations: readonly RuntimeRelation[];
+  readonly detailTabs?: readonly Readonly<{
+    id: string;
+    name: string;
+    viewId: string;
+  }>[];
+  readonly createSources?: readonly Readonly<{
+    id: string;
+    name: string;
+  }>[];
 }
 
 export interface RuntimeModule {

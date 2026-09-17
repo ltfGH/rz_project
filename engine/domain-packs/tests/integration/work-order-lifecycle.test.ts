@@ -165,6 +165,30 @@ test('rolls back close state, time and event when audit append fails', (t) => {
   assert.equal(afterEvents.count, beforeEvents.count);
 });
 
+test('checks handler and reviewer identity before exposing state or version', (t) => {
+  const { database, service, created, accepted } = processingOrder(t);
+  const otherHandler = {
+    userId: 4, username: 'handler-02', displayName: '其他处理岗位', roleId: 'work_order_handler'
+  };
+  assert.throws(() => database.transaction((connection) => service.addProcessingRecord({
+    workOrderId: created.workOrderId, expectedVersion: 999, content: '越权处理'
+  }, workOrderContext(connection, otherHandler, {
+    identityHasRole: () => true
+  }))), code('PERMISSION_DENIED'));
+
+  const recorded = database.transaction((connection) => service.addProcessingRecord({
+    workOrderId: created.workOrderId, expectedVersion: accepted.version, content: '正常处理'
+  }, workOrderContext(connection, handler)));
+  const submitted = database.transaction((connection) => service.submitResolution({
+    workOrderId: created.workOrderId, expectedVersion: recorded.version, resolution: '正常提交'
+  }, workOrderContext(connection, handler)));
+  assert.throws(() => database.transaction((connection) => service.approveClose({
+    workOrderId: created.workOrderId, expectedVersion: submitted.version + 50, comment: '本人越权复核'
+  }, workOrderContext(connection, handler, {
+    identityHasRole: () => true
+  }))), code('PERMISSION_DENIED'));
+});
+
 function code(expected: string): (error: unknown) => boolean {
   return (error) => error instanceof AppError && error.code === expected;
 }

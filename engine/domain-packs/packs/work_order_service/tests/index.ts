@@ -28,6 +28,7 @@ export interface WorkOrderAcceptanceResult {
   readonly resolutionSla: 'pending' | 'met' | 'overdue';
   readonly totalMetric: number;
   readonly closedMetric: number;
+  readonly overdueMetric: number;
 }
 
 export function runWorkOrderAcceptanceScenario(
@@ -39,10 +40,10 @@ export function runWorkOrderAcceptanceScenario(
   repository.create('service_catalog', {
     code: 'ACC-SVC-001', name: '验收服务', description: '验收工单闭环', active: true
   }, admin);
-  repository.create('sla_policy', {
-    code: 'ACC-SLA-001', name: '验收SLA', service_code: 'ACC-SVC-001',
-    priority: 'normal', response_minutes: 60, resolution_minutes: 480, active: true
-  }, admin);
+  database.transaction((connection) => service.createSlaPolicy({
+    code: 'ACC-SLA-001', name: '验收SLA', serviceCode: 'ACC-SVC-001',
+    priority: 'normal', responseMinutes: 60, resolutionMinutes: 480, active: true
+  }, dependencies.context(connection, admin)));
   const created = database.transaction((connection) => service.create({
     title: '验收工单', description: '执行完整工单处理与复核闭环',
     serviceCode: 'ACC-SVC-001', priority: 'normal'
@@ -80,6 +81,9 @@ export function runWorkOrderAcceptanceScenario(
     created.workOrderId,
     dependencies.context(database as unknown as DatabaseSync, dispatcher)
   );
+  const dynamicDashboard = service.readDashboardSummary(
+    dependencies.context(database as unknown as DatabaseSync, dispatcher)
+  );
   const metrics = new Map(
     dashboard.read(dispatcher).map((metric) => [metric.id, metric.value] as const)
   );
@@ -87,8 +91,8 @@ export function runWorkOrderAcceptanceScenario(
     'SELECT COUNT(*) AS count FROM biz_work_order_event WHERE work_order_code = ?'
   ).get(created.workOrderCode) as { count: number };
   const auditCount = database.prepare(
-    'SELECT COUNT(*) AS count FROM sys_audit_event WHERE entity_id = ? AND record_id = ?'
-  ).get('work_order', created.workOrderId) as { count: number };
+    'SELECT COUNT(*) AS count FROM sys_audit_event'
+  ).get() as { count: number };
   return Object.freeze({
     finalStatus: 'closed',
     finalVersion: closed.version,
@@ -97,7 +101,8 @@ export function runWorkOrderAcceptanceScenario(
     responseSla: sla.response,
     resolutionSla: sla.resolution,
     totalMetric: metrics.get('work_order_total') ?? 0,
-    closedMetric: metrics.get('work_order_closed') ?? 0
+    closedMetric: metrics.get('work_order_closed') ?? 0,
+    overdueMetric: dynamicDashboard.overdue
   });
 }
 

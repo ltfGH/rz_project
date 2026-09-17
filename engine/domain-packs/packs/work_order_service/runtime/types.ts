@@ -18,7 +18,7 @@ export interface WorkOrderActor {
 export interface WorkOrderAuditEntry {
   readonly actor: WorkOrderActor;
   readonly permission: string;
-  readonly entityId: 'work_order';
+  readonly entityId: 'work_order' | 'sla_policy';
   readonly recordId: number;
   readonly result: 'success';
   readonly details: Readonly<Record<string, unknown>>;
@@ -82,6 +82,36 @@ export interface ApproveWorkOrderCloseRequest {
   readonly comment: string;
 }
 
+export interface CreateSlaPolicyRequest {
+  readonly code: string;
+  readonly name: string;
+  readonly serviceCode: string;
+  readonly priority: WorkOrderPriority;
+  readonly responseMinutes: number;
+  readonly resolutionMinutes: number;
+  readonly active: boolean;
+}
+
+export interface UpdateSlaPolicyRequest {
+  readonly policyId: number;
+  readonly expectedVersion: number;
+  readonly name: string;
+  readonly serviceCode: string;
+  readonly priority: WorkOrderPriority;
+  readonly responseMinutes: number;
+  readonly resolutionMinutes: number;
+  readonly active: boolean;
+}
+
+export interface SlaPolicyResult {
+  readonly policyId: number;
+  readonly code: string;
+  readonly version: number;
+  readonly responseMinutes: number;
+  readonly resolutionMinutes: number;
+  readonly active: boolean;
+}
+
 export interface WorkOrderResult {
   readonly workOrderId: number;
   readonly workOrderCode: string;
@@ -100,4 +130,11 @@ export interface WorkOrderResult {
 export interface WorkOrderSlaStatus {
   readonly response: 'pending' | 'met' | 'overdue';
   readonly resolution: 'pending' | 'met' | 'overdue';
+}
+
+export interface WorkOrderDashboardSummary {
+  readonly total: number;
+  readonly pendingReview: number;
+  readonly closed: number;
+  readonly overdue: number;
 }

@@ -13,7 +13,8 @@ test('registers only declared work order slots as pure descriptors', () => {
       'work_order.history.tab',
       'work_order.sla.tab',
       'work_order.lifecycle.actions',
-      'work_order.sla.dashboard'
+      'work_order.sla.dashboard',
+      'sla_policy.manage.actions'
     ]
   );
   assert.deepEqual(
@@ -23,7 +24,8 @@ test('registers only declared work order slots as pure descriptors', () => {
       'entity.detail.tabs',
       'entity.detail.tabs',
       'entity.detail.actions',
-      'dashboard.sections'
+      'dashboard.sections',
+      'entity.detail.actions'
     ]
   );
   assert.equal(containsFunction(workOrderUiDescriptor), false);

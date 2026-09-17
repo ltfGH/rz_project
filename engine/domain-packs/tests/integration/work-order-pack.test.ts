@@ -5,6 +5,7 @@ import path from 'node:path';
 import { loadPack } from '../../src/catalog/load-pack';
 import { PackRegistry } from '../../src/catalog/registry';
 import { composeDomainPacks } from '../../src/composition/compose';
+import type { LoadedPack } from '../../src/shared/types';
 
 test('loads and composes the production work order service pack', () => {
   const packRoot = path.resolve(__dirname, '..', '..', 'packs', 'work_order_service');
@@ -56,9 +57,11 @@ test('loads and composes the production work order service pack', () => {
   ]));
 
   const workOrder = blueprint.entities.find((entity: any) => entity.id === 'work_order');
+  const slaPolicy = blueprint.entities.find((entity: any) => entity.id === 'sla_policy');
   const event = blueprint.entities.find((entity: any) => entity.id === 'work_order_event');
   assert.equal(workOrder.retention, 'protected');
   assert.equal(workOrder.systemManaged, true);
+  assert.equal(slaPolicy.systemManaged, true);
   assert.equal(event.retention, 'append_only');
   assert.equal(event.history, true);
   assert.equal(event.systemManaged, true);
@@ -68,8 +71,11 @@ test('loads and composes the production work order service pack', () => {
   );
 
   const workOrderModule = blueprint.modules.find((module: any) => module.id === 'work_orders');
+  const slaModule = blueprint.modules.find((module: any) => module.id === 'sla_policies');
   assert.equal(workOrderModule.actions.includes('create'), false);
   assert.equal(workOrderModule.actions.includes('update'), false);
+  assert.equal(slaModule.actions.includes('create'), false);
+  assert.equal(slaModule.actions.includes('update'), false);
   assert.deepEqual(pack.catalog.provides, ['work_order.core']);
   assert.deepEqual(pack.catalog.requires, []);
   assert.deepEqual(pack.catalog.uiSlots, [
@@ -85,4 +91,73 @@ test('loads and composes the production work order service pack', () => {
       'work_order.create.sources'
     ]
   );
+});
+
+test('allows a dependent pack to append declared work order extension containers', () => {
+  const workOrderPack = loadPack(path.resolve(__dirname, '..', '..', 'packs', 'work_order_service'));
+  const consumer: LoadedPack = {
+    root: 'C:\\packs\\inspection_rectification',
+    digest: 'a'.repeat(64),
+    fragmentDigest: 'b'.repeat(64),
+    entrypointDigests: {
+      fragment: '1'.repeat(64), runtime: '2'.repeat(64), ui: '3'.repeat(64),
+      seed: '4'.repeat(64), tests: '5'.repeat(64)
+    },
+    catalog: {
+      catalogVersion: '1.0', id: 'inspection_rectification', version: '1.0.0',
+      name: '告警工单桥接', description: '注册告警来源和工单详情页签',
+      blueprintSchemaVersions: ['1.0'], runtimeVersions: ['1.0.0'],
+      provides: ['inspection.core'], requires: ['work_order.core'],
+      allowedDependencies: ['work_order_service'], migrationsVersion: 1,
+      entrypoints: {
+        fragment: 'blueprint.json', runtime: 'runtime/index.ts', ui: 'ui/index.ts',
+        seed: 'seed/index.ts', tests: 'tests/index.ts'
+      },
+      uiSlots: ['entity.detail.tabs']
+    },
+    fragment: {
+      fragmentVersion: '1.0',
+      pack: { id: 'inspection_rectification', version: '1.0.0' },
+      owns: { entities: [], modules: [], workflows: [], roles: [] },
+      publicExtensionPoints: [],
+      extensions: [
+        {
+          point: 'work_order.detail.tabs', operation: 'append', path: '/detailTabs',
+          value: { id: 'alert_context', name: '告警上下文', viewId: 'alert_context' }
+        },
+        {
+          point: 'work_order.create.sources', operation: 'append', path: '/createSources',
+          value: { id: 'alert_source', name: '告警转工单' }
+        }
+      ],
+      blueprint: { entities: [], modules: [], workflows: [], roles: [], dashboards: [] },
+      seed: { records: {} }
+    }
+  };
+  const registry = new PackRegistry();
+  registry.register(workOrderPack);
+  registry.register(consumer);
+  const result = composeDomainPacks({
+    blueprintSchemaVersion: '1.0', runtimeVersion: '1.0.0',
+    software: {
+      id: 'extended_work_order', name: '扩展工单软件', version: '1.0.0',
+      purpose: '验证工单扩展', targetUsers: ['业务岗位'], boundaries: ['离线'], loginMode: 'required'
+    },
+    selections: [
+      { id: 'work_order_service', version: '1.0.0', config: {} },
+      { id: 'inspection_rectification', version: '1.0.0', config: {} }
+    ],
+    coverage: { supported: ['工单扩展'], unsupported: [] },
+    materials: {
+      developmentPurpose: '验证工单扩展', industry: '企业服务', technicalFeatures: ['离线']
+    }
+  }, registry);
+  assert.equal(result.canGenerate, true, result.summary);
+  const workOrder = (result.blueprint as any).entities.find((entity: any) => entity.id === 'work_order');
+  assert.deepEqual(workOrder.detailTabs, [
+    { id: 'alert_context', name: '告警上下文', viewId: 'alert_context' }
+  ]);
+  assert.deepEqual(workOrder.createSources, [
+    { id: 'alert_source', name: '告警转工单' }
+  ]);
 });

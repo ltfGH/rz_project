@@ -28,7 +28,7 @@
         "relations": []
       },
       {
-        "id": "sla_policy", "name": "SLA策略", "retention": "protected", "history": false, "systemManaged": false,
+        "id": "sla_policy", "name": "SLA策略", "retention": "protected", "history": false, "systemManaged": true,
         "fields": [
           { "id": "code", "name": "策略编码", "type": "text", "required": true, "unique": true },
           { "id": "name", "name": "策略名称", "type": "text", "required": true, "unique": false },
@@ -64,7 +64,9 @@
         "relations": [
           { "id": "work_order_service", "name": "所属服务", "field": "service_code", "targetEntity": "service_catalog", "targetField": "code", "onDelete": "restrict" },
           { "id": "work_order_sla", "name": "适用SLA", "field": "sla_policy_code", "targetEntity": "sla_policy", "targetField": "code", "onDelete": "restrict" }
-        ]
+        ],
+        "detailTabs": [],
+        "createSources": []
       },
       {
         "id": "work_order_event", "name": "工单事件", "retention": "append_only", "history": true, "systemManaged": true,
@@ -85,7 +87,7 @@
     ],
     "modules": [
       { "id": "service_catalogs", "name": "服务目录", "route": "service_catalogs", "entity": "service_catalog", "actions": ["list", "create", "update", "view"] },
-      { "id": "sla_policies", "name": "SLA策略", "route": "sla_policies", "entity": "sla_policy", "actions": ["list", "create", "update", "view"] },
+      { "id": "sla_policies", "name": "SLA策略", "route": "sla_policies", "entity": "sla_policy", "actions": ["list", "view", "create_policy", "update_policy"] },
       { "id": "work_orders", "name": "工单管理", "route": "work_orders", "entity": "work_order", "actions": ["list", "view", "create_order", "dispatch", "accept", "add_processing_record", "submit_resolution", "review"] },
       { "id": "work_order_events", "name": "工单历史", "route": "work_order_events", "entity": "work_order_event", "actions": ["list", "view"] }
     ],
@@ -105,7 +107,7 @@
       { "id": "work_order_dispatcher", "name": "工单调度人员", "permissions": ["service_catalogs.list", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "work_orders.list", "work_orders.view", "work_orders.create_order", "work_orders.dispatch", "work_order_events.list", "work_order_events.view"] },
       { "id": "work_order_handler", "name": "工单处理人员", "permissions": ["service_catalogs.list", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "work_orders.list", "work_orders.view", "work_orders.accept", "work_orders.add_processing_record", "work_orders.submit_resolution", "work_order_events.list", "work_order_events.view"] },
       { "id": "work_order_reviewer", "name": "工单复核人员", "permissions": ["service_catalogs.list", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "work_orders.list", "work_orders.view", "work_orders.review", "work_order_events.list", "work_order_events.view"] },
-      { "id": "work_order_admin", "name": "工单配置管理员", "permissions": ["service_catalogs.list", "service_catalogs.create", "service_catalogs.update", "service_catalogs.view", "sla_policies.list", "sla_policies.create", "sla_policies.update", "sla_policies.view", "work_orders.list", "work_orders.view", "work_order_events.list", "work_order_events.view"] }
+      { "id": "work_order_admin", "name": "工单配置管理员", "permissions": ["service_catalogs.list", "service_catalogs.create", "service_catalogs.update", "service_catalogs.view", "sla_policies.list", "sla_policies.view", "sla_policies.create_policy", "sla_policies.update_policy", "work_orders.list", "work_orders.view", "work_order_events.list", "work_order_events.view"] }
     ],
     "dashboards": [
       { "id": "work_order_total", "name": "工单总数", "entity": "work_order", "aggregation": "count", "filters": [] },

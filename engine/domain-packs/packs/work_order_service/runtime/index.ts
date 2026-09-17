@@ -45,6 +45,8 @@ export const workOrderRuntimeDescriptor = Object.freeze({
   ),
   registerIpc: (registry) => {
     const commands = [
+      ['sla_policy.create', 'createSlaPolicy', 'sla_policies.create_policy'],
+      ['sla_policy.update', 'updateSlaPolicy', 'sla_policies.update_policy'],
       ['work_order.create', 'create', 'work_orders.create_order'],
       ['work_order.dispatch', 'dispatch', 'work_orders.dispatch'],
       ['work_order.accept', 'accept', 'work_orders.accept'],
@@ -52,7 +54,8 @@ export const workOrderRuntimeDescriptor = Object.freeze({
       ['work_order.submit_resolution', 'submitResolution', 'work_orders.submit_resolution'],
       ['work_order.reject_review', 'rejectReview', 'work_orders.review'],
       ['work_order.approve_close', 'approveClose', 'work_orders.review'],
-      ['work_order.sla_status', 'readSlaStatus', 'work_orders.view']
+      ['work_order.sla_status', 'readSlaStatus', 'work_orders.view'],
+      ['work_order.dashboard_summary', 'readDashboardSummary', 'work_orders.view']
     ] as const;
     for (const [id, method, permission] of commands) {
       register(registry, id, Object.freeze({

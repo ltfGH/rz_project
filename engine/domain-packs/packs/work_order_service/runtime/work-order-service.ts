@@ -5,11 +5,15 @@ import type {
   AcceptWorkOrderRequest,
   AddProcessingRecordRequest,
   ApproveWorkOrderCloseRequest,
+  CreateSlaPolicyRequest,
   CreateWorkOrderRequest,
   DispatchWorkOrderRequest,
   RejectWorkOrderReviewRequest,
+  SlaPolicyResult,
   SubmitResolutionRequest,
+  UpdateSlaPolicyRequest,
   WorkOrderContext,
+  WorkOrderDashboardSummary,
   WorkOrderPriority,
   WorkOrderResult,
   WorkOrderSlaStatus,
@@ -25,6 +29,12 @@ interface SlaRow {
   readonly code: string;
   readonly response_minutes: number;
   readonly resolution_minutes: number;
+}
+
+interface StoredSlaPolicyRow extends SlaRow {
+  readonly id: number;
+  readonly code: string;
+  readonly version: number;
 }
 
 interface WorkOrderRow {
@@ -53,6 +63,56 @@ function required(value: string, field: string): string {
     });
   }
   return normalized;
+}
+
+function positiveMinutes(value: number, field: string): number {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new AppError('VALIDATION_FAILED', `${field} must be a positive integer.`, {
+      fieldErrors: [{ field, message: 'Must be a positive integer.' }]
+    });
+  }
+  return value;
+}
+
+function assertPriority(priority: WorkOrderPriority): void {
+  if (!PRIORITIES.has(priority)) {
+    throw new AppError('VALIDATION_FAILED', 'Priority is invalid.', {
+      fieldErrors: [{ field: 'priority', message: 'Invalid priority.' }]
+    });
+  }
+}
+
+function assertPolicyAdmin(context: WorkOrderContext): void {
+  if (!context.identityHasRole(context.actor.username, 'work_order_admin', context.connection)) {
+    throw new AppError('PERMISSION_DENIED', 'Current identity is not an active work order administrator.');
+  }
+}
+
+function assertServiceExists(serviceCode: string, context: WorkOrderContext): void {
+  const service = context.connection.prepare(
+    'SELECT 1 AS found FROM biz_service_catalog WHERE code = ?'
+  ).get(serviceCode);
+  if (!service) throw new AppError('VALIDATION_FAILED', 'Service catalog does not exist.');
+}
+
+function assertActivePolicyUnique(
+  serviceCode: string,
+  priority: WorkOrderPriority,
+  active: boolean,
+  context: WorkOrderContext,
+  excludingId?: number
+): void {
+  if (!active) return;
+  const row = excludingId === undefined
+    ? context.connection.prepare(
+      'SELECT COUNT(*) AS count FROM biz_sla_policy WHERE service_code = ? AND priority = ? AND active = 1'
+    ).get(serviceCode, priority)
+    : context.connection.prepare(
+      'SELECT COUNT(*) AS count FROM biz_sla_policy WHERE service_code = ? AND priority = ? AND active = 1 AND id <> ?'
+    ).get(serviceCode, priority, excludingId);
+  if (Number((row as { count: number }).count) > 0) {
+    throw new AppError('UNIQUE_CONFLICT', 'An active SLA policy already exists for this service and priority.');
+  }
 }
 
 function readWorkOrder(workOrderId: number, context: WorkOrderContext): WorkOrderRow {
@@ -155,16 +215,115 @@ function assertReviewer(row: WorkOrderRow, context: WorkOrderContext): void {
 }
 
 export class WorkOrderService {
+  createSlaPolicy(
+    request: CreateSlaPolicyRequest,
+    context: WorkOrderContext
+  ): SlaPolicyResult {
+    const permission = 'sla_policies.create_policy';
+    context.requirePermission(context.actor, permission);
+    assertPolicyAdmin(context);
+    const code = required(request.code, 'code');
+    const name = required(request.name, 'name');
+    const serviceCode = required(request.serviceCode, 'serviceCode');
+    assertPriority(request.priority);
+    const responseMinutes = positiveMinutes(request.responseMinutes, 'responseMinutes');
+    const resolutionMinutes = positiveMinutes(request.resolutionMinutes, 'resolutionMinutes');
+    assertServiceExists(serviceCode, context);
+    assertActivePolicyUnique(serviceCode, request.priority, request.active, context);
+    const occurredAt = context.now().toISOString();
+    let policyId: number;
+    try {
+      const inserted = context.connection.prepare(
+        `INSERT INTO biz_sla_policy
+          (code, name, service_code, priority, response_minutes, resolution_minutes,
+           active, version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+      ).run(
+        code, name, serviceCode, request.priority, responseMinutes, resolutionMinutes,
+        request.active ? 1 : 0, occurredAt, occurredAt
+      );
+      policyId = Number(inserted.lastInsertRowid);
+    } catch (error) {
+      if (error instanceof Error && /UNIQUE constraint failed/i.test(error.message)) {
+        throw new AppError('UNIQUE_CONFLICT', 'SLA policy code already exists.');
+      }
+      throw error;
+    }
+    context.appendAudit(context.connection, Object.freeze({
+      actor: context.actor,
+      permission,
+      entityId: 'sla_policy',
+      recordId: policyId,
+      result: 'success',
+      details: Object.freeze({ code, serviceCode, priority: request.priority, active: request.active })
+    }));
+    return Object.freeze({
+      policyId, code, version: 1, responseMinutes, resolutionMinutes, active: request.active
+    });
+  }
+
+  updateSlaPolicy(
+    request: UpdateSlaPolicyRequest,
+    context: WorkOrderContext
+  ): SlaPolicyResult {
+    const permission = 'sla_policies.update_policy';
+    context.requirePermission(context.actor, permission);
+    assertPolicyAdmin(context);
+    const row = context.connection.prepare(
+      'SELECT id, code, version, response_minutes, resolution_minutes FROM biz_sla_policy WHERE id = ?'
+    ).get(request.policyId) as StoredSlaPolicyRow | undefined;
+    if (!row) throw new AppError('NOT_FOUND', 'SLA policy was not found.');
+    if (row.version !== request.expectedVersion) {
+      throw new AppError('VERSION_CONFLICT', 'SLA policy was changed by another operation.');
+    }
+    const name = required(request.name, 'name');
+    const serviceCode = required(request.serviceCode, 'serviceCode');
+    assertPriority(request.priority);
+    const responseMinutes = positiveMinutes(request.responseMinutes, 'responseMinutes');
+    const resolutionMinutes = positiveMinutes(request.resolutionMinutes, 'resolutionMinutes');
+    assertServiceExists(serviceCode, context);
+    assertActivePolicyUnique(
+      serviceCode, request.priority, request.active, context, request.policyId
+    );
+    const occurredAt = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_sla_policy
+       SET name = ?, service_code = ?, priority = ?, response_minutes = ?,
+           resolution_minutes = ?, active = ?, version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(
+      name, serviceCode, request.priority, responseMinutes, resolutionMinutes,
+      request.active ? 1 : 0, occurredAt, request.policyId, request.expectedVersion
+    );
+    if (Number(update.changes) !== 1) {
+      throw new AppError('VERSION_CONFLICT', 'SLA policy was changed by another operation.');
+    }
+    context.appendAudit(context.connection, Object.freeze({
+      actor: context.actor,
+      permission,
+      entityId: 'sla_policy',
+      recordId: row.id,
+      result: 'success',
+      details: Object.freeze({
+        code: row.code, serviceCode, priority: request.priority, active: request.active
+      })
+    }));
+    return Object.freeze({
+      policyId: row.id,
+      code: row.code,
+      version: row.version + 1,
+      responseMinutes,
+      resolutionMinutes,
+      active: request.active
+    });
+  }
+
   create(request: CreateWorkOrderRequest, context: WorkOrderContext): WorkOrderResult {
     context.requirePermission(context.actor, CREATE_PERMISSION);
     const title = required(request.title, 'title');
     const description = required(request.description, 'description');
     const serviceCode = required(request.serviceCode, 'serviceCode');
-    if (!PRIORITIES.has(request.priority)) {
-      throw new AppError('VALIDATION_FAILED', 'Priority is invalid.', {
-        fieldErrors: [{ field: 'priority', message: 'Invalid priority.' }]
-      });
-    }
+    assertPriority(request.priority);
     if (!context.identityHasRole(
       context.actor.username,
       'work_order_dispatcher',
@@ -194,6 +353,8 @@ export class WorkOrderService {
       );
     }
     const policy = policies[0]!;
+    positiveMinutes(Number(policy.response_minutes), 'responseMinutes');
+    positiveMinutes(Number(policy.resolution_minutes), 'resolutionMinutes');
     const occurredAt = context.now();
     const occurredAtIso = occurredAt.toISOString();
     const responseDueAt = calculateDeadline(occurredAt, Number(policy.response_minutes));
@@ -324,11 +485,11 @@ export class WorkOrderService {
     const permission = 'work_orders.accept';
     context.requirePermission(context.actor, permission);
     const row = readWorkOrder(request.workOrderId, context);
-    assertVersion(row, request.expectedVersion);
+    assertCurrentHandler(row, context);
     if (row.status !== 'pending_acceptance') {
       throw new AppError('INVALID_TRANSITION', 'Work order cannot be accepted from its current state.');
     }
-    assertCurrentHandler(row, context);
+    assertVersion(row, request.expectedVersion);
     const occurredAt = context.now().toISOString();
     const update = context.connection.prepare(
       `UPDATE biz_work_order
@@ -368,11 +529,11 @@ export class WorkOrderService {
     context.requirePermission(context.actor, permission);
     const content = required(request.content, 'content');
     const row = readWorkOrder(request.workOrderId, context);
-    assertVersion(row, request.expectedVersion);
+    assertCurrentHandler(row, context);
     if (row.status !== 'processing') {
       throw new AppError('INVALID_TRANSITION', 'Processing records require a processing work order.');
     }
-    assertCurrentHandler(row, context);
+    assertVersion(row, request.expectedVersion);
     const occurredAt = context.now().toISOString();
     const update = context.connection.prepare(
       `UPDATE biz_work_order
@@ -404,11 +565,11 @@ export class WorkOrderService {
     context.requirePermission(context.actor, permission);
     const resolution = required(request.resolution, 'resolution');
     const row = readWorkOrder(request.workOrderId, context);
-    assertVersion(row, request.expectedVersion);
+    assertCurrentHandler(row, context);
     if (row.status !== 'processing') {
       throw new AppError('INVALID_TRANSITION', 'Resolution can only be submitted while processing.');
     }
-    assertCurrentHandler(row, context);
+    assertVersion(row, request.expectedVersion);
     const history = context.connection.prepare(
       `SELECT COUNT(*) AS count FROM biz_work_order_event
        WHERE work_order_code = ? AND event_type = 'processing_recorded'`
@@ -459,11 +620,11 @@ export class WorkOrderService {
     context.requirePermission(context.actor, permission);
     const reason = required(request.reason, 'reason');
     const row = readWorkOrder(request.workOrderId, context);
-    assertVersion(row, request.expectedVersion);
+    assertReviewer(row, context);
     if (row.status !== 'pending_review') {
       throw new AppError('INVALID_TRANSITION', 'Only a pending review can be rejected.');
     }
-    assertReviewer(row, context);
+    assertVersion(row, request.expectedVersion);
     const occurredAt = context.now().toISOString();
     const update = context.connection.prepare(
       `UPDATE biz_work_order
@@ -498,11 +659,11 @@ export class WorkOrderService {
     context.requirePermission(context.actor, permission);
     const comment = required(request.comment, 'comment');
     const row = readWorkOrder(request.workOrderId, context);
-    assertVersion(row, request.expectedVersion);
+    assertReviewer(row, context);
     if (row.status !== 'pending_review') {
       throw new AppError('INVALID_TRANSITION', 'Only a pending review can be closed.');
     }
-    assertReviewer(row, context);
+    assertVersion(row, request.expectedVersion);
     const occurredAt = context.now().toISOString();
     const update = context.connection.prepare(
       `UPDATE biz_work_order
@@ -536,5 +697,31 @@ export class WorkOrderService {
       response: evaluateDeadline(row.accepted_at, row.response_due_at, now),
       resolution: evaluateDeadline(row.closed_at, row.resolution_due_at, now)
     });
+  }
+
+  readDashboardSummary(context: WorkOrderContext): WorkOrderDashboardSummary {
+    context.requirePermission(context.actor, 'work_orders.view');
+    const rows = context.connection.prepare(
+      `SELECT status, accepted_at, closed_at, response_due_at, resolution_due_at
+       FROM biz_work_order ORDER BY id`
+    ).all() as unknown as Array<{
+      status: WorkOrderStatus;
+      accepted_at: string | null;
+      closed_at: string | null;
+      response_due_at: string;
+      resolution_due_at: string;
+    }>;
+    const now = context.now();
+    let pendingReview = 0;
+    let closed = 0;
+    let overdue = 0;
+    for (const row of rows) {
+      if (row.status === 'pending_review') pendingReview += 1;
+      if (row.status === 'closed') closed += 1;
+      const response = evaluateDeadline(row.accepted_at, row.response_due_at, now);
+      const resolution = evaluateDeadline(row.closed_at, row.resolution_due_at, now);
+      if (response === 'overdue' || resolution === 'overdue') overdue += 1;
+    }
+    return Object.freeze({ total: rows.length, pendingReview, closed, overdue });
   }
 }

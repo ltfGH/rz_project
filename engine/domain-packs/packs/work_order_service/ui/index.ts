@@ -8,8 +8,9 @@ export interface WorkOrderUiExtension {
   readonly slot: WorkOrderUiSlot;
   readonly label: string;
   readonly order: number;
-  readonly entityId?: 'work_order';
+  readonly entityId?: 'work_order' | 'sla_policy';
   readonly viewId?: string;
+  readonly dataSource?: string;
   readonly actionIds?: readonly string[];
 }
 
@@ -36,7 +37,13 @@ const extensions: readonly WorkOrderUiExtension[] = Object.freeze([
   }),
   Object.freeze({
     id: 'work_order.sla.dashboard', slot: 'dashboard.sections',
-    label: 'SLA状态', order: 20, viewId: 'work_order_sla_dashboard'
+    label: 'SLA状态', order: 20, viewId: 'work_order_sla_dashboard',
+    dataSource: 'work_order.dashboard_summary'
+  }),
+  Object.freeze({
+    id: 'sla_policy.manage.actions', slot: 'entity.detail.actions', entityId: 'sla_policy',
+    label: 'SLA策略操作', order: 10,
+    actionIds: Object.freeze(['sla_policy.create', 'sla_policy.update'])
   })
 ]);
 

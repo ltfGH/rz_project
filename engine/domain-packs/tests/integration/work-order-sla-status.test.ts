@@ -136,3 +136,33 @@ test('reports deterministic dashboard counts for work order states', (t) => {
     work_order_closed: 1
   });
 });
+
+test('counts current overdue work orders once and respects exact deadlines', (t) => {
+  const { database } = createWorkOrderTestRuntime(t);
+  const service = new WorkOrderService();
+  const first = create(database, service);
+  create(database, service);
+  create(database, service);
+  acceptAt(database, service, first, '2026-09-17T08:30:00.000Z');
+
+  const exact = service.readDashboardSummary(workOrderContext(
+    database,
+    dispatcher,
+    { now: () => new Date('2026-09-17T09:00:00.000Z') }
+  ));
+  assert.deepEqual(exact, {
+    total: 3, pendingReview: 0, closed: 0, overdue: 0
+  });
+  const responseLate = service.readDashboardSummary(workOrderContext(
+    database,
+    dispatcher,
+    { now: () => new Date('2026-09-17T09:00:00.001Z') }
+  ));
+  assert.equal(responseLate.overdue, 2);
+  const resolutionLate = service.readDashboardSummary(workOrderContext(
+    database,
+    dispatcher,
+    { now: () => new Date('2026-09-17T16:00:00.001Z') }
+  ));
+  assert.equal(resolutionLate.overdue, 3);
+});

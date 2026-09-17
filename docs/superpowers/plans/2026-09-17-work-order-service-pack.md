@@ -4,7 +4,7 @@
 
 **Goal:** 交付可独立组合的生产级 `work_order_service@1.0.0`，实现服务目录、SLA 固化、完整工单闭环、角色分离、事件审计、确定性种子和真实 SQLite 验收。
 
-**Architecture:** 在 `engine/domain-packs/packs/work_order_service` 下实现独立目录、蓝图片段和固定插件入口。领域服务只使用调用方传入的 SQLite 事务、actor、权限门、身份解析、时钟、编码器和审计写入；工单与事件禁止通用写入，服务目录和 SLA 配置保留受权限控制的普通 CRUD。资产关联不进入本计划，后续由同时依赖 `asset.core` 和 `work_order.core` 的桥接包实现。
+**Architecture:** 在 `engine/domain-packs/packs/work_order_service` 下实现独立目录、蓝图片段和固定插件入口。领域服务只使用调用方传入的 SQLite 事务、actor、权限门、身份解析、时钟、编码器和审计写入；工单、事件和 SLA 策略禁止通用写入，服务目录保留受权限控制的普通 CRUD。资产关联不进入本计划，后续由同时依赖 `asset.core` 和 `work_order.core` 的桥接包实现。
 
 **Tech Stack:** TypeScript 7、Node test runner、tsx、`node:sqlite`、现有领域包组合器、蓝图验证器和桌面运行时插件注册协议。
 
@@ -60,7 +60,7 @@ Expected: FAIL，原因是生产包目录不存在。
 
 ```text
 service_catalogs: list, create, update, view
-sla_policies: list, create, update, view
+sla_policies: list, view, create_policy, update_policy
 work_orders: list, view, create_order, dispatch, accept, add_processing_record, submit_resolution, review
 work_order_events: list, view
 ```
@@ -112,6 +112,8 @@ interface CreateWorkOrderRequest {
 }
 
 class WorkOrderService {
+  createSlaPolicy(request: CreateSlaPolicyRequest, context: WorkOrderContext): SlaPolicyResult;
+  updateSlaPolicy(request: UpdateSlaPolicyRequest, context: WorkOrderContext): SlaPolicyResult;
   create(request: CreateWorkOrderRequest, context: WorkOrderContext): WorkOrderResult;
 }
 ```

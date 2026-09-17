@@ -205,6 +205,25 @@
         "onDelete": { "enum": ["restrict", "cascade", "set_null"] }
       }
     },
+    "entityDetailTab": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "viewId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" },
+        "viewId": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "entityCreateSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "$ref": "#/$defs/nonBlank" }
+      }
+    },
     "entity": {
       "type": "object",
       "additionalProperties": false,
@@ -222,6 +241,14 @@
         "relations": {
           "type": "array",
           "items": { "$ref": "#/$defs/relation" }
+        },
+        "detailTabs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entityDetailTab" }
+        },
+        "createSources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entityCreateSource" }
         }
       }
     },

@@ -68,10 +68,17 @@ export function createWorkOrderTestRuntime(
   }, admin);
   const slaCount = options.slaCount ?? 1;
   for (let index = 0; index < slaCount; index += 1) {
-    repository.create('sla_policy', {
-      code: `SLA-${index + 1}`, name: `普通策略 ${index + 1}`, service_code: 'SVC-1',
-      priority: 'normal', response_minutes: 60, resolution_minutes: 480, active: true
-    }, admin);
+    database.prepare(
+      `INSERT INTO biz_sla_policy
+        (code, name, service_code, priority, response_minutes, resolution_minutes,
+         active, version, created_at, updated_at)
+       VALUES (?, ?, 'SVC-1', 'normal', 60, 480, 1, 1, ?, ?)`
+    ).run(
+      `SLA-${index + 1}`,
+      `普通策略 ${index + 1}`,
+      '2026-09-17T08:00:00.000Z',
+      '2026-09-17T08:00:00.000Z'
+    );
   }
   t.after(() => {
     database.close();
@@ -93,7 +100,8 @@ export function workOrderContext(
     identityHasRole: (identityId, roleId) => (
       (identityId === 'dispatcher-01' && roleId === 'work_order_dispatcher') ||
       (identityId === 'handler-01' && roleId === 'work_order_handler') ||
-      (identityId === 'reviewer-01' && roleId === 'work_order_reviewer')
+      (identityId === 'reviewer-01' && roleId === 'work_order_reviewer') ||
+      (identityId === 'work-admin-01' && roleId === 'work_order_admin')
     ),
     now: () => new Date('2026-09-17T08:00:00.000Z'),
     orderCode: () => `WO-TEST-${++orderSequence}`,
