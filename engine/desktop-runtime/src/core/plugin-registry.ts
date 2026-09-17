@@ -1,10 +1,28 @@
 import { AppError } from '../shared/errors';
-import type { RuntimePluginSelection } from '../shared/blueprint';
+import type { JsonValue, RuntimePluginSelection } from '../shared/blueprint';
+
+export interface PluginContributionSink {
+  register(pluginId: string, contributionId: string, contribution: unknown): void;
+}
+
+export interface RuntimePluginHost {
+  readonly migrations: PluginContributionSink;
+  readonly services: PluginContributionSink;
+  readonly ipc: PluginContributionSink;
+  readonly uiExtensions: PluginContributionSink;
+  readonly acceptanceScenarios: PluginContributionSink;
+}
 
 export interface PluginDescriptor {
   readonly id: string;
   readonly version: string;
   readonly blueprintSchemaVersions: readonly string[];
+  readonly validateConfig?: (config: Readonly<Record<string, JsonValue>>) => void;
+  readonly registerMigrations?: (registry: PluginContributionSink) => void;
+  readonly registerServices?: (registry: PluginContributionSink) => void;
+  readonly registerIpc?: (registry: PluginContributionSink) => void;
+  readonly registerUiExtensions?: (registry: PluginContributionSink) => void;
+  readonly registerAcceptanceScenarios?: (registry: PluginContributionSink) => void;
 }
 
 export class PluginRegistry {
@@ -32,6 +50,22 @@ export class PluginRegistry {
           `Plugin '${selection.id}' does not support blueprint schema '${schemaVersion}'.`
         );
       }
+      descriptor.validateConfig?.(selection.config);
+    }
+  }
+
+  activate(selections: readonly RuntimePluginSelection[], host: RuntimePluginHost): void {
+    for (const selection of selections) {
+      const descriptor = this.#plugins.get(selection.id);
+      if (!descriptor) {
+        throw new AppError('BLUEPRINT_INCOMPATIBLE', `Plugin '${selection.id}' is not registered.`);
+      }
+      descriptor.validateConfig?.(selection.config);
+      descriptor.registerMigrations?.(host.migrations);
+      descriptor.registerServices?.(host.services);
+      descriptor.registerIpc?.(host.ipc);
+      descriptor.registerUiExtensions?.(host.uiExtensions);
+      descriptor.registerAcceptanceScenarios?.(host.acceptanceScenarios);
     }
   }
 }

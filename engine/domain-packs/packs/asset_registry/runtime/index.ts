@@ -1,6 +1,12 @@
 import type { DatabaseSync } from 'node:sqlite';
 
 import { AppError } from '../../../../desktop-runtime/src/shared/errors';
+import type {
+  PluginContributionSink,
+  PluginDescriptor
+} from '../../../../desktop-runtime/src/core/plugin-registry';
+import { runAssetAcceptanceScenario } from '../tests/index';
+import { assetUiDescriptor } from '../ui/index';
 
 export type AssetStatus = 'active' | 'maintenance' | 'inactive';
 
@@ -300,8 +306,51 @@ export class AssetLifecycleService {
   }
 }
 
+function register(
+  registry: PluginContributionSink,
+  contributionId: string,
+  contribution: unknown
+): void {
+  registry.register('asset_registry', contributionId, contribution);
+}
+
 export const assetRuntimeDescriptor = Object.freeze({
   id: 'asset_registry',
   version: '1.0.0',
-  services: Object.freeze(['AssetLifecycleService'])
-});
+  blueprintSchemaVersions: Object.freeze(['1.0']),
+  runtimeVersions: Object.freeze(['1.0.0']),
+  validateConfig: (config) => {
+    if (Object.keys(config).length > 0) {
+      throw new AppError('BLUEPRINT_INCOMPATIBLE', 'Asset registry configuration contains unsupported properties.');
+    }
+  },
+  registerMigrations: (registry) => register(
+    registry,
+    'asset_registry.v1',
+    Object.freeze({ version: 1, owner: 'asset_registry' })
+  ),
+  registerServices: (registry) => register(
+    registry,
+    'asset.lifecycle',
+    Object.freeze({ create: () => new AssetLifecycleService() })
+  ),
+  registerIpc: (registry) => {
+    register(registry, 'asset.change_status', Object.freeze({
+      service: 'asset.lifecycle', method: 'changeStatus', permission: 'assets.change_status'
+    }));
+    register(registry, 'asset.assign_responsibility', Object.freeze({
+      service: 'asset.lifecycle', method: 'assignResponsibility',
+      permission: 'asset_responsibilities.create'
+    }));
+  },
+  registerUiExtensions: (registry) => {
+    for (const extension of assetUiDescriptor.extensions) {
+      register(registry, extension.id, extension);
+    }
+  },
+  registerAcceptanceScenarios: (registry) => register(
+    registry,
+    'asset.lifecycle.acceptance',
+    runAssetAcceptanceScenario
+  )
+} satisfies PluginDescriptor & { readonly runtimeVersions: readonly string[] });

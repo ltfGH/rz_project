@@ -126,3 +126,74 @@
 - [ ] Check no node_modules/dist/temp/SQLite/EXE/log artifacts tracked and run secret scan.
 - [ ] Commit `docs: document asset registry pack`.
 - [ ] Record fresh completion evidence and push the stable checkpoint.
+
+---
+
+## Review Remediation
+
+The independent completion review found that direct-import tests did not prove runtime plugin loading, and that generic entity writes could bypass asset invariants. The following tasks are required before Task 6 can be considered complete.
+
+### Task 7: Prove Runtime Plugin Loading and Registration
+
+**Files:**
+- Modify `engine/desktop-runtime/src/core/plugin-registry.ts`
+- Modify `packs/asset_registry/runtime/index.ts`
+- Modify `tests/integration/asset-pack-acceptance.test.ts`
+
+**Interfaces:**
+- `PluginDescriptor` includes `blueprintSchemaVersions`, `validateConfig` and fixed registration hooks for migrations, services, IPC, UI and acceptance scenarios.
+- `assetRuntimeDescriptor` implements that contract for `asset_registry@1.0.0`.
+- The acceptance test registers the production descriptor, loads the composed JSON through `loadRuntimeBlueprint`, and captures every declared contribution through restricted registration sinks.
+
+- [ ] Add a failing acceptance assertion that `PluginRegistry.register(assetRuntimeDescriptor)` can load the composed blueprint through `loadRuntimeBlueprint` and validates empty config.
+- [ ] Add failing registration assertions for the lifecycle service, UI descriptors and acceptance scenario; unsupported configuration must fail closed.
+- [ ] Extend the runtime plugin contract and implement the production asset descriptor without importing Electron or opening a database.
+- [ ] Run desktop runtime unit tests, asset acceptance and both type checks.
+- [ ] Commit `fix: register asset runtime plugin`.
+
+### Task 8: Prevent Generic CRUD From Bypassing Domain Rules
+
+**Files:**
+- Modify `engine/desktop-runtime/src/core/entity-repository.ts`
+- Modify `engine/desktop-runtime/tests/integration/entity-repository.test.ts`
+- Modify `packs/asset_registry/blueprint.json`
+- Modify `tests/integration/asset-rules.test.ts`
+
+**Interfaces:**
+- Generic `create` and `update` require both a declared module action and the matching role permission.
+- The asset module does not declare generic `update`.
+- The responsibility module declares the domain action `assign`, not generic `create` or `end`.
+
+- [ ] Add failing desktop-runtime tests for undeclared create/update actions and missing actor permission.
+- [ ] Add failing asset-pack tests proving generic status update and generic responsibility creation return `PERMISSION_DENIED` without changing SQLite.
+- [ ] Enforce declared module actions and role permissions in `EntityRepository.create/update`.
+- [ ] Remove generic asset/responsibility mutations from the production blueprint and rename responsibility permission to `asset_responsibilities.assign`.
+- [ ] Run focused tests, blueprint validation, domain-pack typecheck and desktop-runtime typecheck.
+- [ ] Commit `fix: protect asset domain mutations`.
+
+### Task 9: Validate Assignees and Roll Back Late Responsibility Failures
+
+**Files:**
+- Modify `packs/asset_registry/runtime/index.ts`
+- Modify `tests/integration/asset-rules.test.ts`
+- Modify `tests/integration/asset-pack-acceptance.test.ts`
+- Modify `packs/asset_registry/README.md`
+
+**Interfaces:**
+- `AssetLifecycleContext.assigneeExists(assignee, transaction): boolean` validates a stable user or responsibility-role identifier through a caller-owned registry.
+- `assignResponsibility` fails with `VALIDATION_FAILED` before writes when the assignee is unknown.
+
+- [ ] Add a failing invalid-assignee test.
+- [ ] Add a failing late-audit rollback test after an existing responsibility would be ended and a replacement inserted.
+- [ ] Require the injected assignee lookup and use the domain permission `asset_responsibilities.assign`.
+- [ ] Update all test contexts and documentation.
+- [ ] Run focused tests and typecheck.
+- [ ] Commit `fix: validate asset responsibility assignments`.
+
+### Task 10: Repeat Completion Gate
+
+- [ ] Re-run domain-pack clean install, typecheck, all tests, build and production bundle composition.
+- [ ] Re-run blueprint 55 tests, desktop 19 unit + 26 integration tests and PowerShell `Run-All.ps1`.
+- [ ] Re-run artifact, diff and secret scans.
+- [ ] Request a fresh independent code review over the remediation range and address all Critical/Important findings.
+- [ ] Finish Task 6 documentation commit and push the complete stable checkpoint.
