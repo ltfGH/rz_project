@@ -20291,6 +20291,26 @@ function buildOwnershipIndex(packs) {
       }
     });
   }
+  for (const pack of packs) {
+    const targetedCollections = [
+      ["modules", "module", pack.fragment.blueprint.modules],
+      ["workflows", "workflow", pack.fragment.blueprint.workflows]
+    ];
+    for (const [pathName, kind, rawObjects] of targetedCollections) {
+      const objects = rawObjects;
+      objects.forEach((object2, index) => {
+        if (typeof object2.entity !== "string") return;
+        const entityOwner = owners.get(ownerKey("entity", object2.entity));
+        if (!entityOwner || entityOwner.packId === pack.catalog.id) return;
+        issues.push(issue2(
+          "OWNERSHIP_CONFLICT",
+          pack.catalog.id,
+          `/blueprint/${pathName}/${index}/entity`,
+          `${kind} '${String(object2.id)}' cannot target entity '${object2.entity}' owned by '${entityOwner.packId}'.`
+        ));
+      });
+    }
+  }
   const sorted = sortIssues(issues);
   return Object.freeze({ valid: sorted.length === 0, owners, extensionPoints, issues: sorted });
 }
