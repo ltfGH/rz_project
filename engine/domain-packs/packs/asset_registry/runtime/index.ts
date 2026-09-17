@@ -223,7 +223,7 @@ export class AssetLifecycleService {
     const responsibilityCode = requireText(request.responsibilityCode, 'Responsibility code');
     const assignee = requireText(request.assignee, 'Assignee');
     const reason = requireReason(request.reason);
-    context.requirePermission(context.actor, 'asset_responsibilities.create');
+    context.requirePermission(context.actor, 'asset_responsibilities.assign');
 
     const asset = readAsset(request.assetId, context.connection);
     if (asset.version !== request.expectedVersion) {
@@ -235,8 +235,6 @@ export class AssetLifecycleService {
     if (active?.assignee === assignee) {
       throw new AppError('INVALID_TRANSITION', 'The assignee already owns the active responsibility.');
     }
-    if (active) context.requirePermission(context.actor, 'asset_responsibilities.end');
-
     const occurredAt = context.now().toISOString();
     const update = context.connection.prepare(
       'UPDATE biz_asset SET version = version + 1, updated_at = ? WHERE id = ? AND version = ?'
@@ -280,7 +278,7 @@ export class AssetLifecycleService {
 
     context.appendAudit(context.connection, Object.freeze({
       actor: context.actor,
-      permission: 'asset_responsibilities.create',
+      permission: 'asset_responsibilities.assign',
       entityId: 'asset',
       recordId: asset.id,
       result: 'success',
@@ -340,7 +338,7 @@ export const assetRuntimeDescriptor = Object.freeze({
     }));
     register(registry, 'asset.assign_responsibility', Object.freeze({
       service: 'asset.lifecycle', method: 'assignResponsibility',
-      permission: 'asset_responsibilities.create'
+      permission: 'asset_responsibilities.assign'
     }));
   },
   registerUiExtensions: (registry) => {

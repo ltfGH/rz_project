@@ -70,8 +70,8 @@
     ],
     "modules": [
       { "id": "asset_categories", "name": "资产分类", "route": "asset_categories", "entity": "asset_category", "actions": ["list", "create", "update", "view"] },
-      { "id": "assets", "name": "资产台账", "route": "assets", "entity": "asset", "actions": ["list", "create", "update", "view", "change_status"] },
-      { "id": "asset_responsibilities", "name": "责任关系", "route": "asset_responsibilities", "entity": "asset_responsibility", "actions": ["list", "create", "view", "end"] },
+      { "id": "assets", "name": "资产台账", "route": "assets", "entity": "asset", "actions": ["list", "create", "view", "change_status"] },
+      { "id": "asset_responsibilities", "name": "责任关系", "route": "asset_responsibilities", "entity": "asset_responsibility", "actions": ["list", "view", "assign"] },
       { "id": "asset_events", "name": "状态历史", "route": "asset_events", "entity": "asset_event", "actions": ["list", "view"] }
     ],
     "workflows": [{
@@ -86,7 +86,7 @@
       ]
     }],
     "roles": [
-      { "id": "asset_admin", "name": "资产管理员", "permissions": ["asset_categories.list", "asset_categories.create", "asset_categories.update", "asset_categories.view", "assets.list", "assets.create", "assets.update", "assets.view", "assets.change_status", "asset_responsibilities.list", "asset_responsibilities.create", "asset_responsibilities.view", "asset_responsibilities.end", "asset_events.list", "asset_events.view"] },
+      { "id": "asset_admin", "name": "资产管理员", "permissions": ["asset_categories.list", "asset_categories.create", "asset_categories.update", "asset_categories.view", "assets.list", "assets.create", "assets.view", "assets.change_status", "asset_responsibilities.list", "asset_responsibilities.view", "asset_responsibilities.assign", "asset_events.list", "asset_events.view"] },
       { "id": "asset_viewer", "name": "资产查看人员", "permissions": ["asset_categories.list", "asset_categories.view", "assets.list", "assets.view", "asset_responsibilities.list", "asset_responsibilities.view", "asset_events.list", "asset_events.view"] }
     ],
     "dashboards": [

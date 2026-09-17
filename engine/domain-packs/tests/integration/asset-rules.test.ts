@@ -77,10 +77,14 @@ test('allows deletion only when the asset has no responsibility or event history
   const service = new AssetLifecycleService();
   database.transaction((connection) => service.assertCanDelete(asset.id, context(connection)));
 
-  repository.create('asset_responsibility', {
-    code: 'RESP-1', asset_code: 'AST-1', assignee: '张工',
-    started_at: '2026-09-17T08:00:00.000Z', ended_at: null, active: true
-  }, actor);
+  database.prepare(
+    `INSERT INTO biz_asset_responsibility
+      (code, asset_code, assignee, started_at, ended_at, active, version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, NULL, 1, 1, ?, ?)`
+  ).run(
+    'RESP-1', 'AST-1', '张工', '2026-09-17T08:00:00.000Z',
+    '2026-09-17T08:00:00.000Z', '2026-09-17T08:00:00.000Z'
+  );
   assert.throws(
     () => database.transaction((connection) => service.assertCanDelete(asset.id, context(connection))),
     code('INVALID_TRANSITION')
@@ -114,8 +118,8 @@ test('assigns responsibility and writes asset event, version and audit atomicall
 
   assert.equal(result.assetVersion, 2);
   assert.equal(result.assignee, '张工');
-  assert.deepEqual(permissions, ['asset_responsibilities.create']);
-  assert.deepEqual(audits, ['asset_responsibilities.create']);
+  assert.deepEqual(permissions, ['asset_responsibilities.assign']);
+  assert.deepEqual(audits, ['asset_responsibilities.assign']);
   assert.equal(repository.get('asset', asset.id, actor).version, 2);
   const responsibility = database.prepare(
     'SELECT code, assignee, active FROM biz_asset_responsibility WHERE asset_code = ?'
@@ -173,6 +177,23 @@ test('rolls back responsibility changes when the asset version is stale', (t) =>
   const events = database.prepare('SELECT COUNT(*) AS count FROM biz_asset_event').get() as { count: number };
   assert.equal(responsibilities.count, 0);
   assert.equal(events.count, 0);
+});
+
+test('generic entity writes cannot bypass asset status or responsibility rules', (t) => {
+  const { database, repository, asset } = setup(t);
+  assert.throws(
+    () => repository.update('asset', asset.id, asset.version, { status: 'inactive' }, actor),
+    code('PERMISSION_DENIED')
+  );
+  assert.throws(() => repository.create('asset_responsibility', {
+    code: 'RESP-BYPASS', asset_code: 'AST-1', assignee: '任意责任人',
+    started_at: '2026-09-17T08:00:00.000Z', ended_at: null, active: true
+  }, actor), code('PERMISSION_DENIED'));
+  assert.equal(repository.get('asset', asset.id, actor).values.status, 'active');
+  const responsibilities = database.prepare(
+    'SELECT COUNT(*) AS count FROM biz_asset_responsibility'
+  ).get() as { count: number };
+  assert.equal(responsibilities.count, 0);
 });
 
 function code(expected: string): (error: unknown) => boolean {

@@ -120,6 +120,46 @@ test('updates with optimistic locking and never overwrites a newer version', (t)
   assert.equal(target.get('asset', created.id, adminActor).values.name, '新名称');
 });
 
+test('rejects generic writes not declared by the entity module', (t) => {
+  const runtime = createTestRuntime(t);
+  const blueprint = structuredClone(runtime.blueprint);
+  blueprint.modules = blueprint.modules?.map((module) => (
+    module.entity === 'asset'
+      ? { ...module, actions: module.actions.filter((action) => action !== 'update') }
+      : module
+  ));
+  const target = new EntityRepository(runtime.database, blueprint, runtime.schema);
+  target.create('service', { code: 'SVC-A', name: '核心服务' }, adminActor);
+  const asset = target.create('asset', {
+    code: 'A-1', name: '资产', service_id: 'SVC-A', status: 'active', quantity: 1
+  }, adminActor);
+
+  assert.throws(
+    () => target.update('asset', asset.id, asset.version, { status: 'inactive' }, adminActor),
+    permissionDenied
+  );
+  assert.equal(target.get('asset', asset.id, adminActor).values.status, 'active');
+});
+
+test('rejects generic writes when the actor role lacks the action permission', (t) => {
+  const runtime = createTestRuntime(t);
+  const blueprint = structuredClone(runtime.blueprint);
+  blueprint.roles = blueprint.roles?.map((role) => ({
+    ...role,
+    permissions: role.permissions.filter((permission) => permission !== 'services.create')
+  }));
+  const target = new EntityRepository(runtime.database, blueprint, runtime.schema);
+
+  assert.throws(
+    () => target.create('service', { code: 'SVC-A', name: '核心服务' }, adminActor),
+    permissionDenied
+  );
+});
+
 function validationError(error: unknown): boolean {
   return error instanceof AppError && error.code === 'VALIDATION_FAILED';
+}
+
+function permissionDenied(error: unknown): boolean {
+  return error instanceof AppError && error.code === 'PERMISSION_DENIED';
 }

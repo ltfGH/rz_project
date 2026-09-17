@@ -31,6 +31,8 @@ interface EntityMetadata {
   readonly entity: RuntimeEntity;
   readonly table: string;
   readonly fields: ReadonlyMap<string, RuntimeField>;
+  readonly moduleId: string | undefined;
+  readonly actions: ReadonlySet<string>;
 }
 
 const IDENTIFIER = /^[a-z][a-z0-9_]{1,63}$/;
@@ -105,20 +107,30 @@ function mapWriteError(error: unknown): never {
 export class EntityRepository {
   readonly #database: RuntimeDatabase;
   readonly #entities: ReadonlyMap<string, EntityMetadata>;
+  readonly #rolePermissions: ReadonlyMap<string, ReadonlySet<string>>;
 
   constructor(database: RuntimeDatabase, blueprint: RuntimeBlueprint, schema: CompiledSchema) {
     this.#database = database;
     const entities = new Map<string, EntityMetadata>();
+    const modulesByEntity = new Map(
+      (blueprint.modules ?? []).map((module) => [module.entity, module] as const)
+    );
     for (const entity of blueprint.entities ?? []) {
       const table = schema.entityTables[entity.id];
       if (!table) throw new AppError('BLUEPRINT_INCOMPATIBLE', `Entity '${entity.id}' has no table.`);
+      const module = modulesByEntity.get(entity.id);
       entities.set(entity.id, {
         entity,
         table,
-        fields: new Map(entity.fields.map((field) => [field.id, field]))
+        fields: new Map(entity.fields.map((field) => [field.id, field])),
+        moduleId: module?.id,
+        actions: new Set(module?.actions ?? [])
       });
     }
     this.#entities = entities;
+    this.#rolePermissions = new Map(
+      (blueprint.roles ?? []).map((role) => [role.id, new Set(role.permissions)] as const)
+    );
   }
 
   list(entityId: string, query: ListQuery, actor: ActorDto): PageDto<EntityRecordDto> {
@@ -194,8 +206,8 @@ export class EntityRepository {
     input: Readonly<Record<string, unknown>>,
     actor: ActorDto
   ): EntityRecordDto {
-    void actor;
     const metadata = this.#metadata(entityId);
+    this.#requireGenericWrite(metadata, 'create', actor);
     const values = this.#validateInput(metadata, input, true);
     const now = new Date().toISOString();
     const columns = [...values.keys(), 'created_at', 'updated_at'];
@@ -221,6 +233,7 @@ export class EntityRepository {
     actor: ActorDto
   ): EntityRecordDto {
     const metadata = this.#metadata(entityId);
+    this.#requireGenericWrite(metadata, 'update', actor);
     const values = this.#validateInput(metadata, input, false);
     if (values.size === 0) throw new AppError('VALIDATION_FAILED', '没有可更新的字段。');
     const assignments = [...values.keys()].map((fieldId) => `${quoteIdentifier(fieldId)} = ?`);
@@ -251,6 +264,25 @@ export class EntityRepository {
     const metadata = this.#entities.get(entityId);
     if (!metadata) throw new AppError('VALIDATION_FAILED', `Unknown entity '${entityId}'.`);
     return metadata;
+  }
+
+  #requireGenericWrite(
+    metadata: EntityMetadata,
+    action: 'create' | 'update',
+    actor: ActorDto
+  ): void {
+    const permission = metadata.moduleId ? `${metadata.moduleId}.${action}` : undefined;
+    const protectedHistory = metadata.entity.systemManaged || (
+      action === 'update' && metadata.entity.history
+    );
+    if (
+      protectedHistory ||
+      !permission ||
+      !metadata.actions.has(action) ||
+      !this.#rolePermissions.get(actor.roleId)?.has(permission)
+    ) {
+      throw new AppError('PERMISSION_DENIED', 'This record can only be changed through its domain action.');
+    }
   }
 
   #validateInput(
