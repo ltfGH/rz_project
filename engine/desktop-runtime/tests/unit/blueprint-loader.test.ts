@@ -2,11 +2,23 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { loadRuntimeBlueprint } from '../../src/core/blueprint-loader';
-import { PluginRegistry } from '../../src/core/plugin-registry';
+import { PluginRegistry, type PluginDescriptor } from '../../src/core/plugin-registry';
 import { AppError } from '../../src/shared/errors';
 
 const source = '{"schemaVersion":"1.0","plugins":[],"software":{"id":"test_app"}}';
 const digest = '94c88aad11d77f449f17ef197ae0aa87f32dc011eee3e9a780f3adbe424f9c2d';
+
+function descriptor(values: Pick<PluginDescriptor, 'id' | 'version' | 'blueprintSchemaVersions'>): PluginDescriptor {
+  return {
+    ...values,
+    validateConfig: () => undefined,
+    registerMigrations: () => undefined,
+    registerServices: () => undefined,
+    registerIpc: () => undefined,
+    registerUiExtensions: () => undefined,
+    registerAcceptanceScenarios: () => undefined
+  };
+}
 
 test('loads and freezes an exact supported blueprint resource', () => {
   const result = loadRuntimeBlueprint(source, digest, new PluginRegistry());
@@ -43,12 +55,22 @@ test('rejects unknown and schema-incompatible plugins', () => {
   );
 
   const registry = new PluginRegistry();
-  registry.register({ id: 'known_plugin', version: '1.0.0', blueprintSchemaVersions: ['2.0'] });
+  registry.register(descriptor({ id: 'known_plugin', version: '1.0.0', blueprintSchemaVersions: ['2.0'] }));
   const incompatibleSource = '{"schemaVersion":"1.0","plugins":[{"id":"known_plugin","config":{}}],"software":{"id":"test_app"}}';
   const incompatibleDigest = 'f5b31876f9dddfec5035ede8daa4d78664b164f02aba58921af40a82dc73ccd9';
   assert.throws(
     () => loadRuntimeBlueprint(incompatibleSource, incompatibleDigest, registry),
     /does not support blueprint schema '1.0'/
+  );
+});
+
+test('rejects plugin descriptors missing fixed validation or registration hooks', () => {
+  const registry = new PluginRegistry();
+  assert.throws(
+    () => registry.register({
+      id: 'incomplete_plugin', version: '1.0.0', blueprintSchemaVersions: ['1.0']
+    } as PluginDescriptor),
+    /missing required hook/
   );
 });
 

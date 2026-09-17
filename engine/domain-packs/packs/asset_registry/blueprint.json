@@ -10,7 +10,6 @@
   "publicExtensionPoints": [
     { "id": "asset.fields", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
     { "id": "asset.relations", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
-    { "id": "asset.module.actions", "targetKind": "module", "targetId": "assets", "allowedOperations": ["append"] },
     { "id": "asset.lifecycle.transitions", "targetKind": "workflow", "targetId": "asset_lifecycle", "allowedOperations": ["add_transition"] }
   ],
   "extensions": [],

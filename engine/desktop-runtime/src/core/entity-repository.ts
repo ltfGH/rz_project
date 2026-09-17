@@ -31,8 +31,10 @@ interface EntityMetadata {
   readonly entity: RuntimeEntity;
   readonly table: string;
   readonly fields: ReadonlyMap<string, RuntimeField>;
-  readonly moduleId: string | undefined;
-  readonly actions: ReadonlySet<string>;
+  readonly modules: readonly Readonly<{
+    id: string;
+    actions: ReadonlySet<string>;
+  }>[];
 }
 
 const IDENTIFIER = /^[a-z][a-z0-9_]{1,63}$/;
@@ -112,19 +114,20 @@ export class EntityRepository {
   constructor(database: RuntimeDatabase, blueprint: RuntimeBlueprint, schema: CompiledSchema) {
     this.#database = database;
     const entities = new Map<string, EntityMetadata>();
-    const modulesByEntity = new Map(
-      (blueprint.modules ?? []).map((module) => [module.entity, module] as const)
-    );
+    const modulesByEntity = new Map<string, Array<{ id: string; actions: ReadonlySet<string> }>>();
+    for (const module of blueprint.modules ?? []) {
+      const modules = modulesByEntity.get(module.entity) ?? [];
+      modules.push({ id: module.id, actions: new Set(module.actions) });
+      modulesByEntity.set(module.entity, modules);
+    }
     for (const entity of blueprint.entities ?? []) {
       const table = schema.entityTables[entity.id];
       if (!table) throw new AppError('BLUEPRINT_INCOMPATIBLE', `Entity '${entity.id}' has no table.`);
-      const module = modulesByEntity.get(entity.id);
       entities.set(entity.id, {
         entity,
         table,
         fields: new Map(entity.fields.map((field) => [field.id, field])),
-        moduleId: module?.id,
-        actions: new Set(module?.actions ?? [])
+        modules: Object.freeze(modulesByEntity.get(entity.id) ?? [])
       });
     }
     this.#entities = entities;
@@ -271,16 +274,14 @@ export class EntityRepository {
     action: 'create' | 'update',
     actor: ActorDto
   ): void {
-    const permission = metadata.moduleId ? `${metadata.moduleId}.${action}` : undefined;
     const protectedHistory = metadata.entity.systemManaged || (
       action === 'update' && metadata.entity.history
     );
-    if (
-      protectedHistory ||
-      !permission ||
-      !metadata.actions.has(action) ||
-      !this.#rolePermissions.get(actor.roleId)?.has(permission)
-    ) {
+    const rolePermissions = this.#rolePermissions.get(actor.roleId);
+    const authorized = metadata.modules.some((module) => (
+      module.actions.has(action) && rolePermissions?.has(`${module.id}.${action}`)
+    ));
+    if (protectedHistory || !authorized) {
       throw new AppError('PERMISSION_DENIED', 'This record can only be changed through its domain action.');
     }
   }

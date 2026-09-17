@@ -156,6 +156,22 @@ test('rejects generic writes when the actor role lacks the action permission', (
   );
 });
 
+test('authorizes a write when one of multiple entity modules owns the matching permission', (t) => {
+  const runtime = createTestRuntime(t);
+  const blueprint = structuredClone(runtime.blueprint);
+  blueprint.modules = [
+    ...(blueprint.modules ?? []),
+    { id: 'asset_readonly', name: '资产只读视图', route: 'asset_readonly', entity: 'asset', actions: ['list', 'view'] }
+  ];
+  const target = new EntityRepository(runtime.database, blueprint, runtime.schema);
+  target.create('service', { code: 'SVC-A', name: '核心服务' }, adminActor);
+
+  const asset = target.create('asset', {
+    code: 'A-1', name: '资产', service_id: 'SVC-A', status: 'active', quantity: 1
+  }, adminActor);
+  assert.equal(asset.values.code, 'A-1');
+});
+
 function validationError(error: unknown): boolean {
   return error instanceof AppError && error.code === 'VALIDATION_FAILED';
 }

@@ -45,4 +45,9 @@ test('loads and composes the production asset registry pack', () => {
   assert.equal(workflow.transitions.length, 5);
   assert.ok(pack.fragment.publicExtensionPoints.some((point) => point.id === 'asset.fields'));
   assert.ok(pack.fragment.publicExtensionPoints.some((point) => point.id === 'asset.lifecycle.transitions'));
+  assert.equal(
+    pack.fragment.publicExtensionPoints.some((point) => point.id === 'asset.module.actions'),
+    false,
+    'generic module actions must not be extensible because update would bypass lifecycle rules'
+  );
 });

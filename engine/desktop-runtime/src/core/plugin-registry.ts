@@ -17,13 +17,22 @@ export interface PluginDescriptor {
   readonly id: string;
   readonly version: string;
   readonly blueprintSchemaVersions: readonly string[];
-  readonly validateConfig?: (config: Readonly<Record<string, JsonValue>>) => void;
-  readonly registerMigrations?: (registry: PluginContributionSink) => void;
-  readonly registerServices?: (registry: PluginContributionSink) => void;
-  readonly registerIpc?: (registry: PluginContributionSink) => void;
-  readonly registerUiExtensions?: (registry: PluginContributionSink) => void;
-  readonly registerAcceptanceScenarios?: (registry: PluginContributionSink) => void;
+  readonly validateConfig: (config: Readonly<Record<string, JsonValue>>) => void;
+  readonly registerMigrations: (registry: PluginContributionSink) => void;
+  readonly registerServices: (registry: PluginContributionSink) => void;
+  readonly registerIpc: (registry: PluginContributionSink) => void;
+  readonly registerUiExtensions: (registry: PluginContributionSink) => void;
+  readonly registerAcceptanceScenarios: (registry: PluginContributionSink) => void;
 }
+
+const REQUIRED_HOOKS = Object.freeze([
+  'validateConfig',
+  'registerMigrations',
+  'registerServices',
+  'registerIpc',
+  'registerUiExtensions',
+  'registerAcceptanceScenarios'
+] as const);
 
 export class PluginRegistry {
   readonly #plugins = new Map<string, Readonly<PluginDescriptor>>();
@@ -31,6 +40,14 @@ export class PluginRegistry {
   register(descriptor: PluginDescriptor): void {
     if (this.#plugins.has(descriptor.id)) {
       throw new AppError('BLUEPRINT_INCOMPATIBLE', `Plugin '${descriptor.id}' is already registered.`);
+    }
+    for (const hook of REQUIRED_HOOKS) {
+      if (typeof descriptor[hook] !== 'function') {
+        throw new AppError(
+          'BLUEPRINT_INCOMPATIBLE',
+          `Plugin '${descriptor.id}' is missing required hook '${hook}'.`
+        );
+      }
     }
     this.#plugins.set(descriptor.id, Object.freeze({
       ...descriptor,
@@ -50,7 +67,7 @@ export class PluginRegistry {
           `Plugin '${selection.id}' does not support blueprint schema '${schemaVersion}'.`
         );
       }
-      descriptor.validateConfig?.(selection.config);
+      descriptor.validateConfig(selection.config);
     }
   }
 
@@ -60,12 +77,12 @@ export class PluginRegistry {
       if (!descriptor) {
         throw new AppError('BLUEPRINT_INCOMPATIBLE', `Plugin '${selection.id}' is not registered.`);
       }
-      descriptor.validateConfig?.(selection.config);
-      descriptor.registerMigrations?.(host.migrations);
-      descriptor.registerServices?.(host.services);
-      descriptor.registerIpc?.(host.ipc);
-      descriptor.registerUiExtensions?.(host.uiExtensions);
-      descriptor.registerAcceptanceScenarios?.(host.acceptanceScenarios);
+      descriptor.validateConfig(selection.config);
+      descriptor.registerMigrations(host.migrations);
+      descriptor.registerServices(host.services);
+      descriptor.registerIpc(host.ipc);
+      descriptor.registerUiExtensions(host.uiExtensions);
+      descriptor.registerAcceptanceScenarios(host.acceptanceScenarios);
     }
   }
 }
