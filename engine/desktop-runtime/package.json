@@ -5,6 +5,7 @@
   "description": "Metadata-driven offline desktop business runtime",
   "main": "dist/runtime/main/index.js",
   "scripts": {
+    "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.renderer.json",
     "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
