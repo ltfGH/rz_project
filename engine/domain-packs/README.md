@@ -1,6 +1,6 @@
 # Domain Pack Composer
 
-This package defines and composes versioned domain-pack catalogs, blueprint fragments and constrained runtime extensions. It is the protocol/composer foundation for six production domain packs.
+This package defines and composes versioned domain-pack catalogs, blueprint fragments and constrained runtime extensions. It is the protocol/composer foundation for production domain packs.
 
 ## Commands
 
@@ -46,5 +46,6 @@ The files use canonical JSON and are published through a sibling staging directo
 - `packs/asset_registry`: production asset registry pack with four related entities, an explicit lifecycle service, responsibility history, deterministic seed data, constrained UI descriptors and a real-SQLite acceptance scenario. See [asset_registry/README.md](packs/asset_registry/README.md).
 - `packs/work_order_service`: standalone production work-order pack with service catalogs, fixed SLA deadlines, dispatch/handling/review separation, append-only events, deterministic seed data and a real-SQLite acceptance scenario. See [work_order_service/README.md](packs/work_order_service/README.md).
 - `packs/inspection_rectification`: standalone production inspection pack with controlled plans, dual-version item execution, abnormal disposition, review/archive blockers, deterministic seeds and a real-SQLite acceptance scenario. See [inspection_rectification/README.md](packs/inspection_rectification/README.md).
+- `packs/inventory_batch`: standalone production inventory pack with material and warehouse configuration, optimistic batch balances, append-only movements, expiry reporting, deterministic seeds and a real-SQLite acceptance scenario. See [inventory_batch/README.md](packs/inventory_batch/README.md).
 
-`tests/fixtures/packs/asset-provider` remains a protocol fixture and must not be used as a production pack. The other three planned production packs and optional cross-pack bridges are implemented in later work units.
+Everything under `tests/fixtures/packs` remains protocol or composition test data and must not be used as a production pack. Additional planned production packs and optional cross-pack bridges are implemented in later work units.

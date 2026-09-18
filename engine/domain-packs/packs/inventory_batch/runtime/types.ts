@@ -1,7 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite';
 export interface InventoryActor{readonly userId:number;readonly username:string;readonly displayName:string;readonly roleId:string}
 export interface InventoryAuditEntry{readonly actor:InventoryActor;readonly permission:string;readonly entityId:'material'|'warehouse'|'inventory_batch';readonly recordId:number;readonly result:'success';readonly details:Readonly<Record<string,unknown>>}
-export interface InventoryContext{readonly connection:DatabaseSync;readonly actor:InventoryActor;readonly quantityScale:number;readonly requirePermission:(actor:InventoryActor,permission:string)=>void;readonly appendAudit:(connection:DatabaseSync,event:InventoryAuditEntry)=>void;readonly identityHasRole:(identityId:string,roleId:string,connection:DatabaseSync)=>boolean;readonly now:()=>Date;readonly materialCode:()=>string;readonly warehouseCode:()=>string;readonly batchCode:()=>string;readonly transactionCode:()=>string}
+export interface InventoryIssueBlockerResult{readonly blocked:boolean;readonly code:string;readonly message:string}
+export interface InventoryIssueBlockerRequest{readonly batchId:number;readonly batchCode:string;readonly materialCode:string;readonly warehouseCode:string;readonly availableQuantity:number;readonly requestedQuantity:number;readonly requesterId:string}
+export interface InventoryReadConnection{find(entityId:string,equalityFilters:Readonly<Record<string,string|number|null>>):readonly Readonly<Record<string,unknown>>[]}
+export type InventoryIssueBlocker=(request:InventoryIssueBlockerRequest,connection:InventoryReadConnection)=>InventoryIssueBlockerResult;
+export interface InventoryContext{readonly connection:DatabaseSync;readonly actor:InventoryActor;readonly quantityScale:number;readonly requirePermission:(actor:InventoryActor,permission:string)=>void;readonly appendAudit:(connection:DatabaseSync,event:InventoryAuditEntry)=>void;readonly identityHasRole:(identityId:string,roleId:string,connection:DatabaseSync)=>boolean;readonly issueBlockers:readonly InventoryIssueBlocker[];readonly now:()=>Date;readonly materialCode:()=>string;readonly warehouseCode:()=>string;readonly batchCode:()=>string;readonly transactionCode:()=>string}
 export interface MaterialInput{readonly name:string;readonly unit:string;readonly expiryWarningDays:number;readonly active:boolean}
 export interface UpdateMaterialRequest extends MaterialInput{readonly materialId:number;readonly expectedVersion:number}
 export interface MaterialResult{readonly materialId:number;readonly materialCode:string;readonly version:number;readonly expiryWarningDays:number;readonly active:boolean}
@@ -16,4 +20,5 @@ export interface ReturnStockRequest extends IssueStockRequest{readonly issueTran
 export interface AdjustStockRequest extends IssueStockRequest{readonly direction:'in'|'out'}
 export interface InventoryMovementResult extends InventoryBatchResult{readonly transactionId:number;readonly transactionCode:string}
 export interface InventoryExpiryStatus{readonly batchId:number;readonly batchCode:string;readonly expiresAt:string|null;readonly status:'not_applicable'|'normal'|'warning'|'expired'}
-export interface InventorySummary{readonly materials:number;readonly warehouses:number;readonly batches:number;readonly totalQuantity:number;readonly transactions:number}
+export interface InventoryRecentTransaction{readonly transactionCode:string;readonly batchCode:string;readonly transactionType:string;readonly quantity:number;readonly operatorId:string;readonly occurredAt:string}
+export interface InventorySummary{readonly materials:number;readonly warehouses:number;readonly batches:number;readonly totalQuantity:number;readonly transactions:number;readonly warningBatches:number;readonly expiredBatches:number;readonly recentTransactions:readonly InventoryRecentTransaction[]}
