@@ -7,9 +7,12 @@ import type {
   ActivateProjectRequest, AddTaskProgressRequest, ApproveTaskRequest, CancelTaskRequest,
   CreateMilestoneRequest, CreateProjectRequest, CreateTaskRequest, MilestoneResult,
   ProjectContext, ProjectResult, RejectTaskReviewRequest, RestoreTaskRequest,
-  TaskResult, UpdatePendingTaskRequest, UpdateProjectRequest, VersionedTaskRequest
+  TaskResult, UpdatePendingTaskRequest, UpdateProjectRequest, VersionedTaskRequest,
+  CreateRiskRequest, MitigateRiskRequest, CloseRiskRequest, ReopenRiskRequest, RiskResult,
+  SubmitDeliverableRequest, ReviewDeliverableRequest, DeliverableResult, CompleteMilestoneRequest
 } from './types';
 import * as tasks from './task-commands';
+import * as support from './support-commands';
 
 function validateProjectInput(request: CreateProjectRequest) {
   const name = required(request.name, 'name');
@@ -21,6 +24,13 @@ function validateProjectInput(request: CreateProjectRequest) {
 }
 
 export class ProjectService {
+  createRisk(request:CreateRiskRequest,context:ProjectContext):RiskResult{return support.createRisk(request,context);}
+  mitigateRisk(request:MitigateRiskRequest,context:ProjectContext):RiskResult{return support.mitigateRisk(request,context);}
+  closeRisk(request:CloseRiskRequest,context:ProjectContext):RiskResult{return support.closeRisk(request,context);}
+  reopenRisk(request:ReopenRiskRequest,context:ProjectContext):RiskResult{return support.reopenRisk(request,context);}
+  submitDeliverable(request:SubmitDeliverableRequest,context:ProjectContext):DeliverableResult{return support.submitDeliverable(request,context);}
+  reviewDeliverable(request:ReviewDeliverableRequest,context:ProjectContext):DeliverableResult{return support.reviewDeliverable(request,context);}
+  completeMilestone(request:CompleteMilestoneRequest,context:ProjectContext):MilestoneResult{return support.completeMilestone(request,context);}
   createTask(request:CreateTaskRequest, context:ProjectContext):TaskResult { return tasks.createTask(request, context); }
   updatePendingTask(request:UpdatePendingTaskRequest, context:ProjectContext):TaskResult { return tasks.updatePendingTask(request, context); }
   startTask(request:VersionedTaskRequest, context:ProjectContext):TaskResult { return tasks.startTask(request, context); }

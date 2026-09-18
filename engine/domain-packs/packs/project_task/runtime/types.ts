@@ -118,3 +118,15 @@ export interface TaskResult {
   readonly projectProgress: number;
   readonly projectVersion: number;
 }
+
+export interface CreateRiskRequest { readonly projectId:number; readonly title:string; readonly description:string; readonly level:'low'|'medium'|'high'; }
+export interface MitigateRiskRequest { readonly riskId:number; readonly expectedVersion:number; readonly disposition:string; }
+export interface CloseRiskRequest { readonly riskId:number; readonly expectedVersion:number; readonly comment:string; }
+export interface ReopenRiskRequest { readonly riskId:number; readonly expectedVersion:number; readonly reason:string; }
+export interface RiskResult { readonly riskId:number; readonly riskCode:string; readonly projectCode:string; readonly status:'open'|'mitigated'|'closed'; readonly version:number; }
+
+export interface SubmitDeliverableRequest { readonly projectId:number; readonly milestoneCode:string|null; readonly deliverableKey:string; readonly name:string; readonly businessVersion:string; readonly required:boolean; readonly fileName:string; readonly fileDigest:string; }
+export interface ReviewDeliverableRequest { readonly deliverableId:number; readonly expectedVersion:number; readonly decision:'accepted'|'rejected'; readonly comment:string; }
+export interface DeliverableResult { readonly deliverableId:number; readonly deliverableCode:string; readonly projectCode:string; readonly status:'submitted'|'accepted'|'rejected'; readonly version:number; }
+
+export interface CompleteMilestoneRequest { readonly milestoneId:number; readonly expectedVersion:number; readonly comment:string; }
