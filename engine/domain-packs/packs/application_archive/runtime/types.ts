@@ -23,3 +23,10 @@ export interface ApplicationResult{applicationId:number;applicationCode:string;s
 export interface RegisterStagedFileRequest{ownerType:'application'|'certificate'|'domain_document';ownerCode:string;businessKey:string;businessVersion:string;staged:StagedArchiveFile}
 export interface FinalizeFileVersionRequest{fileVersionId:number;expectedVersion:number}
 export interface FileVersionResult{fileVersionId:number;fileVersionCode:string;storageStatus:'staged'|'ready'|'failed';version:number}
+export interface ArchiveApplicationRequest{applicationId:number;expectedVersion:number;fileVersionCode:string;comment:string}
+export interface CreateCertificateRequest{certificateKey:string;businessVersion:string;name:string;certificateNo:string;issuedAt:string;expiresAt:string|null;fileVersionCode:string|null}
+export interface RenewCertificateRequest{previousCertificateId:number;expectedPreviousVersion:number;businessVersion:string;name:string;certificateNo:string;issuedAt:string;expiresAt:string|null;fileVersionCode:string|null}
+export interface CertificateResult{certificateId:number;certificateCode:string;certificateKey:string;status:'active'|'expired'|'superseded';version:number}
+export interface RefreshExpiryRemindersRequest{today:string}
+export interface AcknowledgeReminderRequest{reminderId:number;expectedVersion:number}
+export interface ReminderResult{reminderId:number;reminderCode:string;status:'pending'|'acknowledged';version:number}
