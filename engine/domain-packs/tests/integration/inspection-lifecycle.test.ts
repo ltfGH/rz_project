@@ -39,7 +39,7 @@ test('requires all items complete before review and separates reviewer', (t) => 
   assert.equal(submitted.status, 'pending_review');
   assert.ok(submitted.submittedAt);
   assert.throws(() => runtime.database.transaction((connection) => runtime.service.archiveTask({
-    taskId: runtime.task.taskId, expectedTaskVersion: 999, comment: '本人归档'
+    taskId: runtime.task.taskId, expectedTaskVersion: 999, comment: '   '
   }, inspectionContext(connection, executor, { identityHasRole: () => true }))), code('PERMISSION_DENIED'));
   const rejected = runtime.database.transaction((connection) => runtime.service.rejectReview({
     taskId: runtime.task.taskId, expectedTaskVersion: submitted.version, reason: '补充检查'
@@ -70,6 +70,16 @@ test('runs blockers only for archive and rolls back a late audit failure', (t) =
     taskId: runtime.task.taskId, expectedTaskVersion: submitted.version, comment: '归档'
   }, inspectionContext(connection, reviewer, { archiveBlockers: [blocker] }))), code('INVALID_TRANSITION'));
   assert.equal(blockerCalls, 1);
+  const readonlyBlocker = (_taskId: number, read: any) => ({
+    blocked: typeof read.exec === 'function' || typeof read.prepare('SELECT 1').run === 'function',
+    code: 'MUTABLE', message: '阻断器不应获得写能力'
+  });
+  runtime.database.transaction((connection) => runtime.service.archiveTask({
+    taskId: runtime.task.taskId, expectedTaskVersion: submitted.version, comment: '只读检查'
+  }, inspectionContext(connection, reviewer, { archiveBlockers: [readonlyBlocker] })));
+  runtime.database.prepare(
+    "UPDATE biz_inspection_task SET status = 'pending_review', archived_at = NULL, version = ? WHERE id = ?"
+  ).run(submitted.version, runtime.task.taskId);
   const beforeEvents = runtime.database.prepare(
     'SELECT COUNT(*) AS count FROM biz_inspection_event'
   ).get() as { count: number };

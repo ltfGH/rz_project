@@ -17,7 +17,7 @@ function iso(value: number) { return new Date(value).toISOString(); }
 function freeze<T extends object>(values: T[]) { return Object.freeze(values.map((value) => Object.freeze(value))); }
 
 export function generateInspectionSeed(options: InspectionSeedOptions): InspectionSeed {
-  integer(options.seed, 'seed', -0x8000_0000, 0xffff_ffff); integer(options.planCount, 'planCount', 1, 50); integer(options.taskCount, 'taskCount', 4, 10_000);
+  integer(options.seed, 'seed', 0, 0xffff_ffff); integer(options.planCount, 'planCount', 1, 50); integer(options.taskCount, 'taskCount', 4, 10_000);
   const random = randomFor(options.seed); const plans: PlanRecord[] = []; const tasks: TaskRecord[] = []; const items: ItemRecord[] = []; const events: EventRecord[] = [];
   for (let index = 0; index < options.planCount; index += 1) plans.push({ code: code('IPLAN', index), name: `巡检计划-${String(index + 1).padStart(2, '0')}`, cycle_days: 1 + Math.floor(random() * 30), instructions: '按检查项逐项执行并记录', active: true });
   let itemIndex = 0; let eventIndex = 0; const dayOffset = (options.seed >>> 0) % 365;

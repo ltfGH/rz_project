@@ -25,9 +25,16 @@ export interface InspectionArchiveBlockerResult {
   readonly message: string;
 }
 
+export interface InspectionReadStatement {
+  get(...values: any[]): unknown;
+  all(...values: any[]): unknown[];
+}
+export interface InspectionReadConnection {
+  prepare(sql: string): InspectionReadStatement;
+}
 export type InspectionArchiveBlocker = (
   taskId: number,
-  connection: DatabaseSync
+  connection: InspectionReadConnection
 ) => InspectionArchiveBlockerResult;
 
 export interface InspectionContext {

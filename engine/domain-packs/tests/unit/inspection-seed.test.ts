@@ -50,6 +50,7 @@ test('uses only anonymous operational identities and validates parameter bounds'
   const valid = { seed: 1, planCount: 1, taskCount: 4 };
   for (const options of [
     { ...valid, seed: 1.5 }, { ...valid, seed: 0x1_0000_0000 },
+    { ...valid, seed: -1 },
     { ...valid, planCount: 0 }, { ...valid, planCount: 51 },
     { ...valid, taskCount: 3 }, { ...valid, taskCount: 10_001 }
   ]) assert.throws(() => generateInspectionSeed(options), RangeError);

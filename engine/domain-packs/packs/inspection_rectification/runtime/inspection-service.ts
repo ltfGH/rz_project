@@ -124,6 +124,16 @@ function assertReviewer(row: TaskRow, context: InspectionContext): void {
   }
 }
 
+function readOnlyConnection(context: InspectionContext) {
+  return Object.freeze({ prepare: (sql: string) => {
+    const statement = context.connection.prepare(sql);
+    return Object.freeze({
+      get: (...values: any[]) => statement.get(...values),
+      all: (...values: any[]) => statement.all(...values)
+    });
+  } });
+}
+
 export class InspectionService {
   createPlan(
     request: CreateInspectionPlanRequest,
@@ -299,13 +309,16 @@ export class InspectionService {
   assignExecutor(request: AssignInspectionExecutorRequest, context: InspectionContext): InspectionTaskResult {
     const permission = 'inspection_tasks.assign';
     context.requirePermission(context.actor, permission);
+    const row = readTask(request.taskId, context);
+    if (!context.identityHasRole(context.actor.username, 'inspection_planner', context.connection)) {
+      throw new AppError('PERMISSION_DENIED', 'Current identity is not an active inspection planner.');
+    }
+    if (row.status !== 'pending') throw new AppError('INVALID_TRANSITION', 'Only pending tasks can be assigned.');
     const executorId = required(request.executorId, 'executorId');
     const reason = required(request.reason, 'reason');
     if (!context.identityHasRole(executorId, 'inspection_executor', context.connection)) {
       throw new AppError('VALIDATION_FAILED', 'Executor identity is not active.');
     }
-    const row = readTask(request.taskId, context);
-    if (row.status !== 'pending') throw new AppError('INVALID_TRANSITION', 'Only pending tasks can be assigned.');
     if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
     const now = context.now().toISOString();
     const update = context.connection.prepare(
@@ -345,11 +358,17 @@ export class InspectionService {
     const row = readTask(request.taskId, context);
     assertExecutor(row, context);
     if (row.status !== 'executing') throw new AppError('INVALID_TRANSITION', 'Task is not executing.');
-    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
     const item = context.connection.prepare(
       'SELECT id, task_code, version FROM biz_inspection_item WHERE id = ?'
     ).get(request.itemId) as { id: number; task_code: string; version: number } | undefined;
     if (!item || item.task_code !== row.code) throw new AppError('NOT_FOUND', 'Inspection item was not found for this task.');
+    if (request.result !== 'normal' && request.result !== 'abnormal') {
+      throw new AppError('VALIDATION_FAILED', 'Inspection result is invalid.');
+    }
+    if (request.result === 'normal' && (request.finding !== null || request.disposition !== null)) {
+      throw new AppError('VALIDATION_FAILED', 'Normal results cannot contain abnormal details.');
+    }
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
     if (item.version !== request.expectedItemVersion) throw new AppError('VERSION_CONFLICT', 'Item version conflict.');
     let finding: string | null = null;
     let disposition: string | null = null;
@@ -409,10 +428,10 @@ export class InspectionService {
   rejectReview(request: RejectInspectionReviewRequest, context: InspectionContext): InspectionTaskResult {
     const permission = 'inspection_tasks.review';
     context.requirePermission(context.actor, permission);
-    const reason = required(request.reason, 'reason');
     const row = readTask(request.taskId, context);
     assertReviewer(row, context);
     if (row.status !== 'pending_review') throw new AppError('INVALID_TRANSITION', 'Only pending review tasks can be rejected.');
+    const reason = required(request.reason, 'reason');
     if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
     const now = context.now().toISOString();
     const update = context.connection.prepare(
@@ -429,12 +448,12 @@ export class InspectionService {
   archiveTask(request: ArchiveInspectionTaskRequest, context: InspectionContext): InspectionTaskResult {
     const permission = 'inspection_tasks.review';
     context.requirePermission(context.actor, permission);
-    const comment = required(request.comment, 'comment');
     const row = readTask(request.taskId, context);
     assertReviewer(row, context);
     if (row.status !== 'pending_review') throw new AppError('INVALID_TRANSITION', 'Only pending review tasks can be archived.');
+    const comment = required(request.comment, 'comment');
     for (const blocker of context.archiveBlockers) {
-      const result = blocker(row.id, context.connection);
+      const result = blocker(row.id, readOnlyConnection(context));
       if (result.blocked) throw new AppError('INVALID_TRANSITION', result.message, { details: { blockerCode: result.code } });
     }
     if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');

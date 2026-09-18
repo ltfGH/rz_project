@@ -96,6 +96,28 @@ test('rejects invalid result details, ownership, identity and stale versions', (
     taskId: task.taskId, itemId: 999, expectedTaskVersion: started.version,
     expectedItemVersion: 1, result: 'normal', finding: null, disposition: null
   }, inspectionContext(connection, executor))), code('NOT_FOUND'));
+  assert.throws(() => database.transaction((connection) => service.recordItemResult({
+    taskId: task.taskId, itemId: task.itemIds[0]!, expectedTaskVersion: started.version,
+    expectedItemVersion: 1, result: 'invalid' as any, finding: null, disposition: null
+  }, inspectionContext(connection, executor))), code('VALIDATION_FAILED'));
+  assert.throws(() => database.transaction((connection) => service.recordItemResult({
+    taskId: task.taskId, itemId: task.itemIds[0]!, expectedTaskVersion: started.version,
+    expectedItemVersion: 1, result: 'normal', finding: '不应存在', disposition: null
+  }, inspectionContext(connection, executor))), code('VALIDATION_FAILED'));
+});
+
+test('reads ownership before exposing versions or validating assignment targets', (t) => {
+  const { database, service, task } = pendingTask(t);
+  assert.throws(() => database.transaction((connection) => service.assignExecutor({
+    taskId: 999, expectedTaskVersion: 1, executorId: 'missing', reason: '调整'
+  }, inspectionContext(connection, planner, { identityHasRole: () => false }))), code('NOT_FOUND'));
+  const started = database.transaction((connection) => service.startTask({
+    taskId: task.taskId, expectedTaskVersion: 1
+  }, inspectionContext(connection, executor)));
+  assert.throws(() => database.transaction((connection) => service.recordItemResult({
+    taskId: task.taskId, itemId: 999, expectedTaskVersion: started.version + 100,
+    expectedItemVersion: 1, result: 'normal', finding: null, disposition: null
+  }, inspectionContext(connection, executor))), code('NOT_FOUND'));
 });
 
 function code(expected: string): (error: unknown) => boolean {
