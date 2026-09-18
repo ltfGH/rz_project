@@ -130,3 +130,8 @@ export interface ReviewDeliverableRequest { readonly deliverableId:number; reado
 export interface DeliverableResult { readonly deliverableId:number; readonly deliverableCode:string; readonly projectCode:string; readonly status:'submitted'|'accepted'|'rejected'; readonly version:number; }
 
 export interface CompleteMilestoneRequest { readonly milestoneId:number; readonly expectedVersion:number; readonly comment:string; }
+export interface RequestProjectClose { readonly projectId:number; readonly expectedVersion:number; readonly comment:string; }
+export interface RejectProjectClose { readonly projectId:number; readonly expectedVersion:number; readonly reason:string; }
+export interface ApproveProjectClose { readonly projectId:number; readonly expectedVersion:number; readonly comment:string; }
+export interface ProjectSummary { readonly tasks:number; readonly pendingTaskReviews:number; readonly milestones:number; readonly completedMilestones:number; readonly openHighRisks:number; readonly deliverableVersions:number; readonly submittedDeliverables:number; readonly progress:number; }
+export interface ProjectDashboard { readonly planning:number; readonly active:number; readonly pendingClose:number; readonly closed:number; readonly overdueProjects:number; readonly overdueMilestones:number; readonly pendingTaskReviews:number; readonly openHighRisks:number; readonly submittedDeliverables:number; }

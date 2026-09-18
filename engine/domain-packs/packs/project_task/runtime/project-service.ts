@@ -10,9 +10,12 @@ import type {
   TaskResult, UpdatePendingTaskRequest, UpdateProjectRequest, VersionedTaskRequest,
   CreateRiskRequest, MitigateRiskRequest, CloseRiskRequest, ReopenRiskRequest, RiskResult,
   SubmitDeliverableRequest, ReviewDeliverableRequest, DeliverableResult, CompleteMilestoneRequest
+  ,RequestProjectClose,RejectProjectClose,ApproveProjectClose,ProjectSummary,ProjectDashboard
 } from './types';
 import * as tasks from './task-commands';
 import * as support from './support-commands';
+import * as closure from './closure-commands';
+import * as queries from './project-queries';
 
 function validateProjectInput(request: CreateProjectRequest) {
   const name = required(request.name, 'name');
@@ -24,6 +27,11 @@ function validateProjectInput(request: CreateProjectRequest) {
 }
 
 export class ProjectService {
+  requestProjectClose(request:RequestProjectClose,context:ProjectContext):ProjectResult{return closure.requestProjectClose(request,context);}
+  rejectProjectClose(request:RejectProjectClose,context:ProjectContext):ProjectResult{return closure.rejectProjectClose(request,context);}
+  approveProjectClose(request:ApproveProjectClose,context:ProjectContext):ProjectResult{return closure.approveProjectClose(request,context);}
+  readProjectSummary(projectId:number,context:ProjectContext):ProjectSummary{return queries.readProjectSummary(projectId,context);}
+  readProjectDashboard(context:ProjectContext):ProjectDashboard{return queries.readProjectDashboard(context);}
   createRisk(request:CreateRiskRequest,context:ProjectContext):RiskResult{return support.createRisk(request,context);}
   mitigateRisk(request:MitigateRiskRequest,context:ProjectContext):RiskResult{return support.mitigateRisk(request,context);}
   closeRisk(request:CloseRiskRequest,context:ProjectContext):RiskResult{return support.closeRisk(request,context);}
