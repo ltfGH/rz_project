@@ -1,0 +1,132 @@
+{
+  "fragmentVersion": "1.0",
+  "pack": { "id": "inspection_rectification", "version": "1.0.0" },
+  "owns": {
+    "entities": ["inspection_plan", "inspection_task", "inspection_item", "inspection_event"],
+    "modules": ["inspection_plans", "inspection_tasks", "inspection_items", "inspection_events"],
+    "workflows": ["inspection_lifecycle"],
+    "roles": ["inspection_planner", "inspection_executor", "inspection_reviewer", "inspection_admin"]
+  },
+  "publicExtensionPoints": [
+    { "id": "inspection_task.fields", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },
+    { "id": "inspection_task.relations", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },
+    { "id": "inspection_task.detail.tabs", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },
+    { "id": "inspection_task.create.sources", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },
+    { "id": "inspection_item.fields", "targetKind": "entity", "targetId": "inspection_item", "allowedOperations": ["append"] },
+    { "id": "inspection_item.relations", "targetKind": "entity", "targetId": "inspection_item", "allowedOperations": ["append"] },
+    { "id": "inspection.lifecycle.transitions", "targetKind": "workflow", "targetId": "inspection_lifecycle", "allowedOperations": ["add_transition"] }
+  ],
+  "extensions": [],
+  "blueprint": {
+    "entities": [
+      {
+        "id": "inspection_plan", "name": "巡检计划", "retention": "protected", "history": false, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "计划编码", "type": "text", "required": true, "unique": true },
+          { "id": "name", "name": "计划名称", "type": "text", "required": true, "unique": false },
+          { "id": "cycle_days", "name": "执行周期天数", "type": "integer", "required": true, "unique": false },
+          { "id": "instructions", "name": "执行说明", "type": "text", "required": true, "unique": false },
+          { "id": "active", "name": "启用", "type": "boolean", "required": true, "unique": false, "default": true }
+        ],
+        "relations": []
+      },
+      {
+        "id": "inspection_task", "name": "巡检任务", "retention": "protected", "history": false, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "任务编码", "type": "text", "required": true, "unique": true },
+          { "id": "plan_code", "name": "巡检计划", "type": "reference", "required": true, "unique": false, "reference": { "entity": "inspection_plan", "field": "code" } },
+          { "id": "title", "name": "任务标题", "type": "text", "required": true, "unique": false },
+          { "id": "status", "name": "任务状态", "type": "enum", "required": true, "unique": false, "options": ["pending", "executing", "pending_review", "archived"], "default": "pending" },
+          { "id": "executor_id", "name": "执行人", "type": "text", "required": true, "unique": false },
+          { "id": "scheduled_at", "name": "计划执行时间", "type": "datetime", "required": true, "unique": false },
+          { "id": "started_at", "name": "开始时间", "type": "datetime", "required": false, "unique": false },
+          { "id": "submitted_at", "name": "提交复核时间", "type": "datetime", "required": false, "unique": false },
+          { "id": "archived_at", "name": "归档时间", "type": "datetime", "required": false, "unique": false }
+        ],
+        "relations": [
+          { "id": "task_plan", "name": "所属计划", "field": "plan_code", "targetEntity": "inspection_plan", "targetField": "code", "onDelete": "restrict" }
+        ],
+        "detailTabs": [],
+        "createSources": []
+      },
+      {
+        "id": "inspection_item", "name": "检查项", "retention": "protected", "history": false, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "检查项编码", "type": "text", "required": true, "unique": true },
+          { "id": "task_code", "name": "巡检任务", "type": "reference", "required": true, "unique": false, "reference": { "entity": "inspection_task", "field": "code" } },
+          { "id": "name", "name": "检查项名称", "type": "text", "required": true, "unique": false },
+          { "id": "standard", "name": "检查标准", "type": "text", "required": true, "unique": false },
+          { "id": "result", "name": "检查结果", "type": "enum", "required": true, "unique": false, "options": ["pending", "normal", "abnormal"], "default": "pending" },
+          { "id": "finding", "name": "异常描述", "type": "text", "required": false, "unique": false },
+          { "id": "disposition", "name": "处置说明", "type": "text", "required": false, "unique": false },
+          { "id": "checked_at", "name": "检查时间", "type": "datetime", "required": false, "unique": false }
+        ],
+        "relations": [
+          { "id": "item_task", "name": "所属任务", "field": "task_code", "targetEntity": "inspection_task", "targetField": "code", "onDelete": "restrict" }
+        ]
+      },
+      {
+        "id": "inspection_event", "name": "巡检事件", "retention": "append_only", "history": true, "systemManaged": true,
+        "fields": [
+          { "id": "code", "name": "事件编码", "type": "text", "required": true, "unique": true },
+          { "id": "task_code", "name": "巡检任务", "type": "reference", "required": true, "unique": false, "reference": { "entity": "inspection_task", "field": "code" } },
+          { "id": "event_type", "name": "事件类型", "type": "enum", "required": true, "unique": false, "options": ["created", "assigned", "started", "item_recorded", "submitted", "review_rejected", "archived"] },
+          { "id": "from_status", "name": "原状态", "type": "text", "required": false, "unique": false },
+          { "id": "to_status", "name": "新状态", "type": "text", "required": false, "unique": false },
+          { "id": "actor_id", "name": "操作人", "type": "text", "required": true, "unique": false },
+          { "id": "content", "name": "事件内容", "type": "text", "required": true, "unique": false },
+          { "id": "occurred_at", "name": "发生时间", "type": "datetime", "required": true, "unique": false }
+        ],
+        "relations": [
+          { "id": "event_task", "name": "所属任务", "field": "task_code", "targetEntity": "inspection_task", "targetField": "code", "onDelete": "restrict" }
+        ]
+      }
+    ],
+    "modules": [
+      { "id": "inspection_plans", "name": "巡检计划", "route": "inspection_plans", "entity": "inspection_plan", "actions": ["list", "view", "create_plan", "update_plan"] },
+      { "id": "inspection_tasks", "name": "巡检任务", "route": "inspection_tasks", "entity": "inspection_task", "actions": ["list", "view", "create_task", "assign", "execute", "submit", "review"] },
+      { "id": "inspection_items", "name": "检查项", "route": "inspection_items", "entity": "inspection_item", "actions": ["list", "view", "record_result"] },
+      { "id": "inspection_events", "name": "巡检历史", "route": "inspection_events", "entity": "inspection_event", "actions": ["list", "view"] }
+    ],
+    "workflows": [{
+      "id": "inspection_lifecycle", "name": "巡检执行与复核", "entity": "inspection_task", "initialState": "pending", "terminalStates": ["archived"],
+      "states": ["pending", "executing", "pending_review", "archived"],
+      "transitions": [
+        { "id": "assign_executor", "name": "调整执行人", "from": "pending", "to": "pending", "permission": "inspection_tasks.assign", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "start_task", "name": "开始巡检", "from": "pending", "to": "executing", "permission": "inspection_tasks.execute", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "submit_review", "name": "提交复核", "from": "executing", "to": "pending_review", "permission": "inspection_tasks.submit", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "reject_review", "name": "驳回返工", "from": "pending_review", "to": "executing", "permission": "inspection_tasks.review", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] },
+        { "id": "archive_task", "name": "复核归档", "from": "pending_review", "to": "archived", "permission": "inspection_tasks.review", "conditions": [], "actions": [{ "type": "append_event", "parameters": {} }, { "type": "write_audit", "parameters": {} }] }
+      ]
+    }],
+    "roles": [
+      { "id": "inspection_planner", "name": "巡检计划人员", "permissions": ["inspection_plans.list", "inspection_plans.view", "inspection_plans.create_plan", "inspection_plans.update_plan", "inspection_tasks.list", "inspection_tasks.view", "inspection_tasks.create_task", "inspection_tasks.assign", "inspection_items.list", "inspection_items.view", "inspection_events.list", "inspection_events.view"] },
+      { "id": "inspection_executor", "name": "巡检执行人员", "permissions": ["inspection_plans.list", "inspection_plans.view", "inspection_tasks.list", "inspection_tasks.view", "inspection_tasks.execute", "inspection_tasks.submit", "inspection_items.list", "inspection_items.view", "inspection_items.record_result", "inspection_events.list", "inspection_events.view"] },
+      { "id": "inspection_reviewer", "name": "巡检复核人员", "permissions": ["inspection_plans.list", "inspection_plans.view", "inspection_tasks.list", "inspection_tasks.view", "inspection_tasks.review", "inspection_items.list", "inspection_items.view", "inspection_events.list", "inspection_events.view"] },
+      { "id": "inspection_admin", "name": "巡检管理员", "permissions": ["inspection_plans.list", "inspection_plans.view", "inspection_plans.create_plan", "inspection_plans.update_plan", "inspection_tasks.list", "inspection_tasks.view", "inspection_items.list", "inspection_items.view", "inspection_events.list", "inspection_events.view"] }
+    ],
+    "dashboards": [
+      { "id": "inspection_task_total", "name": "巡检任务总数", "entity": "inspection_task", "aggregation": "count", "filters": [] },
+      { "id": "inspection_task_pending", "name": "待执行任务", "entity": "inspection_task", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "pending" }] },
+      { "id": "inspection_task_executing", "name": "执行中任务", "entity": "inspection_task", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "executing" }] },
+      { "id": "inspection_task_pending_review", "name": "待复核任务", "entity": "inspection_task", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "pending_review" }] },
+      { "id": "inspection_task_archived", "name": "已归档任务", "entity": "inspection_task", "aggregation": "count", "filters": [{ "field": "status", "operator": "eq", "value": "archived" }] }
+    ]
+  },
+  "seed": {
+    "records": {
+      "inspection_plan": [
+        { "code": "IPLAN-001", "name": "通用巡检计划", "cycle_days": 7, "instructions": "按检查项逐项执行并记录", "active": true }
+      ],
+      "inspection_task": [
+        { "code": "ITASK-001", "plan_code": "IPLAN-001", "title": "示例巡检任务", "status": "pending", "executor_id": "执行岗位-01", "scheduled_at": "2026-01-02T08:00:00.000Z", "started_at": null, "submitted_at": null, "archived_at": null }
+      ],
+      "inspection_item": [
+        { "code": "IITEM-001", "task_code": "ITASK-001", "name": "运行状态", "standard": "状态指示正常", "result": "pending", "finding": null, "disposition": null, "checked_at": null }
+      ],
+      "inspection_event": [
+        { "code": "IEVT-001", "task_code": "ITASK-001", "event_type": "created", "from_status": null, "to_status": "pending", "actor_id": "计划岗位-01", "content": "初始化巡检任务", "occurred_at": "2026-01-01T08:00:00.000Z" }
+      ]
+    }
+  }
+}

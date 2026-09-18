@@ -1,0 +1,21 @@
+{
+  "catalogVersion": "1.0",
+  "id": "inspection_rectification",
+  "version": "1.0.0",
+  "name": "巡检与整改",
+  "description": "提供巡检计划、任务执行、检查项结果、异常处置和复核归档能力",
+  "blueprintSchemaVersions": ["1.0"],
+  "runtimeVersions": ["1.0.0"],
+  "provides": ["inspection.core"],
+  "requires": [],
+  "allowedDependencies": [],
+  "migrationsVersion": 1,
+  "entrypoints": {
+    "fragment": "blueprint.json",
+    "runtime": "runtime/index.ts",
+    "ui": "ui/index.ts",
+    "seed": "seed/index.ts",
+    "tests": "tests/index.ts"
+  },
+  "uiSlots": ["entity.detail.tabs", "entity.detail.actions", "dashboard.sections"]
+}
