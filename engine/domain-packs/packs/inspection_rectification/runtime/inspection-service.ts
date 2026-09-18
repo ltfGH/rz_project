@@ -125,13 +125,33 @@ function assertReviewer(row: TaskRow, context: InspectionContext): void {
 }
 
 function readOnlyConnection(context: InspectionContext) {
-  return Object.freeze({ prepare: (sql: string) => {
-    const statement = context.connection.prepare(sql);
-    return Object.freeze({
-      get: (...values: any[]) => statement.get(...values),
-      all: (...values: any[]) => statement.all(...values)
-    });
-  } });
+  const identifier = (value: string) => {
+    if (!/^[a-z][a-z0-9_]{1,63}$/.test(value)) {
+      throw new AppError('VALIDATION_FAILED', 'Archive blocker query identifier is invalid.');
+    }
+    return `"${value}"`;
+  };
+  return Object.freeze({
+    find: (
+      entityId: string,
+      equalityFilters: Readonly<Record<string, string | number | null>>
+    ) => {
+      const entries = Object.entries(equalityFilters);
+      if (entries.length > 20) {
+        throw new AppError('VALIDATION_FAILED', 'Archive blocker query has too many filters.');
+      }
+      const values: Array<string | number | null> = [];
+      const clauses = entries.map(([field, value]) => {
+        values.push(value);
+        return `${identifier(field)} IS ?`;
+      });
+      const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
+      const rows = context.connection.prepare(
+        `SELECT * FROM ${identifier(`biz_${entityId}`)}${where} ORDER BY "id"`
+      ).all(...values) as unknown as Array<Record<string, unknown>>;
+      return Object.freeze(rows.map((row) => Object.freeze({ ...row })));
+    }
+  });
 }
 
 export class InspectionService {

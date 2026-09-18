@@ -71,7 +71,8 @@ test('runs blockers only for archive and rolls back a late audit failure', (t) =
   }, inspectionContext(connection, reviewer, { archiveBlockers: [blocker] }))), code('INVALID_TRANSITION'));
   assert.equal(blockerCalls, 1);
   const readonlyBlocker = (_taskId: number, read: any) => ({
-    blocked: typeof read.exec === 'function' || typeof read.prepare('SELECT 1').run === 'function',
+    blocked: typeof read.exec === 'function' || typeof read.prepare === 'function' ||
+      read.find('inspection_task', { id: runtime.task.taskId }).length !== 1,
     code: 'MUTABLE', message: '阻断器不应获得写能力'
   });
   runtime.database.transaction((connection) => runtime.service.archiveTask({

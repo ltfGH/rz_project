@@ -25,12 +25,11 @@ export interface InspectionArchiveBlockerResult {
   readonly message: string;
 }
 
-export interface InspectionReadStatement {
-  get(...values: any[]): unknown;
-  all(...values: any[]): unknown[];
-}
 export interface InspectionReadConnection {
-  prepare(sql: string): InspectionReadStatement;
+  find(
+    entityId: string,
+    equalityFilters: Readonly<Record<string, string | number | null>>
+  ): readonly Readonly<Record<string, unknown>>[];
 }
 export type InspectionArchiveBlocker = (
   taskId: number,
