@@ -1,0 +1,3 @@
+import test from'node:test';import assert from'node:assert/strict';import catalog from'../../packs/project_task/catalog.json';import{projectUiDescriptor}from'../../packs/project_task/ui/index';
+test('registers only declared project slots as pure descriptors',()=>{assert.deepEqual([...projectUiDescriptor.slots],catalog.uiSlots);assert.equal(projectUiDescriptor.extensions.length,8);assert.equal(hasFunction(projectUiDescriptor),false);});
+function hasFunction(value:unknown):boolean{if(typeof value==='function')return true;if(Array.isArray(value))return value.some(hasFunction);return value!==null&&typeof value==='object'?Object.values(value).some(hasFunction):false;}
