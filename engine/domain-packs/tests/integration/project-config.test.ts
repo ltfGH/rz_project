@@ -78,6 +78,7 @@ test('blocks generic writes for every project entity and rolls back a late audit
   const service = new ProjectService();
   for (const entity of ['project','milestone','project_task','project_risk','deliverable','project_event']) {
     assert.throws(() => runtime.repository.create(entity, {}, admin), hasCode('PERMISSION_DENIED'));
+    assert.throws(() => runtime.repository.update(entity, 1, 1, { code:'CHANGED' }, admin), hasCode('PERMISSION_DENIED'));
   }
   assert.throws(() => runtime.database.transaction((connection) => service.createProject({
     name:'回滚项目', managerId:manager.username, plannedStartAt:'2026-09-20', plannedEndAt:'2026-12-31'
