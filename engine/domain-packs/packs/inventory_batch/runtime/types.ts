@@ -8,3 +8,6 @@ export interface MaterialResult{readonly materialId:number;readonly materialCode
 export interface WarehouseInput{readonly name:string;readonly active:boolean}
 export interface UpdateWarehouseRequest extends WarehouseInput{readonly warehouseId:number;readonly expectedVersion:number}
 export interface WarehouseResult{readonly warehouseId:number;readonly warehouseCode:string;readonly version:number;readonly active:boolean}
+export interface ReceiveNewBatchRequest{readonly materialCode:string;readonly warehouseCode:string;readonly batchNo:string;readonly quantity:number;readonly producedAt:string|null;readonly receivedAt:string;readonly expiresAt:string|null;readonly reason:string}
+export interface ReceiveExistingBatchRequest{readonly batchId:number;readonly expectedVersion:number;readonly quantity:number;readonly reason:string}
+export interface InventoryBatchResult{readonly batchId:number;readonly batchCode:string;readonly version:number;readonly quantity:number}
