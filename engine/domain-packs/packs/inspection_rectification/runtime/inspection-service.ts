@@ -1,6 +1,7 @@
 import { AppError } from '../../../../desktop-runtime/src/shared/errors';
 
 import type {
+  ArchiveInspectionTaskRequest,
   AssignInspectionExecutorRequest,
   CreateInspectionPlanRequest,
   CreateInspectionTaskRequest,
@@ -9,7 +10,9 @@ import type {
   InspectionItemUpdateResult,
   InspectionTaskResult,
   RecordInspectionItemRequest,
+  RejectInspectionReviewRequest,
   StartInspectionTaskRequest,
+  SubmitInspectionReviewRequest,
   UpdateInspectionPlanRequest
 } from './types';
 
@@ -79,6 +82,7 @@ function assertExecutor(row: TaskRow, context: InspectionContext): void {
 
 function taskResult(row: TaskRow, context: InspectionContext, changes: Partial<{
   status: TaskRow['status']; version: number; executorId: string; startedAt: string | null;
+  submittedAt: string | null; archivedAt: string | null;
 }> = {}): InspectionTaskResult {
   const itemRows = context.connection.prepare(
     'SELECT id FROM biz_inspection_item WHERE task_code = ? ORDER BY id'
@@ -88,14 +92,15 @@ function taskResult(row: TaskRow, context: InspectionContext, changes: Partial<{
     version: changes.version ?? row.version,
     executorId: changes.executorId ?? row.executor_id,
     startedAt: changes.startedAt === undefined ? row.started_at : changes.startedAt,
-    submittedAt: row.submitted_at, archivedAt: row.archived_at,
+    submittedAt: changes.submittedAt === undefined ? row.submitted_at : changes.submittedAt,
+    archivedAt: changes.archivedAt === undefined ? row.archived_at : changes.archivedAt,
     itemIds: Object.freeze(itemRows.map((item) => Number(item.id)))
   });
 }
 
 function appendTaskEvent(
   context: InspectionContext, row: TaskRow,
-  type: 'assigned' | 'started' | 'item_recorded',
+  type: 'assigned' | 'started' | 'item_recorded' | 'submitted' | 'review_rejected' | 'archived',
   from: TaskRow['status'], to: TaskRow['status'], content: string, occurredAt: string
 ): string {
   const code = context.eventCode();
@@ -106,6 +111,15 @@ function appendTaskEvent(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
   ).run(code, row.code, type, from, to, context.actor.username, content, occurredAt, occurredAt, occurredAt);
   return code;
+}
+
+function assertReviewer(row: TaskRow, context: InspectionContext): void {
+  if (!context.identityHasRole(context.actor.username, 'inspection_reviewer', context.connection)) {
+    throw new AppError('PERMISSION_DENIED', 'Current identity is not an active inspection reviewer.');
+  }
+  if (row.executor_id === context.actor.username) {
+    throw new AppError('PERMISSION_DENIED', 'The executor cannot review the same task.');
+  }
 }
 
 export class InspectionService {
@@ -358,5 +372,79 @@ export class InspectionService {
       details: Object.freeze({ eventCode, result: request.result }) }));
     return Object.freeze({ taskId: row.id, itemId: item.id, taskVersion: row.version + 1,
       itemVersion: item.version + 1, result: request.result });
+  }
+
+  submitReview(request: SubmitInspectionReviewRequest, context: InspectionContext): InspectionTaskResult {
+    const permission = 'inspection_tasks.submit';
+    context.requirePermission(context.actor, permission);
+    const row = readTask(request.taskId, context);
+    assertExecutor(row, context);
+    if (row.status !== 'executing') throw new AppError('INVALID_TRANSITION', 'Only executing tasks can be submitted.');
+    const counts = context.connection.prepare(
+      `SELECT
+        SUM(CASE WHEN result = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+        SUM(CASE WHEN result = 'abnormal' AND
+          (finding IS NULL OR TRIM(finding) = '' OR disposition IS NULL OR TRIM(disposition) = '')
+          THEN 1 ELSE 0 END) AS incomplete_abnormal
+       FROM biz_inspection_item WHERE task_code = ?`
+    ).get(row.code) as { pending_count: number; incomplete_abnormal: number };
+    if (Number(counts.pending_count) > 0 || Number(counts.incomplete_abnormal) > 0) {
+      throw new AppError('INVALID_TRANSITION', 'All inspection items and abnormal dispositions must be complete.');
+    }
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const now = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_inspection_task SET status = 'pending_review', submitted_at = ?,
+       version = version + 1, updated_at = ? WHERE id = ? AND version = ?`
+    ).run(now, now, row.id, request.expectedTaskVersion);
+    if (Number(update.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const eventCode = appendTaskEvent(context, row, 'submitted', 'executing', 'pending_review', '提交复核', now);
+    context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
+      entityId: 'inspection_task', recordId: row.id, result: 'success', details: Object.freeze({ eventCode }) }));
+    return taskResult(row, context, { status: 'pending_review', version: row.version + 1, submittedAt: now });
+  }
+
+  rejectReview(request: RejectInspectionReviewRequest, context: InspectionContext): InspectionTaskResult {
+    const permission = 'inspection_tasks.review';
+    context.requirePermission(context.actor, permission);
+    const reason = required(request.reason, 'reason');
+    const row = readTask(request.taskId, context);
+    assertReviewer(row, context);
+    if (row.status !== 'pending_review') throw new AppError('INVALID_TRANSITION', 'Only pending review tasks can be rejected.');
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const now = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_inspection_task SET status = 'executing', submitted_at = NULL,
+       version = version + 1, updated_at = ? WHERE id = ? AND version = ?`
+    ).run(now, row.id, request.expectedTaskVersion);
+    if (Number(update.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const eventCode = appendTaskEvent(context, row, 'review_rejected', 'pending_review', 'executing', reason, now);
+    context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
+      entityId: 'inspection_task', recordId: row.id, result: 'success', details: Object.freeze({ eventCode, reason }) }));
+    return taskResult(row, context, { status: 'executing', version: row.version + 1, submittedAt: null });
+  }
+
+  archiveTask(request: ArchiveInspectionTaskRequest, context: InspectionContext): InspectionTaskResult {
+    const permission = 'inspection_tasks.review';
+    context.requirePermission(context.actor, permission);
+    const comment = required(request.comment, 'comment');
+    const row = readTask(request.taskId, context);
+    assertReviewer(row, context);
+    if (row.status !== 'pending_review') throw new AppError('INVALID_TRANSITION', 'Only pending review tasks can be archived.');
+    for (const blocker of context.archiveBlockers) {
+      const result = blocker(row.id, context.connection);
+      if (result.blocked) throw new AppError('INVALID_TRANSITION', result.message, { details: { blockerCode: result.code } });
+    }
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const now = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_inspection_task SET status = 'archived', archived_at = ?,
+       version = version + 1, updated_at = ? WHERE id = ? AND version = ?`
+    ).run(now, now, row.id, request.expectedTaskVersion);
+    if (Number(update.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const eventCode = appendTaskEvent(context, row, 'archived', 'pending_review', 'archived', comment, now);
+    context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
+      entityId: 'inspection_task', recordId: row.id, result: 'success', details: Object.freeze({ eventCode, comment }) }));
+    return taskResult(row, context, { status: 'archived', version: row.version + 1, archivedAt: now });
   }
 }

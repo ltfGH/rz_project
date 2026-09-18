@@ -122,3 +122,20 @@ export interface InspectionItemUpdateResult {
   readonly itemVersion: number;
   readonly result: 'normal' | 'abnormal';
 }
+
+export interface SubmitInspectionReviewRequest {
+  readonly taskId: number;
+  readonly expectedTaskVersion: number;
+}
+
+export interface RejectInspectionReviewRequest {
+  readonly taskId: number;
+  readonly expectedTaskVersion: number;
+  readonly reason: string;
+}
+
+export interface ArchiveInspectionTaskRequest {
+  readonly taskId: number;
+  readonly expectedTaskVersion: number;
+  readonly comment: string;
+}
