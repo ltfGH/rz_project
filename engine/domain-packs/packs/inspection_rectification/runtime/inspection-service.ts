@@ -6,9 +6,11 @@ import type {
   CreateInspectionPlanRequest,
   CreateInspectionTaskRequest,
   InspectionContext,
+  InspectionDashboardSummary,
   InspectionPlanResult,
   InspectionItemUpdateResult,
   InspectionTaskResult,
+  InspectionTaskSummary,
   RecordInspectionItemRequest,
   RejectInspectionReviewRequest,
   StartInspectionTaskRequest,
@@ -446,5 +448,37 @@ export class InspectionService {
     context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
       entityId: 'inspection_task', recordId: row.id, result: 'success', details: Object.freeze({ eventCode, comment }) }));
     return taskResult(row, context, { status: 'archived', version: row.version + 1, archivedAt: now });
+  }
+
+  readTaskSummary(taskId: number, context: InspectionContext): InspectionTaskSummary {
+    context.requirePermission(context.actor, 'inspection_tasks.view');
+    const row = readTask(taskId, context);
+    const counts = context.connection.prepare(
+      `SELECT COUNT(*) AS total,
+       SUM(CASE WHEN result = 'pending' THEN 1 ELSE 0 END) AS pending,
+       SUM(CASE WHEN result = 'normal' THEN 1 ELSE 0 END) AS normal,
+       SUM(CASE WHEN result = 'abnormal' THEN 1 ELSE 0 END) AS abnormal
+       FROM biz_inspection_item WHERE task_code = ?`
+    ).get(row.code) as Record<string, number>;
+    return Object.freeze({ total: Number(counts.total), pending: Number(counts.pending),
+      normal: Number(counts.normal), abnormal: Number(counts.abnormal) });
+  }
+
+  readDashboardSummary(context: InspectionContext): InspectionDashboardSummary {
+    context.requirePermission(context.actor, 'inspection_tasks.view');
+    const tasks = context.connection.prepare(
+      `SELECT COUNT(*) AS total,
+       SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+       SUM(CASE WHEN status = 'executing' THEN 1 ELSE 0 END) AS executing,
+       SUM(CASE WHEN status = 'pending_review' THEN 1 ELSE 0 END) AS pending_review,
+       SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) AS archived
+       FROM biz_inspection_task`
+    ).get() as Record<string, number>;
+    const abnormal = context.connection.prepare(
+      "SELECT COUNT(*) AS count FROM biz_inspection_item WHERE result = 'abnormal'"
+    ).get() as { count: number };
+    return Object.freeze({ total: Number(tasks.total), pending: Number(tasks.pending),
+      executing: Number(tasks.executing), pendingReview: Number(tasks.pending_review),
+      archived: Number(tasks.archived), abnormalItems: Number(abnormal.count) });
   }
 }

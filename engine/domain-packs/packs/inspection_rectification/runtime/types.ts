@@ -139,3 +139,19 @@ export interface ArchiveInspectionTaskRequest {
   readonly expectedTaskVersion: number;
   readonly comment: string;
 }
+
+export interface InspectionTaskSummary {
+  readonly total: number;
+  readonly pending: number;
+  readonly normal: number;
+  readonly abnormal: number;
+}
+
+export interface InspectionDashboardSummary {
+  readonly total: number;
+  readonly pending: number;
+  readonly executing: number;
+  readonly pendingReview: number;
+  readonly archived: number;
+  readonly abnormalItems: number;
+}
