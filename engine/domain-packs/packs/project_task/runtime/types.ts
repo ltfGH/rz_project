@@ -82,3 +82,39 @@ export interface MilestoneResult {
   readonly status: 'pending' | 'completed';
   readonly version: number;
 }
+
+export interface CreateTaskRequest {
+  readonly projectId: number;
+  readonly milestoneCode: string | null;
+  readonly title: string;
+  readonly description: string;
+  readonly assigneeId: string;
+  readonly weight: number;
+  readonly required: boolean;
+}
+
+export interface UpdatePendingTaskRequest extends Omit<CreateTaskRequest, 'projectId'> {
+  readonly taskId: number;
+  readonly expectedVersion: number;
+}
+
+export interface VersionedTaskRequest {
+  readonly taskId: number;
+  readonly expectedVersion: number;
+}
+
+export interface AddTaskProgressRequest extends VersionedTaskRequest { readonly note: string; }
+export interface RejectTaskReviewRequest extends VersionedTaskRequest { readonly reason: string; }
+export interface ApproveTaskRequest extends VersionedTaskRequest { readonly comment: string; }
+export interface CancelTaskRequest extends VersionedTaskRequest { readonly reason: string; }
+export interface RestoreTaskRequest extends VersionedTaskRequest { readonly reason: string; }
+
+export interface TaskResult {
+  readonly taskId: number;
+  readonly taskCode: string;
+  readonly projectCode: string;
+  readonly status: 'pending' | 'in_progress' | 'pending_review' | 'completed' | 'cancelled';
+  readonly version: number;
+  readonly projectProgress: number;
+  readonly projectVersion: number;
+}

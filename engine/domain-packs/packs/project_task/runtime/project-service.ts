@@ -4,9 +4,12 @@ import {
   projectResult, readProject, required, strictDate
 } from './project-internals';
 import type {
-  ActivateProjectRequest, CreateMilestoneRequest, CreateProjectRequest,
-  MilestoneResult, ProjectContext, ProjectResult, UpdateProjectRequest
+  ActivateProjectRequest, AddTaskProgressRequest, ApproveTaskRequest, CancelTaskRequest,
+  CreateMilestoneRequest, CreateProjectRequest, CreateTaskRequest, MilestoneResult,
+  ProjectContext, ProjectResult, RejectTaskReviewRequest, RestoreTaskRequest,
+  TaskResult, UpdatePendingTaskRequest, UpdateProjectRequest, VersionedTaskRequest
 } from './types';
+import * as tasks from './task-commands';
 
 function validateProjectInput(request: CreateProjectRequest) {
   const name = required(request.name, 'name');
@@ -18,6 +21,16 @@ function validateProjectInput(request: CreateProjectRequest) {
 }
 
 export class ProjectService {
+  createTask(request:CreateTaskRequest, context:ProjectContext):TaskResult { return tasks.createTask(request, context); }
+  updatePendingTask(request:UpdatePendingTaskRequest, context:ProjectContext):TaskResult { return tasks.updatePendingTask(request, context); }
+  startTask(request:VersionedTaskRequest, context:ProjectContext):TaskResult { return tasks.startTask(request, context); }
+  addTaskProgress(request:AddTaskProgressRequest, context:ProjectContext):TaskResult { return tasks.addTaskProgress(request, context); }
+  submitTaskReview(request:VersionedTaskRequest, context:ProjectContext):TaskResult { return tasks.submitTaskReview(request, context); }
+  rejectTaskReview(request:RejectTaskReviewRequest, context:ProjectContext):TaskResult { return tasks.rejectTaskReview(request, context); }
+  approveTask(request:ApproveTaskRequest, context:ProjectContext):TaskResult { return tasks.approveTask(request, context); }
+  cancelTask(request:CancelTaskRequest, context:ProjectContext):TaskResult { return tasks.cancelTask(request, context); }
+  restoreTask(request:RestoreTaskRequest, context:ProjectContext):TaskResult { return tasks.restoreTask(request, context); }
+
   createProject(request: CreateProjectRequest, context: ProjectContext): ProjectResult {
     const permission = 'projects.create_project';
     context.requirePermission(context.actor, permission);
