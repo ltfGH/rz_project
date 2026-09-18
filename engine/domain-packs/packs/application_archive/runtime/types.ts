@@ -3,7 +3,8 @@ export interface ApplicationActor{userId:number;username:string;displayName:stri
 export interface ApplicationConfig{approvalLevels:1|2|3;reminderDays:number}
 export interface ApplicationAuditEntry{actor:ApplicationActor;permission:string;entityId:'application'|'approval_node'|'file_version'|'certificate'|'expiry_reminder';recordId:number;result:'success';details:Readonly<Record<string,unknown>>}
 export interface DomainCommandBus{invoke(commandId:string,payload:Readonly<Record<string,unknown>>):unknown}
-export type ApplicationApprovalCompletionHandler=(application:Readonly<Record<string,unknown>>,bus:DomainCommandBus)=>void;
+export interface ApplicationApprovedDto{readonly applicationId:number;readonly applicationCode:string;readonly applicationType:string;readonly approvalRound:number;readonly applicantId:string}
+export type ApplicationApprovalCompletionHandler=(application:ApplicationApprovedDto,bus:DomainCommandBus)=>void;
 export interface ApplicationContext{connection:DatabaseSync;actor:ApplicationActor;config:ApplicationConfig;requirePermission:(actor:ApplicationActor,permission:string)=>void;appendAudit:(connection:DatabaseSync,entry:ApplicationAuditEntry)=>void;identityHasRole:(identityId:string,roleId:string,connection:DatabaseSync)=>boolean;approvalCompletionHandlers:readonly ApplicationApprovalCompletionHandler[];commandBus:DomainCommandBus;now:()=>Date;applicationCode:()=>string;nodeCode:()=>string;recordCode:()=>string;fileVersionCode:()=>string;certificateCode:()=>string;reminderCode:()=>string}
 export type ApplicationStatus='draft'|'approving'|'approved'|'rejected'|'withdrawn'|'archived';
 export interface CreateApplicationRequest{applicationType:string;title:string;content:string}

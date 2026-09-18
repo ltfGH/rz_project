@@ -1,0 +1,4 @@
+import{AppError}from'../../../../desktop-runtime/src/shared/errors';import type{DomainCommandBus}from'./types';
+type Handler=(payload:Readonly<Record<string,unknown>>)=>unknown;
+function freeze<T>(value:T):T{if(value&&typeof value==='object'&&!Object.isFrozen(value)){Object.values(value as Record<string,unknown>).forEach(freeze);Object.freeze(value);}return value;}
+export class AllowlistedDomainCommandBus implements DomainCommandBus{readonly #handlers:Readonly<Record<string,Handler>>;constructor(handlers:Record<string,Handler>){this.#handlers=Object.freeze({...handlers});}invoke(commandId:string,payload:Readonly<Record<string,unknown>>):unknown{const handler=this.#handlers[commandId];if(!handler)throw new AppError('BLUEPRINT_INCOMPATIBLE',`Domain command '${commandId}' is not registered.`);return handler(freeze({...payload}));}}
