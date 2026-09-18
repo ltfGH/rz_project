@@ -15,3 +15,5 @@ export interface IssueStockRequest{readonly batchId:number;readonly expectedVers
 export interface ReturnStockRequest extends IssueStockRequest{readonly issueTransactionId:number}
 export interface AdjustStockRequest extends IssueStockRequest{readonly direction:'in'|'out'}
 export interface InventoryMovementResult extends InventoryBatchResult{readonly transactionId:number;readonly transactionCode:string}
+export interface InventoryExpiryStatus{readonly batchId:number;readonly batchCode:string;readonly expiresAt:string|null;readonly status:'not_applicable'|'normal'|'warning'|'expired'}
+export interface InventorySummary{readonly materials:number;readonly warehouses:number;readonly batches:number;readonly totalQuantity:number;readonly transactions:number}
