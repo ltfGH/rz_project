@@ -5,7 +5,10 @@ export interface ApplicationAuditEntry{actor:ApplicationActor;permission:string;
 export interface DomainCommandBus{invoke(commandId:string,payload:Readonly<Record<string,unknown>>):unknown}
 export interface ApplicationApprovedDto{readonly applicationId:number;readonly applicationCode:string;readonly applicationType:string;readonly approvalRound:number;readonly applicantId:string}
 export type ApplicationApprovalCompletionHandler=(application:ApplicationApprovedDto,bus:DomainCommandBus)=>void;
-export interface ApplicationContext{connection:DatabaseSync;actor:ApplicationActor;config:ApplicationConfig;requirePermission:(actor:ApplicationActor,permission:string)=>void;appendAudit:(connection:DatabaseSync,entry:ApplicationAuditEntry)=>void;identityHasRole:(identityId:string,roleId:string,connection:DatabaseSync)=>boolean;approvalCompletionHandlers:readonly ApplicationApprovalCompletionHandler[];commandBus:DomainCommandBus;now:()=>Date;applicationCode:()=>string;nodeCode:()=>string;recordCode:()=>string;fileVersionCode:()=>string;certificateCode:()=>string;reminderCode:()=>string}
+export interface ArchiveFileInspection{readonly sha256:string;readonly sizeBytes:number}
+export interface StagedArchiveFile extends ArchiveFileInspection{readonly stageToken:string;readonly originalName:string}
+export interface ArchiveStore{inspectStage(token:string):ArchiveFileInspection|null;readyRelativePath(code:string):string;inspectReady(relativePath:string):ArchiveFileInspection|null;promote(token:string,code:string):Readonly<ArchiveFileInspection&{relativePath:string}>;discardStage(token:string):void}
+export interface ApplicationContext{connection:DatabaseSync;actor:ApplicationActor;config:ApplicationConfig;requirePermission:(actor:ApplicationActor,permission:string)=>void;appendAudit:(connection:DatabaseSync,entry:ApplicationAuditEntry)=>void;identityHasRole:(identityId:string,roleId:string,connection:DatabaseSync)=>boolean;approvalCompletionHandlers:readonly ApplicationApprovalCompletionHandler[];commandBus:DomainCommandBus;archiveStore?:ArchiveStore;now:()=>Date;applicationCode:()=>string;nodeCode:()=>string;recordCode:()=>string;fileVersionCode:()=>string;certificateCode:()=>string;reminderCode:()=>string}
 export type ApplicationStatus='draft'|'approving'|'approved'|'rejected'|'withdrawn'|'archived';
 export interface CreateApplicationRequest{applicationType:string;title:string;content:string}
 export interface UpdateDraftApplicationRequest extends CreateApplicationRequest{applicationId:number;expectedVersion:number}
@@ -17,3 +20,6 @@ export interface DecideNodeRequest{applicationId:number;expectedApplicationVersi
 export interface ApproveNodeRequest extends DecideNodeRequest{comment:string}
 export interface RejectNodeRequest extends DecideNodeRequest{reason:string}
 export interface ApplicationResult{applicationId:number;applicationCode:string;status:ApplicationStatus;approvalRound:number;currentNodeCode:string|null;version:number}
+export interface RegisterStagedFileRequest{ownerType:'application'|'certificate'|'domain_document';ownerCode:string;businessKey:string;businessVersion:string;staged:StagedArchiveFile}
+export interface FinalizeFileVersionRequest{fileVersionId:number;expectedVersion:number}
+export interface FileVersionResult{fileVersionId:number;fileVersionCode:string;storageStatus:'staged'|'ready'|'failed';version:number}
