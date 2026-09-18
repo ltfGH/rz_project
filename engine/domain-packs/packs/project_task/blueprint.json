@@ -1,0 +1,170 @@
+{
+  "fragmentVersion": "1.0",
+  "pack": {"id": "project_task", "version": "1.0.0"},
+  "owns": {
+    "entities": ["project", "milestone", "project_task", "project_risk", "deliverable", "project_event"],
+    "modules": ["projects", "milestones", "project_tasks", "project_risks", "deliverables", "project_events"],
+    "workflows": [],
+    "roles": ["project_member", "project_manager", "project_reviewer", "project_admin"]
+  },
+  "publicExtensionPoints": [
+    {"id":"project.fields","targetKind":"entity","targetId":"project","allowedOperations":["append"]},
+    {"id":"project.relations","targetKind":"entity","targetId":"project","allowedOperations":["append"]},
+    {"id":"project.detail.tabs","targetKind":"entity","targetId":"project","allowedOperations":["append"]},
+    {"id":"project.create.sources","targetKind":"entity","targetId":"project","allowedOperations":["append"]},
+    {"id":"project_task.fields","targetKind":"entity","targetId":"project_task","allowedOperations":["append"]},
+    {"id":"project_task.relations","targetKind":"entity","targetId":"project_task","allowedOperations":["append"]},
+    {"id":"project_task.detail.tabs","targetKind":"entity","targetId":"project_task","allowedOperations":["append"]},
+    {"id":"project_task.create.sources","targetKind":"entity","targetId":"project_task","allowedOperations":["append"]},
+    {"id":"project_risk.fields","targetKind":"entity","targetId":"project_risk","allowedOperations":["append"]},
+    {"id":"project_risk.relations","targetKind":"entity","targetId":"project_risk","allowedOperations":["append"]},
+    {"id":"deliverable.fields","targetKind":"entity","targetId":"deliverable","allowedOperations":["append"]},
+    {"id":"deliverable.relations","targetKind":"entity","targetId":"deliverable","allowedOperations":["append"]}
+  ],
+  "extensions": [],
+  "blueprint": {
+    "entities": [
+      {
+        "id":"project","name":"项目","retention":"protected","history":false,"systemManaged":true,
+        "fields":[
+          {"id":"code","name":"项目编码","type":"text","required":true,"unique":true},
+          {"id":"name","name":"项目名称","type":"text","required":true,"unique":false},
+          {"id":"manager_id","name":"项目经理","type":"text","required":true,"unique":false},
+          {"id":"status","name":"项目状态","type":"enum","required":true,"unique":false,"options":["planning","active","pending_close","closed"]},
+          {"id":"planned_start_at","name":"计划开始日期","type":"date","required":true,"unique":false},
+          {"id":"planned_end_at","name":"计划结束日期","type":"date","required":true,"unique":false},
+          {"id":"progress","name":"项目进度","type":"decimal","required":true,"unique":false},
+          {"id":"close_requested_by","name":"关闭申请人","type":"text","required":false,"unique":false},
+          {"id":"close_requested_at","name":"关闭申请时间","type":"datetime","required":false,"unique":false},
+          {"id":"closed_by","name":"关闭复核人","type":"text","required":false,"unique":false},
+          {"id":"closed_at","name":"关闭时间","type":"datetime","required":false,"unique":false}
+        ],
+        "relations":[],"detailTabs":[],"createSources":[]
+      },
+      {
+        "id":"milestone","name":"里程碑","retention":"protected","history":false,"systemManaged":true,
+        "fields":[
+          {"id":"code","name":"里程碑编码","type":"text","required":true,"unique":true},
+          {"id":"project_code","name":"所属项目","type":"reference","required":true,"unique":false,"reference":{"entity":"project","field":"code"}},
+          {"id":"name","name":"里程碑名称","type":"text","required":true,"unique":false},
+          {"id":"due_at","name":"计划完成日期","type":"date","required":true,"unique":false},
+          {"id":"status","name":"里程碑状态","type":"enum","required":true,"unique":false,"options":["pending","completed"]},
+          {"id":"completed_by","name":"完成人","type":"text","required":false,"unique":false},
+          {"id":"completed_at","name":"完成时间","type":"datetime","required":false,"unique":false}
+        ],
+        "relations":[{"id":"milestone_project","name":"所属项目","field":"project_code","targetEntity":"project","targetField":"code","onDelete":"restrict"}]
+      },
+      {
+        "id":"project_task","name":"项目任务","retention":"protected","history":false,"systemManaged":true,
+        "fields":[
+          {"id":"code","name":"任务编码","type":"text","required":true,"unique":true},
+          {"id":"project_code","name":"所属项目","type":"reference","required":true,"unique":false,"reference":{"entity":"project","field":"code"}},
+          {"id":"milestone_code","name":"所属里程碑","type":"reference","required":false,"unique":false,"reference":{"entity":"milestone","field":"code"}},
+          {"id":"title","name":"任务标题","type":"text","required":true,"unique":false},
+          {"id":"description","name":"任务说明","type":"text","required":true,"unique":false},
+          {"id":"assignee_id","name":"任务负责人","type":"text","required":true,"unique":false},
+          {"id":"weight","name":"任务权重","type":"integer","required":true,"unique":false},
+          {"id":"required","name":"关闭必需","type":"boolean","required":true,"unique":false,"default":true},
+          {"id":"status","name":"任务状态","type":"enum","required":true,"unique":false,"options":["pending","in_progress","pending_review","completed","cancelled"]},
+          {"id":"progress_note","name":"进展说明","type":"text","required":false,"unique":false},
+          {"id":"submitted_at","name":"提交验收时间","type":"datetime","required":false,"unique":false},
+          {"id":"completed_at","name":"完成时间","type":"datetime","required":false,"unique":false},
+          {"id":"cancelled_at","name":"取消时间","type":"datetime","required":false,"unique":false}
+        ],
+        "relations":[
+          {"id":"task_project","name":"所属项目","field":"project_code","targetEntity":"project","targetField":"code","onDelete":"restrict"},
+          {"id":"task_milestone","name":"所属里程碑","field":"milestone_code","targetEntity":"milestone","targetField":"code","onDelete":"restrict"}
+        ],
+        "detailTabs":[],"createSources":[]
+      },
+      {
+        "id":"project_risk","name":"项目风险","retention":"protected","history":false,"systemManaged":true,
+        "fields":[
+          {"id":"code","name":"风险编码","type":"text","required":true,"unique":true},
+          {"id":"project_code","name":"所属项目","type":"reference","required":true,"unique":false,"reference":{"entity":"project","field":"code"}},
+          {"id":"title","name":"风险标题","type":"text","required":true,"unique":false},
+          {"id":"description","name":"风险说明","type":"text","required":true,"unique":false},
+          {"id":"level","name":"风险等级","type":"enum","required":true,"unique":false,"options":["low","medium","high"]},
+          {"id":"status","name":"风险状态","type":"enum","required":true,"unique":false,"options":["open","mitigated","closed"]},
+          {"id":"disposition","name":"处置说明","type":"text","required":false,"unique":false},
+          {"id":"reported_by","name":"登记人","type":"text","required":true,"unique":false},
+          {"id":"closed_by","name":"关闭人","type":"text","required":false,"unique":false},
+          {"id":"closed_at","name":"关闭时间","type":"datetime","required":false,"unique":false}
+        ],
+        "relations":[{"id":"risk_project","name":"所属项目","field":"project_code","targetEntity":"project","targetField":"code","onDelete":"restrict"}]
+      },
+      {
+        "id":"deliverable","name":"交付版本","retention":"protected","history":true,"systemManaged":true,
+        "fields":[
+          {"id":"code","name":"交付版本编码","type":"text","required":true,"unique":true},
+          {"id":"project_code","name":"所属项目","type":"reference","required":true,"unique":false,"reference":{"entity":"project","field":"code"}},
+          {"id":"milestone_code","name":"所属里程碑","type":"reference","required":false,"unique":false,"reference":{"entity":"milestone","field":"code"}},
+          {"id":"deliverable_key","name":"交付物键","type":"text","required":true,"unique":false},
+          {"id":"name","name":"交付物名称","type":"text","required":true,"unique":false},
+          {"id":"business_version","name":"业务版本","type":"text","required":true,"unique":false},
+          {"id":"required","name":"关闭必需","type":"boolean","required":true,"unique":false,"default":true},
+          {"id":"file_name","name":"文件名称","type":"text","required":true,"unique":false},
+          {"id":"file_digest","name":"文件摘要","type":"text","required":true,"unique":false},
+          {"id":"status","name":"验收状态","type":"enum","required":true,"unique":false,"options":["submitted","accepted","rejected"]},
+          {"id":"submitted_by","name":"提交人","type":"text","required":true,"unique":false},
+          {"id":"submitted_at","name":"提交时间","type":"datetime","required":true,"unique":false},
+          {"id":"reviewed_by","name":"复核人","type":"text","required":false,"unique":false},
+          {"id":"reviewed_at","name":"复核时间","type":"datetime","required":false,"unique":false},
+          {"id":"review_comment","name":"复核意见","type":"text","required":false,"unique":false}
+        ],
+        "relations":[
+          {"id":"deliverable_project","name":"所属项目","field":"project_code","targetEntity":"project","targetField":"code","onDelete":"restrict"},
+          {"id":"deliverable_milestone","name":"所属里程碑","field":"milestone_code","targetEntity":"milestone","targetField":"code","onDelete":"restrict"}
+        ]
+      },
+      {
+        "id":"project_event","name":"项目事件","retention":"append_only","history":true,"systemManaged":true,
+        "fields":[
+          {"id":"code","name":"事件编码","type":"text","required":true,"unique":true},
+          {"id":"project_code","name":"所属项目","type":"reference","required":true,"unique":false,"reference":{"entity":"project","field":"code"}},
+          {"id":"subject_type","name":"对象类型","type":"enum","required":true,"unique":false,"options":["project","milestone","task","risk","deliverable"]},
+          {"id":"subject_code","name":"对象编码","type":"text","required":true,"unique":false},
+          {"id":"event_type","name":"事件类型","type":"text","required":true,"unique":false},
+          {"id":"from_status","name":"原状态","type":"text","required":false,"unique":false},
+          {"id":"to_status","name":"新状态","type":"text","required":false,"unique":false},
+          {"id":"actor_id","name":"操作人","type":"text","required":true,"unique":false},
+          {"id":"comment","name":"业务说明","type":"text","required":false,"unique":false},
+          {"id":"occurred_at","name":"发生时间","type":"datetime","required":true,"unique":false}
+        ],
+        "relations":[{"id":"event_project","name":"所属项目","field":"project_code","targetEntity":"project","targetField":"code","onDelete":"restrict"}]
+      }
+    ],
+    "modules": [
+      {"id":"projects","name":"项目管理","route":"projects","entity":"project","actions":["list","view","create_project","update_project","activate","request_close","reject_close","approve_close","summary"]},
+      {"id":"milestones","name":"里程碑","route":"milestones","entity":"milestone","actions":["list","view","create_milestone","complete"]},
+      {"id":"project_tasks","name":"项目任务","route":"project_tasks","entity":"project_task","actions":["list","view","create_task","update_task","start","add_progress","submit","reject","approve","cancel","restore"]},
+      {"id":"project_risks","name":"项目风险","route":"project_risks","entity":"project_risk","actions":["list","view","create_risk","mitigate","close","reopen"]},
+      {"id":"deliverables","name":"交付版本","route":"deliverables","entity":"deliverable","actions":["list","view","submit","review"]},
+      {"id":"project_events","name":"项目事件","route":"project_events","entity":"project_event","actions":["list","view"]}
+    ],
+    "workflows": [],
+    "roles": [
+      {"id":"project_member","name":"项目成员","permissions":["projects.list","projects.view","milestones.list","milestones.view","project_tasks.list","project_tasks.view","project_tasks.start","project_tasks.add_progress","project_tasks.submit","project_risks.list","project_risks.view","project_risks.create_risk","project_risks.mitigate","deliverables.list","deliverables.view","deliverables.submit","project_events.list","project_events.view"]},
+      {"id":"project_manager","name":"项目经理","permissions":["projects.list","projects.view","projects.create_project","projects.update_project","projects.activate","projects.request_close","projects.summary","milestones.list","milestones.view","milestones.create_milestone","milestones.complete","project_tasks.list","project_tasks.view","project_tasks.create_task","project_tasks.update_task","project_tasks.start","project_tasks.add_progress","project_tasks.submit","project_tasks.reject","project_tasks.approve","project_tasks.cancel","project_tasks.restore","project_risks.list","project_risks.view","project_risks.create_risk","project_risks.mitigate","project_risks.reopen","deliverables.list","deliverables.view","deliverables.submit","deliverables.review","project_events.list","project_events.view"]},
+      {"id":"project_reviewer","name":"项目复核人","permissions":["projects.list","projects.view","projects.reject_close","projects.approve_close","projects.summary","milestones.list","milestones.view","project_tasks.list","project_tasks.view","project_risks.list","project_risks.view","project_risks.close","project_risks.reopen","deliverables.list","deliverables.view","deliverables.review","project_events.list","project_events.view"]},
+      {"id":"project_admin","name":"项目管理员","permissions":["projects.list","projects.view","projects.create_project","projects.update_project","projects.summary","milestones.list","milestones.view","project_tasks.list","project_tasks.view","project_risks.list","project_risks.view","deliverables.list","deliverables.view","project_events.list","project_events.view"]}
+    ],
+    "dashboards": [
+      {"id":"project_total","name":"项目总数","entity":"project","aggregation":"count","filters":[]},
+      {"id":"active_project_total","name":"进行中项目","entity":"project","aggregation":"count","filters":[{"field":"status","operator":"eq","value":"active"}]},
+      {"id":"pending_task_review_total","name":"待验收任务","entity":"project_task","aggregation":"count","filters":[{"field":"status","operator":"eq","value":"pending_review"}]},
+      {"id":"open_high_risk_total","name":"开放高风险","entity":"project_risk","aggregation":"count","filters":[{"field":"level","operator":"eq","value":"high"},{"field":"status","operator":"eq","value":"open"}]},
+      {"id":"submitted_deliverable_total","name":"待验收交付物","entity":"deliverable","aggregation":"count","filters":[{"field":"status","operator":"eq","value":"submitted"}]}
+    ]
+  },
+  "seed": {
+    "records": {
+      "project":[{"code":"PRJ-001","name":"示例交付项目","manager_id":"project-manager-01","status":"active","planned_start_at":"2026-09-01","planned_end_at":"2026-12-31","progress":0,"close_requested_by":null,"close_requested_at":null,"closed_by":null,"closed_at":null}],
+      "milestone":[{"code":"MS-001","project_code":"PRJ-001","name":"首阶段交付","due_at":"2026-10-31","status":"pending","completed_by":null,"completed_at":null}],
+      "project_task":[{"code":"TASK-001","project_code":"PRJ-001","milestone_code":"MS-001","title":"准备交付材料","description":"整理离线交付材料","assignee_id":"project-member-01","weight":100,"required":true,"status":"pending","progress_note":null,"submitted_at":null,"completed_at":null,"cancelled_at":null}],
+      "project_risk":[{"code":"RISK-001","project_code":"PRJ-001","title":"交付延期风险","description":"提前准备验收环境","level":"medium","status":"open","disposition":"已安排预验收","reported_by":"project-member-01","closed_by":null,"closed_at":null}],
+      "deliverable":[{"code":"DEL-001","project_code":"PRJ-001","milestone_code":"MS-001","deliverable_key":"user_manual","name":"用户手册","business_version":"1.0","required":true,"file_name":"user-manual-v1.pdf","file_digest":"sha256:demo-project-deliverable","status":"submitted","submitted_by":"project-member-01","submitted_at":"2026-09-18T08:00:00.000Z","reviewed_by":null,"reviewed_at":null,"review_comment":null}],
+      "project_event":[{"code":"PEVT-001","project_code":"PRJ-001","subject_type":"project","subject_code":"PRJ-001","event_type":"project_activated","from_status":"planning","to_status":"active","actor_id":"project-manager-01","comment":"示例项目激活","occurred_at":"2026-09-01T08:00:00.000Z"}]
+    }
+  }
+}

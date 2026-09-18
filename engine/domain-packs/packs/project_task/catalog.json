@@ -1,0 +1,21 @@
+{
+  "catalogVersion": "1.0",
+  "id": "project_task",
+  "version": "1.0.0",
+  "name": "项目与任务",
+  "description": "提供项目、里程碑、加权任务、风险、交付版本和关闭复核能力",
+  "blueprintSchemaVersions": ["1.0"],
+  "runtimeVersions": ["1.0.0"],
+  "provides": ["project.core"],
+  "requires": [],
+  "allowedDependencies": [],
+  "migrationsVersion": 1,
+  "entrypoints": {
+    "fragment": "blueprint.json",
+    "runtime": "runtime/index.ts",
+    "ui": "ui/index.ts",
+    "seed": "seed/index.ts",
+    "tests": "tests/index.ts"
+  },
+  "uiSlots": ["entity.detail.tabs", "entity.detail.actions", "dashboard.sections"]
+}
