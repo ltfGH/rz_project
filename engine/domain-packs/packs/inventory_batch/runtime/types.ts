@@ -11,3 +11,7 @@ export interface WarehouseResult{readonly warehouseId:number;readonly warehouseC
 export interface ReceiveNewBatchRequest{readonly materialCode:string;readonly warehouseCode:string;readonly batchNo:string;readonly quantity:number;readonly producedAt:string|null;readonly receivedAt:string;readonly expiresAt:string|null;readonly reason:string}
 export interface ReceiveExistingBatchRequest{readonly batchId:number;readonly expectedVersion:number;readonly quantity:number;readonly reason:string}
 export interface InventoryBatchResult{readonly batchId:number;readonly batchCode:string;readonly version:number;readonly quantity:number}
+export interface IssueStockRequest{readonly batchId:number;readonly expectedVersion:number;readonly quantity:number;readonly reason:string}
+export interface ReturnStockRequest extends IssueStockRequest{readonly issueTransactionId:number}
+export interface AdjustStockRequest extends IssueStockRequest{readonly direction:'in'|'out'}
+export interface InventoryMovementResult extends InventoryBatchResult{readonly transactionId:number;readonly transactionCode:string}
