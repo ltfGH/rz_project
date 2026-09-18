@@ -1,13 +1,28 @@
 import { AppError } from '../../../../desktop-runtime/src/shared/errors';
 
 import type {
+  AssignInspectionExecutorRequest,
   CreateInspectionPlanRequest,
   CreateInspectionTaskRequest,
   InspectionContext,
   InspectionPlanResult,
+  InspectionItemUpdateResult,
   InspectionTaskResult,
+  RecordInspectionItemRequest,
+  StartInspectionTaskRequest,
   UpdateInspectionPlanRequest
 } from './types';
+
+interface TaskRow {
+  readonly id: number;
+  readonly code: string;
+  readonly status: 'pending' | 'executing' | 'pending_review' | 'archived';
+  readonly version: number;
+  readonly executor_id: string;
+  readonly started_at: string | null;
+  readonly submitted_at: string | null;
+  readonly archived_at: string | null;
+}
 
 function required(value: string, field: string): string {
   const normalized = value.trim();
@@ -45,6 +60,52 @@ function assertPlanManager(context: InspectionContext): void {
     context.actor.username, 'inspection_admin', context.connection
   );
   if (!valid) throw new AppError('PERMISSION_DENIED', 'Current identity cannot manage inspection plans.');
+}
+
+function readTask(taskId: number, context: InspectionContext): TaskRow {
+  const row = context.connection.prepare(
+    `SELECT id, code, status, version, executor_id, started_at, submitted_at, archived_at
+     FROM biz_inspection_task WHERE id = ?`
+  ).get(taskId) as TaskRow | undefined;
+  if (!row) throw new AppError('NOT_FOUND', 'Inspection task was not found.');
+  return row;
+}
+
+function assertExecutor(row: TaskRow, context: InspectionContext): void {
+  if (row.executor_id !== context.actor.username || !context.identityHasRole(
+    context.actor.username, 'inspection_executor', context.connection
+  )) throw new AppError('PERMISSION_DENIED', 'Only the assigned executor can change this task.');
+}
+
+function taskResult(row: TaskRow, context: InspectionContext, changes: Partial<{
+  status: TaskRow['status']; version: number; executorId: string; startedAt: string | null;
+}> = {}): InspectionTaskResult {
+  const itemRows = context.connection.prepare(
+    'SELECT id FROM biz_inspection_item WHERE task_code = ? ORDER BY id'
+  ).all(row.code) as unknown as Array<{ id: number }>;
+  return Object.freeze({
+    taskId: row.id, taskCode: row.code, status: changes.status ?? row.status,
+    version: changes.version ?? row.version,
+    executorId: changes.executorId ?? row.executor_id,
+    startedAt: changes.startedAt === undefined ? row.started_at : changes.startedAt,
+    submittedAt: row.submitted_at, archivedAt: row.archived_at,
+    itemIds: Object.freeze(itemRows.map((item) => Number(item.id)))
+  });
+}
+
+function appendTaskEvent(
+  context: InspectionContext, row: TaskRow,
+  type: 'assigned' | 'started' | 'item_recorded',
+  from: TaskRow['status'], to: TaskRow['status'], content: string, occurredAt: string
+): string {
+  const code = context.eventCode();
+  context.connection.prepare(
+    `INSERT INTO biz_inspection_event
+      (code, task_code, event_type, from_status, to_status, actor_id,
+       content, occurred_at, version, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+  ).run(code, row.code, type, from, to, context.actor.username, content, occurredAt, occurredAt, occurredAt);
+  return code;
 }
 
 export class InspectionService {
@@ -217,5 +278,85 @@ export class InspectionService {
       archivedAt: null,
       itemIds: Object.freeze(itemIds)
     });
+  }
+
+  assignExecutor(request: AssignInspectionExecutorRequest, context: InspectionContext): InspectionTaskResult {
+    const permission = 'inspection_tasks.assign';
+    context.requirePermission(context.actor, permission);
+    const executorId = required(request.executorId, 'executorId');
+    const reason = required(request.reason, 'reason');
+    if (!context.identityHasRole(executorId, 'inspection_executor', context.connection)) {
+      throw new AppError('VALIDATION_FAILED', 'Executor identity is not active.');
+    }
+    const row = readTask(request.taskId, context);
+    if (row.status !== 'pending') throw new AppError('INVALID_TRANSITION', 'Only pending tasks can be assigned.');
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const now = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_inspection_task SET executor_id = ?, version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(executorId, now, row.id, request.expectedTaskVersion);
+    if (Number(update.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const eventCode = appendTaskEvent(context, row, 'assigned', 'pending', 'pending', reason, now);
+    context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
+      entityId: 'inspection_task', recordId: row.id, result: 'success',
+      details: Object.freeze({ eventCode, executorId, reason }) }));
+    return taskResult(row, context, { version: row.version + 1, executorId });
+  }
+
+  startTask(request: StartInspectionTaskRequest, context: InspectionContext): InspectionTaskResult {
+    const permission = 'inspection_tasks.execute';
+    context.requirePermission(context.actor, permission);
+    const row = readTask(request.taskId, context);
+    assertExecutor(row, context);
+    if (row.status !== 'pending') throw new AppError('INVALID_TRANSITION', 'Only pending tasks can start.');
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const now = context.now().toISOString();
+    const update = context.connection.prepare(
+      `UPDATE biz_inspection_task SET status = 'executing', started_at = ?,
+       version = version + 1, updated_at = ? WHERE id = ? AND version = ?`
+    ).run(now, now, row.id, request.expectedTaskVersion);
+    if (Number(update.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const eventCode = appendTaskEvent(context, row, 'started', 'pending', 'executing', '开始巡检', now);
+    context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
+      entityId: 'inspection_task', recordId: row.id, result: 'success', details: Object.freeze({ eventCode }) }));
+    return taskResult(row, context, { status: 'executing', version: row.version + 1, startedAt: now });
+  }
+
+  recordItemResult(request: RecordInspectionItemRequest, context: InspectionContext): InspectionItemUpdateResult {
+    const permission = 'inspection_items.record_result';
+    context.requirePermission(context.actor, permission);
+    const row = readTask(request.taskId, context);
+    assertExecutor(row, context);
+    if (row.status !== 'executing') throw new AppError('INVALID_TRANSITION', 'Task is not executing.');
+    if (row.version !== request.expectedTaskVersion) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const item = context.connection.prepare(
+      'SELECT id, task_code, version FROM biz_inspection_item WHERE id = ?'
+    ).get(request.itemId) as { id: number; task_code: string; version: number } | undefined;
+    if (!item || item.task_code !== row.code) throw new AppError('NOT_FOUND', 'Inspection item was not found for this task.');
+    if (item.version !== request.expectedItemVersion) throw new AppError('VERSION_CONFLICT', 'Item version conflict.');
+    let finding: string | null = null;
+    let disposition: string | null = null;
+    if (request.result === 'abnormal') {
+      finding = required(request.finding ?? '', 'finding');
+      disposition = required(request.disposition ?? '', 'disposition');
+    }
+    const now = context.now().toISOString();
+    const itemUpdate = context.connection.prepare(
+      `UPDATE biz_inspection_item SET result = ?, finding = ?, disposition = ?, checked_at = ?,
+       version = version + 1, updated_at = ? WHERE id = ? AND version = ?`
+    ).run(request.result, finding, disposition, now, now, item.id, request.expectedItemVersion);
+    if (Number(itemUpdate.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Item version conflict.');
+    const taskUpdate = context.connection.prepare(
+      `UPDATE biz_inspection_task SET version = version + 1, updated_at = ?
+       WHERE id = ? AND version = ?`
+    ).run(now, row.id, request.expectedTaskVersion);
+    if (Number(taskUpdate.changes) !== 1) throw new AppError('VERSION_CONFLICT', 'Task version conflict.');
+    const eventCode = appendTaskEvent(context, row, 'item_recorded', 'executing', 'executing', request.result, now);
+    context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
+      entityId: 'inspection_item', recordId: item.id, result: 'success',
+      details: Object.freeze({ eventCode, result: request.result }) }));
+    return Object.freeze({ taskId: row.id, itemId: item.id, taskVersion: row.version + 1,
+      itemVersion: item.version + 1, result: request.result });
   }
 }

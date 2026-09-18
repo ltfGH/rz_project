@@ -92,3 +92,33 @@ export interface InspectionTaskResult {
   readonly archivedAt: string | null;
   readonly itemIds: readonly number[];
 }
+
+export interface AssignInspectionExecutorRequest {
+  readonly taskId: number;
+  readonly expectedTaskVersion: number;
+  readonly executorId: string;
+  readonly reason: string;
+}
+
+export interface StartInspectionTaskRequest {
+  readonly taskId: number;
+  readonly expectedTaskVersion: number;
+}
+
+export interface RecordInspectionItemRequest {
+  readonly taskId: number;
+  readonly itemId: number;
+  readonly expectedTaskVersion: number;
+  readonly expectedItemVersion: number;
+  readonly result: 'normal' | 'abnormal';
+  readonly finding: string | null;
+  readonly disposition: string | null;
+}
+
+export interface InspectionItemUpdateResult {
+  readonly taskId: number;
+  readonly itemId: number;
+  readonly taskVersion: number;
+  readonly itemVersion: number;
+  readonly result: 'normal' | 'abnormal';
+}
