@@ -1,0 +1,24 @@
+{
+  "fragmentVersion":"1.0",
+  "pack":{"id":"application_archive","version":"1.0.0"},
+  "owns":{"entities":["application"],"modules":["applications"],"workflows":[],"roles":["application_viewer"]},
+  "publicExtensionPoints":[],
+  "extensions":[
+    {"point":"material.fields","operation":"append","path":"/fields","value":{"id":"application_code","name":"申领档案","type":"reference","required":false,"unique":false,"reference":{"entity":"application","field":"code"}}},
+    {"point":"material.relations","operation":"append","path":"/relations","value":{"id":"material_application","name":"关联申领档案","field":"application_code","targetEntity":"application","targetField":"code","onDelete":"restrict"}},
+    {"point":"inventory_batch.fields","operation":"append","path":"/fields","value":{"id":"application_code","name":"申领档案","type":"reference","required":false,"unique":false,"reference":{"entity":"application","field":"code"}}},
+    {"point":"inventory_batch.relations","operation":"append","path":"/relations","value":{"id":"batch_application","name":"关联申领档案","field":"application_code","targetEntity":"application","targetField":"code","onDelete":"restrict"}},
+    {"point":"inventory_batch.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"application_context","name":"申领档案","viewId":"application_context"}},
+    {"point":"inventory_batch.create.sources","operation":"append","path":"/createSources","value":{"id":"application_source","name":"从申领单入库"}},
+    {"point":"inventory_transaction.fields","operation":"append","path":"/fields","value":{"id":"application_code","name":"申领档案","type":"reference","required":false,"unique":false,"reference":{"entity":"application","field":"code"}}},
+    {"point":"inventory_transaction.relations","operation":"append","path":"/relations","value":{"id":"transaction_application","name":"关联申领档案","field":"application_code","targetEntity":"application","targetField":"code","onDelete":"restrict"}}
+  ],
+  "blueprint":{
+    "entities":[{"id":"application","name":"申领档案","retention":"protected","history":false,"systemManaged":false,"fields":[{"id":"code","name":"申领编码","type":"text","required":true,"unique":true},{"id":"title","name":"申领主题","type":"text","required":true,"unique":false}],"relations":[]}],
+    "modules":[{"id":"applications","name":"申领档案","route":"applications","entity":"application","actions":["list","view"]}],
+    "workflows":[],
+    "roles":[{"id":"application_viewer","name":"申领档案查看人","permissions":["applications.list","applications.view"]}],
+    "dashboards":[]
+  },
+  "seed":{"records":{"application":[{"code":"APP-001","title":"测试申领单"}]}}
+}
