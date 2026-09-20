@@ -9,6 +9,7 @@
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "test": "npm run test:unit && npm run test:integration",
     "build": "node tools/build-cli.cjs",
+    "build:runtime-catalog": "node tools/build-runtime-catalog.cjs",
     "compose": "node --import tsx src/cli.ts"
   },
   "dependencies": {
