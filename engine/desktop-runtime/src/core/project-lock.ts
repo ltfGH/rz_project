@@ -170,7 +170,10 @@ export function verifyProjectResources(resourceRoot: string): VerifiedProjectRes
   if (projectLock.lockVersion !== '1.0' || projectLock.domainLockSha256 !== sha256(canonical(domainLock))) {
     throw new AppError('BLUEPRINT_INCOMPATIBLE', 'Project lock domain lock digest does not match.');
   }
-  const orderedPacks = domainLock.dependencyOrder.map((id) => domainLock.packs.find((pack) => pack.id === id));
+  const orderedPacks = domainLock.dependencyOrder.map((id) => {
+    const pack = domainLock.packs.find((candidate) => candidate.id === id);
+    return pack ? { id: pack.id, version: pack.version } : undefined;
+  });
   if (orderedPacks.some((pack) => !pack) || canonical(orderedPacks) !== canonical(projectLock.packs)) {
     throw new AppError('BLUEPRINT_INCOMPATIBLE', 'Project lock packs do not match domain lock order and versions.');
   }

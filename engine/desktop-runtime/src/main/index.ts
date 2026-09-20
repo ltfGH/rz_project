@@ -12,7 +12,7 @@ import { PermissionService } from '../core/permission-service';
 import { PluginRegistry } from '../core/plugin-registry';
 import { verifyProjectResources } from '../core/project-lock';
 import { compileSchema } from '../core/schema-compiler';
-import { seedAcceptanceData } from '../core/seed';
+import { seedAcceptanceData, seedProjectData } from '../core/seed';
 import { WorkflowEngine } from '../core/workflow-engine';
 import { registerIpcHandlers, type IpcRegistrar, type RuntimeServices } from './ipc-handlers';
 import { createMainWindow } from './window';
@@ -43,8 +43,12 @@ async function start(): Promise<void> {
   const databasePath = path.join(app.getPath('userData'), 'runtime.sqlite');
   let database: RuntimeDatabase = openDatabase({ filename: databasePath });
   database.migrate(schema);
-  const seed = JSON.parse(verified.seedText) as Parameters<typeof seedAcceptanceData>[1];
-  seedAcceptanceData(database, seed);
+  const seed = JSON.parse(verified.seedText) as Record<string, unknown>;
+  if (seed.formatVersion === '1.0') {
+    seedProjectData(database, seed as unknown as Parameters<typeof seedProjectData>[1]);
+  } else {
+    seedAcceptanceData(database, seed as unknown as Parameters<typeof seedAcceptanceData>[1]);
+  }
 
   const controller: DatabaseController = {
     current: () => database,

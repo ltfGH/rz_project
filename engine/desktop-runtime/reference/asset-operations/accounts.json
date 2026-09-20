@@ -1,0 +1,6 @@
+{
+  "dispatcher": { "username": "dispatcher", "displayName": "调度人员", "roleId": "work_order_dispatcher", "passwordDigest": "scrypt$16384$8$1$ZGlzcGF0Y2hlci1zYWx0MQ==$QXkC+g8WOmnKNAtrJeN3u/VUr1oSHxVcbaXJuF8AyuA5VAWwdgvxrpk7xuMHToK0TXjz/gCY7Gbozbov/epFfg==" },
+  "operator": { "username": "operator", "displayName": "处理人员", "roleId": "inspection_executor", "passwordDigest": "scrypt$16384$8$1$b3BlcmF0b3Itc2FsdC0wMQ==$RgRfB1/ZuasinXeYj+agQRjdSxLJLmyUs+4hc7obWE+s4CyE03Kb+Gnm3OQvRDqVL3yNzmc0nYC5MYFzetFgDw==" },
+  "reviewer": { "username": "reviewer", "displayName": "复核人员", "roleId": "work_order_reviewer", "passwordDigest": "scrypt$16384$8$1$cmV2aWV3ZXItc2FsdC0wMQ==$E0nzK8Ax/fc6WHYkcKcHp4gRu9IPx/mDI95Y4tcXF5UzqZNTg0bwyjezydD6AxKr/HXr7PjWPTpQ6GKfGiZ6tA==" },
+  "administrator": { "username": "administrator", "displayName": "系统管理员", "roleId": "asset_admin", "passwordDigest": "scrypt$16384$8$1$cmV2aWV3ZXItc2FsdC0wMQ==$E0nzK8Ax/fc6WHYkcKcHp4gRu9IPx/mDI95Y4tcXF5UzqZNTg0bwyjezydD6AxKr/HXr7PjWPTpQ6GKfGiZ6tA==" }
+}

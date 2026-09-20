@@ -1,0 +1,21 @@
+{
+  "id": "asset_operations_reference",
+  "software": {
+    "id": "asset_operations_reference",
+    "name": "资产巡检整改管理软件",
+    "version": "1.0.0",
+    "purpose": "管理资产、巡检和整改工单闭环",
+    "targetUsers": ["调度人员", "处理人员", "复核人员", "管理员"],
+    "boundaries": ["离线桌面运行", "不连接外部业务系统"],
+    "loginMode": "required"
+  },
+  "packs": [
+    { "id": "asset_registry", "config": {} },
+    { "id": "work_order_service", "config": {} },
+    { "id": "inspection_rectification", "config": {} },
+    { "id": "asset_work_order_bridge", "config": {} },
+    { "id": "asset_inspection_bridge", "config": {} },
+    { "id": "inspection_work_order_bridge", "config": { "service_code": "SVC-RECTIFICATION", "priority": "normal" } }
+  ],
+  "seed": { "value": 20260920, "businessRows": 1000, "baseline": "2026-09-20T00:00:00.000Z" }
+}
