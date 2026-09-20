@@ -1,6 +1,6 @@
 软著项目生成器使用说明
 
-首次使用前，请确认本机已安装 Codex、Node.js、Microsoft Edge 和 Microsoft Word。Inno Setup 6 缺失时，生成器会在确认后安装经过签名校验的版本。
+首次使用前，请确认本机已安装并登录 Codex，且已安装 Node.js、Microsoft Edge 和 Microsoft Word。Inno Setup 6 缺失时，生成器会下载、验证发布者签名并静默安装。
 
 使用方法：双击“开始生成.bat”，输入一个简短的软件主题，例如“设备点检记录管理”，然后等待全部阶段完成。
 
@@ -28,10 +28,12 @@ npm 依赖只用于从 JSON Schema 重新生成已纳入源码的独立校验器
 
 桌面业务底座开发
 
-新桌面业务底座位于 engine/desktop-runtime，采用 Electron、React、TypeScript 和 SQLite。当前阶段它与原有四页面模板并存，不改变“开始生成.bat”的现有行为。
+新桌面业务底座位于 engine/desktop-runtime，采用 Electron、React、TypeScript 和 SQLite。第一版生产领域包、桥接包、参考软件和 Windows 安装验收已经完成；它仍与原有四页面模板并存，不改变“开始生成.bat”的现有行为。
 
 进入 engine/desktop-runtime 后，可以依次执行 npm ci、npm run typecheck、npm run test:unit、npm run test:integration、npm run build、npm run test:e2e 和 npm run dist:win。详细安全边界、测试账号及打包验证方式见该目录 README.md。
 
 领域包组合器开发
 
-领域包协议与组合器位于 engine/domain-packs。进入该目录后执行 npm ci、npm run typecheck、npm test 和 npm run build。组合器只加载显式绝对路径的领域包，生成 canonical blueprint、版本锁和组合报告；当前测试 fixture 不代表六个生产领域包已经完成。
+领域包协议与组合器位于 engine/domain-packs。进入该目录后执行 npm ci、npm run typecheck、npm test、npm run test:combinations 和 npm run build。组合器只加载显式绝对路径的领域包，生成 canonical blueprint、版本锁和组合报告；测试 fixture 不会进入生产插件目录。
+
+完整的克隆、环境初始化、统一验证和正式参考安装包说明见 README.md。开发环境统一使用 Node.js 22.21.0，可双击 setup-dev.bat 安装锁定依赖，双击 verify-dev.bat 运行默认全量检查。

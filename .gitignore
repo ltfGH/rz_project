@@ -4,6 +4,7 @@
 *.log
 .env
 .env.*
+!.env.example
 node_modules/
 __pycache__/
 /engine/desktop-runtime/dist/
