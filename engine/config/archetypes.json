@@ -70,6 +70,13 @@
       "description": "将巡检异常转换为整改工单并约束归档。",
       "allowedPlugins": ["inspection_rectification", "work_order_service", "inspection_work_order_bridge"],
       "requiredCapabilities": ["entity_crud", "workflow", "relationships", "transactions", "audit"]
+    },
+    {
+      "id": "inventory_application_bridge",
+      "name": "库存申请桥接",
+      "description": "最终审批后扣减批次库存并保留流水关系。",
+      "allowedPlugins": ["inventory_batch", "application_archive", "inventory_application_bridge"],
+      "requiredCapabilities": ["entity_crud", "workflow", "relationships", "transactions", "audit"]
     }
   ]
 }

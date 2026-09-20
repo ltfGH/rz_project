@@ -70,6 +70,13 @@
       "description": "提供异常转单、幂等关联和归档阻断。",
       "compatibleArchetypes": ["inspection_rectification", "work_order_service", "inspection_work_order_bridge"],
       "configKeys": { "required": [], "optional": ["service_code", "priority"] }
+    },
+    {
+      "id": "inventory_application_bridge",
+      "name": "库存审批扣减桥接",
+      "description": "提供库存领用申请、最终审批扣减和幂等流水。",
+      "compatibleArchetypes": ["inventory_batch", "application_archive", "inventory_application_bridge"],
+      "configKeys": { "required": [], "optional": [] }
     }
   ]
 }

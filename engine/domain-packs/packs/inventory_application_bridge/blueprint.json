@@ -1,0 +1,20 @@
+{
+ "fragmentVersion":"1.0","pack":{"id":"inventory_application_bridge","version":"1.0.0"},
+ "owns":{"entities":["application_inventory_issue"],"modules":[],"workflows":[],"roles":[]},"publicExtensionPoints":[],
+ "extensions":[
+  {"point":"application.fields","operation":"append","path":"/fields","value":{"id":"inventory_batch_code","name":"领用批次","type":"reference","required":false,"unique":false,"reference":{"entity":"inventory_batch","field":"code"}}},
+  {"point":"application.fields","operation":"append","path":"/fields","value":{"id":"inventory_quantity","name":"领用数量","type":"decimal","required":false,"unique":false}},
+  {"point":"application.fields","operation":"append","path":"/fields","value":{"id":"inventory_purpose","name":"领用用途","type":"text","required":false,"unique":false}},
+  {"point":"application.relations","operation":"append","path":"/relations","value":{"id":"application_inventory_batch","name":"领用批次","field":"inventory_batch_code","targetEntity":"inventory_batch","targetField":"code","onDelete":"restrict"}},
+  {"point":"application.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"inventory_issue","name":"库存领用","viewId":"application_inventory_issue"}},
+  {"point":"application.create.sources","operation":"append","path":"/createSources","value":{"id":"inventory_issue_source","name":"创建库存领用申请"}},
+  {"point":"inventory_batch.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"approved_applications","name":"审批领用","viewId":"inventory_approved_applications"}}
+ ],
+ "blueprint":{"entities":[{"id":"application_inventory_issue","name":"审批库存领用","retention":"append_only","history":true,"systemManaged":true,"fields":[
+  {"id":"code","name":"关联编码","type":"text","required":true,"unique":true},{"id":"idempotency_key","name":"幂等键","type":"text","required":true,"unique":true},
+  {"id":"application_code","name":"申请单","type":"reference","required":true,"unique":false,"reference":{"entity":"application","field":"code"}},
+  {"id":"approval_round","name":"审批轮次","type":"integer","required":true,"unique":false},{"id":"applicant_id","name":"申请人","type":"text","required":true,"unique":false},{"id":"approved_by","name":"最终审批人","type":"text","required":true,"unique":false},
+  {"id":"batch_code","name":"库存批次","type":"reference","required":true,"unique":false,"reference":{"entity":"inventory_batch","field":"code"}},
+  {"id":"quantity","name":"扣减数量","type":"decimal","required":true,"unique":false},{"id":"transaction_code","name":"库存流水","type":"reference","required":true,"unique":true,"reference":{"entity":"inventory_transaction","field":"code"}},{"id":"created_at_business","name":"扣减时间","type":"datetime","required":true,"unique":false}
+ ],"relations":[{"id":"issue_application","name":"申请单","field":"application_code","targetEntity":"application","targetField":"code","onDelete":"restrict"},{"id":"issue_batch","name":"库存批次","field":"batch_code","targetEntity":"inventory_batch","targetField":"code","onDelete":"restrict"},{"id":"issue_transaction","name":"库存流水","field":"transaction_code","targetEntity":"inventory_transaction","targetField":"code","onDelete":"restrict"}]}],"modules":[],"workflows":[],"roles":[],"dashboards":[]},"seed":{"records":{}}
+}
