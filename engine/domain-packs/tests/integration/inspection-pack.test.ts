@@ -69,6 +69,8 @@ test('loads and composes the production inspection rectification pack', () => {
     'entity.detail.tabs', 'entity.detail.actions', 'dashboard.sections'
   ]);
   assert.deepEqual(pack.fragment.publicExtensionPoints.map((point) => point.id), [
+    'inspection_plan.fields',
+    'inspection_plan.relations',
     'inspection_task.fields',
     'inspection_task.relations',
     'inspection_task.detail.tabs',

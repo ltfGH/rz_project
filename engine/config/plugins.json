@@ -56,6 +56,13 @@
       "description": "提供资产关联工单创建、历史视图和停用阻断。",
       "compatibleArchetypes": ["asset_registry", "work_order_service", "asset_work_order_bridge"],
       "configKeys": { "required": [], "optional": [] }
+    },
+    {
+      "id": "asset_inspection_bridge",
+      "name": "资产巡检关系桥接",
+      "description": "提供资产巡检计划、任务、历史和停用阻断。",
+      "compatibleArchetypes": ["asset_registry", "inspection_rectification", "asset_inspection_bridge"],
+      "configKeys": { "required": [], "optional": [] }
     }
   ]
 }

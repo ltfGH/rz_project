@@ -9,6 +9,7 @@ test('exports every existing production plugin exactly once at an exact version'
   ));
   assert.deepEqual(identities, [
     'application_archive@1.0.0',
+    'asset_inspection_bridge@1.0.0',
     'asset_registry@1.0.0',
     'asset_work_order_bridge@1.0.0',
     'domain_document_bridge@1.0.0',

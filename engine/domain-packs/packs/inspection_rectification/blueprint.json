@@ -8,6 +8,8 @@
     "roles": ["inspection_planner", "inspection_executor", "inspection_reviewer", "inspection_admin"]
   },
   "publicExtensionPoints": [
+    { "id": "inspection_plan.fields", "targetKind": "entity", "targetId": "inspection_plan", "allowedOperations": ["append"] },
+    { "id": "inspection_plan.relations", "targetKind": "entity", "targetId": "inspection_plan", "allowedOperations": ["append"] },
     { "id": "inspection_task.fields", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },
     { "id": "inspection_task.relations", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },
     { "id": "inspection_task.detail.tabs", "targetKind": "entity", "targetId": "inspection_task", "allowedOperations": ["append"] },

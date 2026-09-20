@@ -56,6 +56,13 @@
       "description": "连接资产台账与工单服务并约束资产停用。",
       "allowedPlugins": ["asset_registry", "work_order_service", "asset_work_order_bridge"],
       "requiredCapabilities": ["entity_crud", "relationships", "transactions", "audit"]
+    },
+    {
+      "id": "asset_inspection_bridge",
+      "name": "资产巡检桥接",
+      "description": "连接资产台账与巡检计划、任务和历史。",
+      "allowedPlugins": ["asset_registry", "inspection_rectification", "asset_inspection_bridge"],
+      "requiredCapabilities": ["entity_crud", "relationships", "transactions", "audit"]
     }
   ]
 }

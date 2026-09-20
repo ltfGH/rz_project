@@ -1,0 +1,14 @@
+{
+  "fragmentVersion":"1.0","pack":{"id":"asset_inspection_bridge","version":"1.0.0"},
+  "owns":{"entities":[],"modules":[],"workflows":[],"roles":[]},"publicExtensionPoints":[],
+  "extensions":[
+    {"point":"inspection_plan.fields","operation":"append","path":"/fields","value":{"id":"asset_code","name":"关联资产","type":"reference","required":false,"unique":false,"reference":{"entity":"asset","field":"code"}}},
+    {"point":"inspection_plan.relations","operation":"append","path":"/relations","value":{"id":"inspection_plan_asset","name":"关联资产","field":"asset_code","targetEntity":"asset","targetField":"code","onDelete":"restrict"}},
+    {"point":"inspection_task.fields","operation":"append","path":"/fields","value":{"id":"asset_code","name":"关联资产","type":"reference","required":false,"unique":false,"reference":{"entity":"asset","field":"code"}}},
+    {"point":"inspection_task.relations","operation":"append","path":"/relations","value":{"id":"inspection_task_asset","name":"关联资产","field":"asset_code","targetEntity":"asset","targetField":"code","onDelete":"restrict"}},
+    {"point":"inspection_task.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"asset_context","name":"关联资产","viewId":"inspection_asset_context"}},
+    {"point":"inspection_task.create.sources","operation":"append","path":"/createSources","value":{"id":"asset_source","name":"从资产计划创建"}},
+    {"point":"asset.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"inspection_history","name":"巡检历史","viewId":"asset_inspection_history"}}
+  ],
+  "blueprint":{"entities":[],"modules":[],"workflows":[],"roles":[],"dashboards":[]},"seed":{"records":{}}
+}
