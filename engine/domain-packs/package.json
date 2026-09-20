@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
+    "test:combinations": "node --import tsx --test tests/combinations/*.test.ts",
     "test": "npm run test:unit && npm run test:integration",
     "build": "node tools/build-cli.cjs",
     "build:runtime-catalog": "node tools/build-runtime-catalog.cjs",
