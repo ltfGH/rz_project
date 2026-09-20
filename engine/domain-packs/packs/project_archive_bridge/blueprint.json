@@ -1,0 +1,15 @@
+{
+ "fragmentVersion":"1.0","pack":{"id":"project_archive_bridge","version":"1.0.0"},
+ "owns":{"entities":["project_delivery_archive"],"modules":["project_delivery_archives"],"workflows":[],"roles":["project_archive_manager"]},"publicExtensionPoints":[],
+ "extensions":[
+  {"point":"project.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"delivery_archives","name":"交付归档","viewId":"project_delivery_archives"}},
+  {"point":"file_version.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"project_delivery","name":"项目交付","viewId":"file_project_delivery"}}
+ ],
+ "blueprint":{"entities":[{"id":"project_delivery_archive","name":"项目交付归档","retention":"append_only","history":true,"systemManaged":true,"fields":[
+  {"id":"code","name":"归档关联编码","type":"text","required":true,"unique":true},{"id":"idempotency_key","name":"幂等键","type":"text","required":true,"unique":true},
+  {"id":"project_code","name":"项目","type":"reference","required":true,"unique":false,"reference":{"entity":"project","field":"code"}},
+  {"id":"deliverable_code","name":"交付版本","type":"reference","required":true,"unique":true,"reference":{"entity":"deliverable","field":"code"}},
+  {"id":"file_version_code","name":"文件版本","type":"reference","required":true,"unique":true,"reference":{"entity":"file_version","field":"code"}},
+  {"id":"archived_by","name":"归档人","type":"text","required":true,"unique":false},{"id":"archived_at_business","name":"归档时间","type":"datetime","required":true,"unique":false}
+ ],"relations":[{"id":"archive_project","name":"项目","field":"project_code","targetEntity":"project","targetField":"code","onDelete":"restrict"},{"id":"archive_deliverable","name":"交付版本","field":"deliverable_code","targetEntity":"deliverable","targetField":"code","onDelete":"restrict"},{"id":"archive_file_version","name":"文件版本","field":"file_version_code","targetEntity":"file_version","targetField":"code","onDelete":"restrict"}]}],"modules":[{"id":"project_delivery_archives","name":"交付归档","route":"project_delivery_archives","entity":"project_delivery_archive","actions":["list","view","link"]}],"workflows":[],"roles":[{"id":"project_archive_manager","name":"项目归档管理员","permissions":["project_delivery_archives.list","project_delivery_archives.view","project_delivery_archives.link","projects.list","projects.view","deliverables.list","deliverables.view","file_versions.list","file_versions.view"]}],"dashboards":[]},"seed":{"records":{}}
+}

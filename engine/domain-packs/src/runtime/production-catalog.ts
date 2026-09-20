@@ -9,6 +9,7 @@ import { inspectionWorkOrderRuntimeDescriptor } from '../../packs/inspection_wor
 import { inventoryRuntimeDescriptor } from '../../packs/inventory_batch/runtime/index';
 import { inventoryApplicationRuntimeDescriptor } from '../../packs/inventory_application_bridge/runtime/index';
 import { projectRuntimeDescriptor } from '../../packs/project_task/runtime/index';
+import { projectArchiveRuntimeDescriptor } from '../../packs/project_archive_bridge/runtime/index';
 import { workOrderRuntimeDescriptor } from '../../packs/work_order_service/runtime/index';
 
 export const productionPluginDescriptors: readonly PluginDescriptor[] = Object.freeze([
@@ -21,6 +22,7 @@ export const productionPluginDescriptors: readonly PluginDescriptor[] = Object.f
   inspectionWorkOrderRuntimeDescriptor,
   inventoryApplicationRuntimeDescriptor,
   inventoryRuntimeDescriptor,
+  projectArchiveRuntimeDescriptor,
   projectRuntimeDescriptor,
   workOrderRuntimeDescriptor
 ]);

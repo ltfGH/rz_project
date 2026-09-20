@@ -42,6 +42,7 @@ test('loads and composes the production application archive pack', () => {
   assert.deepEqual(pack.catalog.provides, ['application.core','archive.core']);
   assert.deepEqual(pack.fragment.publicExtensionPoints.map((point) => point.id), [
     'application.fields','application.relations','application.detail.tabs','application.create.sources',
-    'file_version.fields','file_version.relations','certificate.fields','certificate.relations','certificate.detail.tabs'
+    'file_version.fields','file_version.relations','file_version.detail.tabs',
+    'certificate.fields','certificate.relations','certificate.detail.tabs'
   ]);
 });

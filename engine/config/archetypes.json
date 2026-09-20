@@ -77,6 +77,13 @@
       "description": "最终审批后扣减批次库存并保留流水关系。",
       "allowedPlugins": ["inventory_batch", "application_archive", "inventory_application_bridge"],
       "requiredCapabilities": ["entity_crud", "workflow", "relationships", "transactions", "audit"]
+    },
+    {
+      "id": "project_archive_bridge",
+      "name": "项目归档桥接",
+      "description": "连接项目交付版本与归档文件并约束项目关闭。",
+      "allowedPlugins": ["project_task", "application_archive", "project_archive_bridge"],
+      "requiredCapabilities": ["entity_crud", "relationships", "attachments", "transactions", "audit"]
     }
   ]
 }
