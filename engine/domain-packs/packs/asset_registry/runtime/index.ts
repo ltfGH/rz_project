@@ -7,6 +7,7 @@ import type {
 } from '../../../../desktop-runtime/src/core/plugin-registry';
 import { runAssetAcceptanceScenario } from '../tests/index';
 import { assetUiDescriptor } from '../ui/index';
+import { createAssetDomainActions } from './action-adapter';
 
 export type AssetStatus = 'active' | 'maintenance' | 'inactive';
 
@@ -346,6 +347,9 @@ export const assetRuntimeDescriptor = Object.freeze({
       service: 'asset.lifecycle', method: 'assignResponsibility',
       permission: 'asset_responsibilities.assign'
     }));
+  },
+  registerDomainActions: (registry) => {
+    for (const action of createAssetDomainActions()) register(registry, action.id, action);
   },
   registerUiExtensions: (registry) => {
     for (const extension of assetUiDescriptor.extensions) {

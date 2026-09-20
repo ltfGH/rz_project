@@ -3,6 +3,7 @@ import type { PluginContributionSink, PluginDescriptor } from '../../../../deskt
 import { inventoryUiDescriptor } from '../ui/index';
 import { runInventoryAcceptanceScenario } from '../tests/index';
 import { InventoryService } from './inventory-service';
+import { inventoryDomainActions } from './action-adapter';
 
 export * from './types';
 export * from './inventory-service';
@@ -36,6 +37,9 @@ export const inventoryRuntimeDescriptor = Object.freeze({
       ['inventory.expiry', 'readExpiryWarnings', 'inventory_batches.view'],
       ['inventory.dashboard_summary', 'readInventorySummary', 'inventory_batches.view']
     ] as const) register(registry, id, Object.freeze({ service: 'inventory.lifecycle', method, permission }));
+  },
+  registerDomainActions: (registry) => {
+    for (const action of inventoryDomainActions) register(registry, action.id, action);
   },
   registerUiExtensions: (registry) => { for (const extension of inventoryUiDescriptor.extensions) register(registry, extension.id, extension); },
   registerAcceptanceScenarios: (registry) => register(registry, 'inventory.lifecycle.acceptance', runInventoryAcceptanceScenario)

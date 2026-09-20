@@ -5,6 +5,7 @@ import type {
 } from '../../../../desktop-runtime/src/core/plugin-registry';
 import { runWorkOrderAcceptanceScenario } from '../tests/index';
 import { workOrderUiDescriptor } from '../ui/index';
+import { workOrderDomainActions } from './action-adapter';
 
 export * from './sla';
 export * from './types';
@@ -62,6 +63,9 @@ export const workOrderRuntimeDescriptor = Object.freeze({
         service: 'work_order.lifecycle', method, permission
       }));
     }
+  },
+  registerDomainActions: (registry) => {
+    for (const action of workOrderDomainActions) register(registry, action.id, action);
   },
   registerUiExtensions: (registry) => {
     for (const extension of workOrderUiDescriptor.extensions) {

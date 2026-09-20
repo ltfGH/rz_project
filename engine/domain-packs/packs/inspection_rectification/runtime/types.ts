@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import type { DomainCommandBus } from '../../../src/runtime/types';
 
 export type InspectionTaskStatus = 'pending' | 'executing' | 'pending_review' | 'archived';
 export type InspectionItemResult = 'pending' | 'normal' | 'abnormal';
@@ -36,6 +37,20 @@ export type InspectionArchiveBlocker = (
   connection: InspectionReadConnection
 ) => InspectionArchiveBlockerResult;
 
+export interface InspectionAbnormalDto {
+  readonly taskId: number;
+  readonly taskCode: string;
+  readonly itemId: number;
+  readonly itemCode: string;
+  readonly resultCode: 'abnormal';
+  readonly recordedBy: string;
+}
+
+export type InspectionAbnormalHandler = (
+  abnormality: InspectionAbnormalDto,
+  commandBus: DomainCommandBus
+) => void;
+
 export interface InspectionContext {
   readonly connection: DatabaseSync;
   readonly actor: InspectionActor;
@@ -47,6 +62,8 @@ export interface InspectionContext {
     connection: DatabaseSync
   ) => boolean;
   readonly archiveBlockers: readonly InspectionArchiveBlocker[];
+  readonly abnormalHandlers: readonly InspectionAbnormalHandler[];
+  readonly commandBus: DomainCommandBus;
   readonly now: () => Date;
   readonly planCode: () => string;
   readonly taskCode: () => string;

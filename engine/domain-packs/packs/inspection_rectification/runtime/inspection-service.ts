@@ -379,8 +379,8 @@ export class InspectionService {
     assertExecutor(row, context);
     if (row.status !== 'executing') throw new AppError('INVALID_TRANSITION', 'Task is not executing.');
     const item = context.connection.prepare(
-      'SELECT id, task_code, version FROM biz_inspection_item WHERE id = ?'
-    ).get(request.itemId) as { id: number; task_code: string; version: number } | undefined;
+      'SELECT id, code, task_code, version FROM biz_inspection_item WHERE id = ?'
+    ).get(request.itemId) as { id: number; code: string; task_code: string; version: number } | undefined;
     if (!item || item.task_code !== row.code) throw new AppError('NOT_FOUND', 'Inspection item was not found for this task.');
     if (request.result !== 'normal' && request.result !== 'abnormal') {
       throw new AppError('VALIDATION_FAILED', 'Inspection result is invalid.');
@@ -411,6 +411,19 @@ export class InspectionService {
     context.appendAudit(context.connection, Object.freeze({ actor: context.actor, permission,
       entityId: 'inspection_item', recordId: item.id, result: 'success',
       details: Object.freeze({ eventCode, result: request.result }) }));
+    if (request.result === 'abnormal') {
+      const abnormality = Object.freeze({
+        taskId: row.id,
+        taskCode: row.code,
+        itemId: item.id,
+        itemCode: item.code,
+        resultCode: 'abnormal' as const,
+        recordedBy: context.actor.username
+      });
+      for (const handler of context.abnormalHandlers) {
+        handler(abnormality, context.commandBus);
+      }
+    }
     return Object.freeze({ taskId: row.id, itemId: item.id, taskVersion: row.version + 1,
       itemVersion: item.version + 1, result: request.result });
   }

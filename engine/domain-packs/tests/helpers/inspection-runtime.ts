@@ -96,6 +96,8 @@ export function inspectionContext(
       (identityId === admin.username && roleId === admin.roleId)
     ),
     archiveBlockers: [],
+    abnormalHandlers: [],
+    commandBus: { invoke: () => undefined },
     now: () => new Date('2026-09-18T08:00:00.000Z'),
     planCode: () => `IPLAN-TEST-${++planSequence}`,
     taskCode: () => `ITASK-TEST-${++taskSequence}`,
