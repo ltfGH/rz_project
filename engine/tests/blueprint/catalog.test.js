@@ -46,13 +46,18 @@ test('loads the checked-in catalog and freezes nested descriptors', () => {
     'inventory_batch',
     'project_task',
     'application_archive',
-    'domain_document_bridge'
+    'domain_document_bridge',
+    'asset_work_order_bridge'
   ]);
-  assert.equal(catalog.plugins.size, 7);
+  assert.equal(catalog.plugins.size, 8);
   assert.deepEqual(catalog.archetypes.get('domain_document_bridge').allowedPlugins,
     ['application_archive', 'domain_document_bridge']);
   assert.deepEqual(catalog.plugins.get('domain_document_bridge').compatibleArchetypes,
     ['application_archive', 'domain_document_bridge']);
+  assert.deepEqual(catalog.archetypes.get('asset_work_order_bridge').allowedPlugins,
+    ['asset_registry', 'work_order_service', 'asset_work_order_bridge']);
+  assert.deepEqual(catalog.plugins.get('asset_work_order_bridge').compatibleArchetypes,
+    ['asset_registry', 'work_order_service', 'asset_work_order_bridge']);
   const descriptor = catalog.archetypes.get('asset_registry');
   assert.equal(Object.isFrozen(descriptor), true);
   assert.equal(Object.isFrozen(descriptor.allowedPlugins), true);

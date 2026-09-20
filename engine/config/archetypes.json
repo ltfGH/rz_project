@@ -49,6 +49,13 @@
       "description": "连接领域文档与申请归档能力。",
       "allowedPlugins": ["application_archive", "domain_document_bridge"],
       "requiredCapabilities": ["entity_crud", "relationships", "audit"]
+    },
+    {
+      "id": "asset_work_order_bridge",
+      "name": "资产工单桥接",
+      "description": "连接资产台账与工单服务并约束资产停用。",
+      "allowedPlugins": ["asset_registry", "work_order_service", "asset_work_order_bridge"],
+      "requiredCapabilities": ["entity_crud", "relationships", "transactions", "audit"]
     }
   ]
 }

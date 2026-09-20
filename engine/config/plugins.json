@@ -49,6 +49,13 @@
       "description": "注册领域文档审批完成命令和归档关系。",
       "compatibleArchetypes": ["application_archive", "domain_document_bridge"],
       "configKeys": { "required": [], "optional": [] }
+    },
+    {
+      "id": "asset_work_order_bridge",
+      "name": "资产工单关系桥接",
+      "description": "提供资产关联工单创建、历史视图和停用阻断。",
+      "compatibleArchetypes": ["asset_registry", "work_order_service", "asset_work_order_bridge"],
+      "configKeys": { "required": [], "optional": [] }
     }
   ]
 }

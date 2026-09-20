@@ -10,6 +10,7 @@
   "publicExtensionPoints": [
     { "id": "asset.fields", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
     { "id": "asset.relations", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
+    { "id": "asset.detail.tabs", "targetKind": "entity", "targetId": "asset", "allowedOperations": ["append"] },
     { "id": "asset.lifecycle.transitions", "targetKind": "workflow", "targetId": "asset_lifecycle", "allowedOperations": ["add_transition"] }
   ],
   "extensions": [],
@@ -35,7 +36,8 @@
         ],
         "relations": [
           { "id": "asset_category_relation", "name": "所属分类", "field": "category_code", "targetEntity": "asset_category", "targetField": "code", "onDelete": "restrict" }
-        ]
+        ],
+        "detailTabs": []
       },
       {
         "id": "asset_responsibility", "name": "责任关系", "retention": "protected", "history": true, "systemManaged": false,

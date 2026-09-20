@@ -1,0 +1,40 @@
+{
+  "fragmentVersion": "1.0",
+  "pack": { "id": "asset_work_order_bridge", "version": "1.0.0" },
+  "owns": { "entities": [], "modules": [], "workflows": [], "roles": [] },
+  "publicExtensionPoints": [],
+  "extensions": [
+    {
+      "point": "work_order.fields",
+      "operation": "append",
+      "path": "/fields",
+      "value": { "id": "asset_code", "name": "关联资产", "type": "reference", "required": false, "unique": false, "reference": { "entity": "asset", "field": "code" } }
+    },
+    {
+      "point": "work_order.relations",
+      "operation": "append",
+      "path": "/relations",
+      "value": { "id": "work_order_asset", "name": "关联资产", "field": "asset_code", "targetEntity": "asset", "targetField": "code", "onDelete": "restrict" }
+    },
+    {
+      "point": "work_order.detail.tabs",
+      "operation": "append",
+      "path": "/detailTabs",
+      "value": { "id": "asset_context", "name": "关联资产", "viewId": "work_order_asset_context" }
+    },
+    {
+      "point": "work_order.create.sources",
+      "operation": "append",
+      "path": "/createSources",
+      "value": { "id": "asset_source", "name": "从资产创建工单" }
+    },
+    {
+      "point": "asset.detail.tabs",
+      "operation": "append",
+      "path": "/detailTabs",
+      "value": { "id": "work_order_history", "name": "关联工单", "viewId": "asset_work_order_history" }
+    }
+  ],
+  "blueprint": { "entities": [], "modules": [], "workflows": [], "roles": [], "dashboards": [] },
+  "seed": { "records": {} }
+}
