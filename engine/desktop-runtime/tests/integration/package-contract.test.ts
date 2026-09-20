@@ -31,3 +31,20 @@ test('configures a per-user x64 NSIS package with isolated user data', () => {
     { from: 'dist/resources', to: 'runtime-resources', filter: ['**/*'] }
   ]);
 });
+
+test('configures the reference application as a distinct distributable', () => {
+  const configPath = path.resolve(__dirname, '..', '..', 'electron-builder.reference.yml');
+  const config = parse(fs.readFileSync(configPath, 'utf8')) as Record<string, any>;
+
+  assert.equal(config.appId, 'cn.rzproject.asset.operations');
+  assert.equal(config.productName, '资产巡检整改管理软件');
+  assert.equal(config.win.executableName, '资产巡检整改管理软件');
+  assert.equal(config.artifactName, '${productName} V${version} 安装包.${ext}');
+  assert.deepEqual(config.extraResources, [
+    { from: 'dist/resources', to: 'runtime-resources', filter: ['**/*'] }
+  ]);
+  assert.equal(config.nsis.deleteAppDataOnUninstall, false);
+  const packageJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8'));
+  assert.match(packageJson.scripts['dist:win:reference'], /build:reference:release/);
+  assert.match(packageJson.scripts['build:reference:release'], /--require-external-digests/);
+});

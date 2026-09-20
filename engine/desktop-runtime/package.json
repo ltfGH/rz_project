@@ -10,13 +10,16 @@
     "test:unit": "node --import tsx --test tests/unit/*.test.ts",
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "test:e2e": "playwright test",
+    "test:e2e:reference": "node tools/require-reference-e2e-env.cjs && npm run build:reference && playwright test tests/e2e/reference-acceptance.spec.ts",
     "build:runtime": "tsc -p tsconfig.json && vite build --config vite.preload.config.mts",
     "build:renderer": "vite build",
     "prepare:icon": "node tools/generate-icon.cjs",
     "build": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/copy-runtime-resources.cjs",
     "build:reference": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/build-project-resources.cjs --project ./reference/asset-operations/project.json --output ./dist/resources",
+    "build:reference:release": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/build-project-resources.cjs --project ./reference/asset-operations/project.json --output ./dist/resources --require-external-digests",
     "start": "electron .",
-    "dist:win": "node tools/clean-installers.cjs && npm run build && electron-builder --win nsis --x64"
+    "dist:win": "node tools/clean-installers.cjs && npm run build && electron-builder --win nsis --x64",
+    "dist:win:reference": "node tools/clean-installers.cjs && npm run build:reference:release && electron-builder --config electron-builder.reference.yml --win nsis --x64"
   },
   "dependencies": {
     "lucide-react": "1.46.0",

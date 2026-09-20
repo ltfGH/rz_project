@@ -50,5 +50,12 @@ The files use canonical JSON and are published through a sibling staging directo
 - `packs/project_task`: standalone production project pack with weighted task progress, milestone and delivery gates, risk controls, independent closure review, deterministic seeds and a real-SQLite acceptance scenario. See [project_task/README.md](packs/project_task/README.md).
 - `packs/application_archive`: production application/archive pack with multi-round sequential approval, managed immutable files, recoverable imports, certificate renewal, in-app expiry reminders and real filesystem acceptance. See [application_archive/README.md](packs/application_archive/README.md).
 - `packs/domain_document_bridge`: optional production bridge that links domain documents to application/archive extension points and registers a typed approval-completion command.
+- `packs/asset_work_order_bridge`: links asset lifecycle blockers and asset-originated work orders.
+- `packs/asset_inspection_bridge`: links assets to inspection plans and prevents unsafe asset state changes.
+- `packs/inspection_work_order_bridge`: creates one idempotent rectification work order for each abnormal inspection item and blocks archive until closure.
+- `packs/inventory_application_bridge`: executes approved material issue requests in the owning SQLite transaction.
+- `packs/project_archive_bridge`: archives approved project deliveries without bypassing either pack's state machine.
+
+`npm run test:combinations` verifies the eight supported core/bridge compositions. `npm run build:runtime-catalog` produces the production descriptor bundle consumed by the desktop runtime; fixture packs never enter that catalog.
 
 Everything under `tests/fixtures/packs` remains protocol or composition test data and must not be used as a production pack. Additional planned production packs and optional cross-pack bridges are implemented in later work units.

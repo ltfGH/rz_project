@@ -17,6 +17,40 @@ import { seedProjectData } from '../../src/core/seed';
 
 const root = path.resolve(__dirname, '..', '..');
 
+test('refuses a release resource build without four external password digests', () => {
+  const output = path.join(os.tmpdir(), `reference-release-${Date.now()}`);
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'tools', 'build-project-resources.cjs'),
+    '--project', path.join(root, 'reference', 'asset-operations', 'project.json'),
+    '--output', output,
+    '--require-external-digests'
+  ], { cwd: root, encoding: 'utf8', windowsHide: true, env: { ...process.env,
+    RZ_REFERENCE_DISPATCHER_PASSWORD_DIGEST: '', RZ_REFERENCE_OPERATOR_PASSWORD_DIGEST: '',
+    RZ_REFERENCE_REVIEWER_PASSWORD_DIGEST: '', RZ_REFERENCE_ADMINISTRATOR_PASSWORD_DIGEST: ''
+  } });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /require four external/);
+  assert.equal(fs.existsSync(output), false);
+});
+
+test('refuses malformed external release password digests', () => {
+  const output = path.join(os.tmpdir(), `reference-release-invalid-${Date.now()}`);
+  const result = spawnSync(process.execPath, [
+    path.join(root, 'tools', 'build-project-resources.cjs'),
+    '--project', path.join(root, 'reference', 'asset-operations', 'project.json'),
+    '--output', output,
+    '--require-external-digests'
+  ], { cwd: root, encoding: 'utf8', windowsHide: true, env: { ...process.env,
+    RZ_REFERENCE_DISPATCHER_PASSWORD_DIGEST: 'scrypt$16384$8$1$bad$bad',
+    RZ_REFERENCE_OPERATOR_PASSWORD_DIGEST: 'scrypt$16384$8$1$bad$bad',
+    RZ_REFERENCE_REVIEWER_PASSWORD_DIGEST: 'scrypt$16384$8$1$bad$bad',
+    RZ_REFERENCE_ADMINISTRATOR_PASSWORD_DIGEST: 'scrypt$16384$8$1$bad$bad'
+  } });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Invalid external password digest/);
+  assert.equal(fs.existsSync(output), false);
+});
+
 test('assembles and activates a deterministic reference project through production paths', (t) => {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'reference-resources-'));
   const first = path.join(parent, 'first');

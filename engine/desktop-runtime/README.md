@@ -24,6 +24,28 @@ npm run test:e2e
 npm run dist:win
 ```
 
+Build and verify the asset inspection reference application:
+
+```powershell
+npm run build:reference
+npm run test:e2e:reference
+# Generate four digests separately: set RZ_PASSWORD, then run node tools/hash-password.cjs.
+$env:RZ_REFERENCE_DISPATCHER_PASSWORD_DIGEST = '<scrypt digest>'
+$env:RZ_REFERENCE_OPERATOR_PASSWORD_DIGEST = '<scrypt digest>'
+$env:RZ_REFERENCE_REVIEWER_PASSWORD_DIGEST = '<scrypt digest>'
+$env:RZ_REFERENCE_ADMINISTRATOR_PASSWORD_DIGEST = '<scrypt digest>'
+npm run dist:win:reference
+node tools/verify-package.cjs --unpacked (Resolve-Path '.\dist\installers\win-unpacked').Path
+powershell -NoProfile -ExecutionPolicy Bypass -File '.\tools\verify-installer.ps1' `
+  -InstallerPath (Resolve-Path '.\dist\installers\资产巡检整改管理软件 V1.0.0 安装包.exe').Path
+node tools/write-acceptance-report.cjs --domain-unit 63 --domain-integration 157 `
+  --combinations 8 --desktop-unit 32 --desktop-integration 34 `
+  --restart blocked --package passed --installer passed
+```
+
+Reference E2E passwords are supplied only through the four `RZ_E2E_*_PASSWORD` environment variables. The reference resources contain scrypt digests, never plaintext passwords.
+`build:reference` may use the checked-in fixture digests for deterministic tests. `build:reference:release` and `dist:win:reference` fail closed unless all four external release digests are present; those digests must correspond to passwords delivered through a separate secure channel.
+
 Validate an unpacked package:
 
 ```powershell
@@ -36,6 +58,8 @@ Validate the installer lifecycle:
 powershell -NoProfile -ExecutionPolicy Bypass -File '.\tools\verify-installer.ps1' `
   -InstallerPath (Resolve-Path '.\dist\installers\离线任务协同管理软件 V1.0.0 安装包.exe').Path
 ```
+
+The reference application has 12 business views plus the data/backup view, four composite demonstration roles, 1000 deterministic business rows, and an asset -> inspection -> rectification work-order closure flow. See [the acceptance record](../../docs/reference-application-acceptance.md).
 
 ## Runtime Boundary
 
@@ -61,6 +85,8 @@ Only scrypt digests are stored in `runtime-seed.json`. A generated production pr
 ## Backup and Restore
 
 Backups use SQLite's consistent backup API and include a JSON manifest with application ID, application version, schema version, file size and SHA-256 digest. Restore requires permission and explicit application-ID confirmation. The service protects the current database before replacement and restores it if reopen, integrity or migration validation fails.
+
+The live database and backups are stored under Electron's per-user `userData` directory, outside the installation directory. Uninstall leaves user data intact. Upgrades must preserve the application ID, apply forward-only migrations, and verify `project.lock.json` and the resource manifest before opening the database.
 
 ## Test Isolation
 

@@ -21,6 +21,7 @@ function hash(value) { return crypto.createHash('sha256').update(value).digest('
 
 const projectArgument = argument('--project');
 const outputArgument = argument('--output');
+const requireExternalDigests = process.argv.includes('--require-external-digests');
 if (!projectArgument || !outputArgument) {
   fail('Usage: build-project-resources --project <json> --output <directory>');
 }
@@ -28,6 +29,28 @@ const projectPath = path.resolve(projectArgument);
 const outputPath = path.resolve(outputArgument);
 const project = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
 const accounts = JSON.parse(fs.readFileSync(path.join(path.dirname(projectPath), 'accounts.json'), 'utf8'));
+const credentialKeys = ['dispatcher', 'operator', 'reviewer', 'administrator'];
+const externalDigests = Object.fromEntries(credentialKeys.map((id) => [
+  id,
+  process.env[`RZ_REFERENCE_${id.toUpperCase()}_PASSWORD_DIGEST`]
+]));
+const suppliedDigestCount = Object.values(externalDigests).filter(Boolean).length;
+if (suppliedDigestCount !== 0 && suppliedDigestCount !== credentialKeys.length) {
+  fail('All four RZ_REFERENCE_*_PASSWORD_DIGEST values must be supplied together.');
+}
+if (requireExternalDigests && suppliedDigestCount !== credentialKeys.length) {
+  fail('Release reference builds require four external RZ_REFERENCE_*_PASSWORD_DIGEST values.');
+}
+const passwordDigests = suppliedDigestCount === credentialKeys.length
+  ? externalDigests
+  : Object.fromEntries(Object.entries(accounts).map(([id, account]) => [id, account.passwordDigest]));
+for (const [id, digest] of Object.entries(passwordDigests)) {
+  const parts = typeof digest === 'string' ? digest.split('$') : [];
+  if (parts.length !== 6 || parts[0] !== 'scrypt' || parts[1] !== '16384' || parts[2] !== '8' || parts[3] !== '1' ||
+      Buffer.from(parts[4] ?? '', 'base64').length !== 16 || Buffer.from(parts[5] ?? '', 'base64').length !== 64) {
+    fail(`Invalid external password digest for ${id}.`);
+  }
+}
 const packRoots = project.packs.map((pack) => path.join(domainRoot, 'packs', pack.id));
 const envelope = {
   packs: packRoots,
@@ -62,7 +85,7 @@ try {
   const { generateReferenceSeed } = require('../reference/asset-operations/generate-seed.ts');
   const generatedSeed = generateReferenceSeed({
     seed: project.seed.value, businessRows: project.seed.businessRows, baseline: project.seed.baseline,
-    passwordDigests: Object.fromEntries(Object.entries(accounts).map(([id, account]) => [id, account.passwordDigest]))
+    passwordDigests
   });
   const accountsByUsername = new Map(Object.values(accounts).map((account) => [account.username, account]));
   const seed = {
