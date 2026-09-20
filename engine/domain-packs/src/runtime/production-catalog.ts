@@ -5,6 +5,7 @@ import { assetInspectionRuntimeDescriptor } from '../../packs/asset_inspection_b
 import { assetWorkOrderRuntimeDescriptor } from '../../packs/asset_work_order_bridge/runtime/index';
 import { domainDocumentRuntimeDescriptor } from '../../packs/domain_document_bridge/runtime/index';
 import { inspectionRuntimeDescriptor } from '../../packs/inspection_rectification/runtime/index';
+import { inspectionWorkOrderRuntimeDescriptor } from '../../packs/inspection_work_order_bridge/runtime/index';
 import { inventoryRuntimeDescriptor } from '../../packs/inventory_batch/runtime/index';
 import { projectRuntimeDescriptor } from '../../packs/project_task/runtime/index';
 import { workOrderRuntimeDescriptor } from '../../packs/work_order_service/runtime/index';
@@ -16,6 +17,7 @@ export const productionPluginDescriptors: readonly PluginDescriptor[] = Object.f
   assetWorkOrderRuntimeDescriptor,
   domainDocumentRuntimeDescriptor,
   inspectionRuntimeDescriptor,
+  inspectionWorkOrderRuntimeDescriptor,
   inventoryRuntimeDescriptor,
   projectRuntimeDescriptor,
   workOrderRuntimeDescriptor

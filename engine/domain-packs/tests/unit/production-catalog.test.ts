@@ -14,6 +14,7 @@ test('exports every existing production plugin exactly once at an exact version'
     'asset_work_order_bridge@1.0.0',
     'domain_document_bridge@1.0.0',
     'inspection_rectification@1.0.0',
+    'inspection_work_order_bridge@1.0.0',
     'inventory_batch@1.0.0',
     'project_task@1.0.0',
     'work_order_service@1.0.0'

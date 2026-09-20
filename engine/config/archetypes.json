@@ -63,6 +63,13 @@
       "description": "连接资产台账与巡检计划、任务和历史。",
       "allowedPlugins": ["asset_registry", "inspection_rectification", "asset_inspection_bridge"],
       "requiredCapabilities": ["entity_crud", "relationships", "transactions", "audit"]
+    },
+    {
+      "id": "inspection_work_order_bridge",
+      "name": "巡检工单桥接",
+      "description": "将巡检异常转换为整改工单并约束归档。",
+      "allowedPlugins": ["inspection_rectification", "work_order_service", "inspection_work_order_bridge"],
+      "requiredCapabilities": ["entity_crud", "workflow", "relationships", "transactions", "audit"]
     }
   ]
 }

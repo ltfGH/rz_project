@@ -1,0 +1,21 @@
+{
+  "fragmentVersion":"1.0","pack":{"id":"inspection_work_order_bridge","version":"1.0.0"},
+  "owns":{"entities":["inspection_work_order_link"],"modules":[],"workflows":[],"roles":[]},"publicExtensionPoints":[],
+  "extensions":[
+    {"point":"inspection_task.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"rectification_work_orders","name":"整改工单","viewId":"inspection_rectification_work_orders"}},
+    {"point":"work_order.detail.tabs","operation":"append","path":"/detailTabs","value":{"id":"inspection_source","name":"巡检来源","viewId":"work_order_inspection_source"}}
+  ],
+  "blueprint":{"entities":[{"id":"inspection_work_order_link","name":"巡检整改关联","retention":"append_only","history":true,"systemManaged":true,"fields":[
+    {"id":"code","name":"关联编码","type":"text","required":true,"unique":true},
+    {"id":"inspection_task_code","name":"巡检任务","type":"reference","required":true,"unique":false,"reference":{"entity":"inspection_task","field":"code"}},
+    {"id":"inspection_item_code","name":"异常检查项","type":"reference","required":true,"unique":true,"reference":{"entity":"inspection_item","field":"code"}},
+    {"id":"work_order_code","name":"整改工单","type":"reference","required":true,"unique":true,"reference":{"entity":"work_order","field":"code"}},
+    {"id":"payload_digest","name":"幂等摘要","type":"text","required":true,"unique":false},
+    {"id":"created_at_business","name":"创建时间","type":"datetime","required":true,"unique":false}
+  ],"relations":[
+    {"id":"link_inspection_task","name":"巡检任务","field":"inspection_task_code","targetEntity":"inspection_task","targetField":"code","onDelete":"restrict"},
+    {"id":"link_inspection_item","name":"异常检查项","field":"inspection_item_code","targetEntity":"inspection_item","targetField":"code","onDelete":"restrict"},
+    {"id":"link_work_order","name":"整改工单","field":"work_order_code","targetEntity":"work_order","targetField":"code","onDelete":"restrict"}
+  ]}],"modules":[],"workflows":[],"roles":[],"dashboards":[]},
+  "seed":{"records":{"service_catalog":[{"code":"SVC-RECTIFICATION","name":"巡检整改","description":"巡检异常整改服务","active":true}],"sla_policy":[{"code":"SLA-RECTIFICATION","name":"巡检整改策略","service_code":"SVC-RECTIFICATION","priority":"normal","response_minutes":60,"resolution_minutes":480,"active":true}]}}
+}
