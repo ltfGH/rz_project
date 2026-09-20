@@ -8,8 +8,8 @@ const credentialNames = [
   'RZ_E2E_REVIEWER_PASSWORD', 'RZ_E2E_ADMINISTRATOR_PASSWORD'
 ];
 test.skip(
-  process.env.RZ_SKIP_REFERENCE_E2E === '1' || credentialNames.some((name) => !process.env[name]),
-  'Reference credentials are unavailable or the current image cannot launch Electron.'
+  credentialNames.some((name) => !process.env[name]),
+  'Reference credentials are unavailable in the generic E2E run.'
 );
 
 test('reference workflow', async () => {
@@ -17,13 +17,16 @@ test('reference workflow', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-runtime-e2e-'));
   fs.mkdirSync(path.join(root, 'test-results'), { recursive: true });
   fs.appendFileSync(path.join(root, 'test-results', 'e2e-temp-paths.txt'), `${userData}\n`, 'utf8');
-  const app = await electron.launch({ args: [root], env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } });
+  const executablePath = process.env.RZ_E2E_EXECUTABLE_PATH;
+  const app = await electron.launch(executablePath
+    ? { executablePath: path.resolve(executablePath), env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } }
+    : { args: [root], env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } });
   try {
     const page = await app.firstWindow();
     await expect(page.getByLabel('账号')).toBeVisible();
     const source = fs.readFileSync(path.join(root, 'tools', 'reference-e2e-flow.source.js'), 'utf8');
     const run = new Function(source)() as () => Promise<void>;
-    (globalThis as any).__referenceE2eContext = { electron, initialApp: app, initialPage: page, userData, root, fs, path };
+    (globalThis as any).__referenceE2eContext = { electron, executablePath, initialApp: app, initialPage: page, userData, root, fs, path };
     await run();
     delete (globalThis as any).__referenceE2eContext;
   } finally {

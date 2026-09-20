@@ -54,14 +54,23 @@ while (pending.length > 0) {
   }
 }
 
-const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-package-verify-'));
+const verificationRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'runtime-package-verify-'));
 try {
-  const result = childProcess.spawnSync(executable, ['--verify'], {
-    env: { ...process.env, RZ_RUNTIME_USER_DATA: userData },
-    windowsHide: true,
-    timeout: 30_000
-  });
-  if (result.error) fail(`Packaged executable failed to start: ${result.error.message}`);
+  let result;
+  const attemptStatuses = [];
+  const transientNativeStatuses = new Set([3221225477, 3221225781, -1073741819, -1073741515]);
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const userData = path.join(verificationRoot, `attempt-${attempt}`);
+    result = childProcess.spawnSync(executable, ['--verify'], {
+      env: { ...process.env, RZ_RUNTIME_USER_DATA: userData },
+      windowsHide: true,
+      timeout: 30_000
+    });
+    if (result.error) fail(`Packaged executable failed to start: ${result.error.message}`);
+    attemptStatuses.push(result.status);
+    if (result.status === 0) break;
+    if (!transientNativeStatuses.has(result.status)) break;
+  }
   if (result.status !== 0) fail(`Packaged executable self-check exited with ${result.status}.`);
   const reports = path.join(__dirname, '..', 'dist', 'reports');
   fs.mkdirSync(reports, { recursive: true });
@@ -69,9 +78,10 @@ try {
     status: 'passed', productName: blueprint.software.name,
     executableSha256: crypto.createHash('sha256').update(fs.readFileSync(executable)).digest('hex'),
     resourceManifestSha256: crypto.createHash('sha256').update(fs.readFileSync(path.join(runtimeResources, 'resource-manifest.json'))).digest('hex'),
+    attemptStatuses,
     verifiedAt: new Date().toISOString()
   }, null, 2)}\n`, 'utf8');
   process.stdout.write('Package verification passed.\n');
 } finally {
-  fs.rmSync(userData, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+  fs.rmSync(verificationRoot, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 }

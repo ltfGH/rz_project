@@ -1,6 +1,8 @@
 return async function runReferenceFlow() {
-  const { electron, initialApp, initialPage, userData, root, fs, path } = globalThis.__referenceE2eContext;
+  const { electron, executablePath, initialApp, initialPage, userData, root, fs, path } = globalThis.__referenceE2eContext;
   const { spawnSync } = process.getBuiltinModule('node:child_process');
+  const crypto = process.getBuiltinModule('node:crypto');
+  const sha256 = (filename) => crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
   const passwords = {
     dispatcher: process.env.RZ_E2E_DISPATCHER_PASSWORD,
     operator: process.env.RZ_E2E_OPERATOR_PASSWORD,
@@ -28,6 +30,20 @@ return async function runReferenceFlow() {
     const row = page.getByRole('row').filter({ hasText: 'AST-E2E-001' });
     await row.waitFor();
     if (!String(await row.textContent()).includes('inactive')) throw new Error('Inactive asset is not visible.');
+  };
+  const deactivateAssetInUi = async (page) => {
+    await page.getByLabel('账号').fill('administrator');
+    await page.getByLabel('密码').fill(passwords.administrator);
+    await page.getByRole('button', { name: '登录' }).click();
+    await page.getByRole('navigation', { name: '主导航' }).waitFor();
+    await page.getByRole('button', { name: '资产台账', exact: true }).click();
+    await page.getByPlaceholder('搜索记录').fill('AST-E2E-001');
+    await page.getByRole('button', { name: '查看 AST-E2E-001' }).click();
+    await page.getByRole('button', { name: '变更状态' }).click();
+    await page.getByLabel('目标状态').selectOption('inactive');
+    await page.getByLabel('变更原因').fill('验收闭环完成');
+    await page.getByRole('button', { name: '确认' }).click();
+    await page.getByRole('complementary', { name: '记录详情' }).getByText('inactive', { exact: true }).waitFor();
   };
   let app = initialApp;
   try {
@@ -78,8 +94,7 @@ return async function runReferenceFlow() {
     if (early.ok || early.error.code !== 'INVALID_TRANSITION') throw new Error('Open work order did not block inspection archive.');
     await command(page, reviewer.token, 'work_order.approve_close', { workOrderId: work.id, expectedVersion: resolved.version, comment: '整改验证通过' });
     await command(page, reviewer.token, 'inspection.archive', { taskId: task.taskId, expectedTaskVersion: submitted.version, comment: '整改已关闭' });
-    await command(page, admin.token, 'asset.change_status', { assetId: asset.id, expectedVersion: asset.version, nextStatus: 'inactive', reason: '验收闭环完成' });
-    await showInactiveAsset(page);
+    await deactivateAssetInUi(page);
     fs.mkdirSync(path.join(root, 'test-results'), { recursive: true });
     await page.screenshot({ path: path.join(root, 'test-results', 'reference-closed.png'), fullPage: true });
     await app.close();
@@ -88,12 +103,18 @@ return async function runReferenceFlow() {
     const check = spawnSync(process.execPath, ['-e', "const{DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(process.argv[1],{readOnly:true});const id=Number(process.argv[2]),code=process.argv[3];if(d.prepare(\"SELECT status FROM biz_asset WHERE code='AST-E2E-001'\").get().status!=='inactive'||d.prepare(\"SELECT status FROM biz_inspection_task WHERE title='E2E 巡检任务'\").get().status!=='archived'||d.prepare('SELECT status FROM biz_work_order WHERE id=?').get(id).status!=='closed'||d.prepare('SELECT COUNT(*) count FROM biz_inspection_work_order_link WHERE work_order_code=?').get(code).count!==1||d.prepare('SELECT COUNT(*) count FROM sys_audit_event').get().count<10)process.exit(1);d.close()", path.join(userData, 'runtime.sqlite'), String(work.id), String(work.values.code)], { encoding: 'utf8', windowsHide: true });
     if (check.status !== 0) throw new Error(check.stderr || check.stdout || 'SQLite persistence check failed.');
 
-    app = await electron.launch({ args: [root], env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } });
+    app = await electron.launch(executablePath
+      ? { executablePath: path.resolve(executablePath), env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } }
+      : { args: [root], env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } });
     page = await app.firstWindow();
     await showInactiveAsset(page);
     await app.close();
     app = undefined;
-    fs.writeFileSync(path.join(root, 'test-results', 'reference-acceptance-status.json'), JSON.stringify({ status: 'passed', restartPersistence: true }), 'utf8');
+    fs.writeFileSync(path.join(root, 'test-results', 'reference-acceptance-status.json'), JSON.stringify({
+      status: 'passed', restartPersistence: true,
+      executableSha256: sha256(executablePath),
+      resourceManifestSha256: sha256(path.join(path.dirname(executablePath), 'resources', 'runtime-resources', 'resource-manifest.json'))
+    }), 'utf8');
   } finally {
     if (app) await app.close().catch(() => undefined);
   }

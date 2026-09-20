@@ -40,8 +40,9 @@ const restartStatus = status('--restart');
 if (packageStatus === 'passed') {
   const receipt = evidence('package');
   const executable = path.join(root, 'dist', 'installers', 'win-unpacked', `${blueprint.software.name}.exe`);
+  const packagedManifest = path.join(root, 'dist', 'installers', 'win-unpacked', 'resources', 'runtime-resources', 'resource-manifest.json');
   if (sha256(executable) !== receipt.executableSha256) throw new Error('Package verification receipt is stale.');
-  if (sha256(path.join(resources, 'resource-manifest.json')) !== receipt.resourceManifestSha256) {
+  if (sha256(packagedManifest) !== receipt.resourceManifestSha256) {
     throw new Error('Package resource verification receipt is stale.');
   }
 }
@@ -49,12 +50,22 @@ if (installerStatus === 'passed') {
   const receipt = evidence('installer');
   const installer = path.join(root, 'dist', 'installers', receipt.installerName);
   if (sha256(installer) !== receipt.installerSha256) throw new Error('Installer verification receipt is stale.');
+  const packageReceipt = evidence('package');
+  if (receipt.executableSha256 !== packageReceipt.executableSha256 ||
+      receipt.resourceManifestSha256 !== packageReceipt.resourceManifestSha256) {
+    throw new Error('Installer verification receipt targets different resources.');
+  }
 }
 if (restartStatus === 'passed') {
   const filename = path.join(root, 'test-results', 'reference-acceptance-status.json');
   if (!fs.existsSync(filename)) throw new Error('Missing reference E2E status receipt.');
   const receipt = JSON.parse(fs.readFileSync(filename, 'utf8'));
   if (receipt.status !== 'passed' || receipt.restartPersistence !== true) throw new Error('Reference E2E status receipt did not pass.');
+  const packageReceipt = evidence('package');
+  if (receipt.executableSha256 !== packageReceipt.executableSha256 ||
+      receipt.resourceManifestSha256 !== packageReceipt.resourceManifestSha256) {
+    throw new Error('Reference E2E receipt targets different resources.');
+  }
 }
 const output = {
   reportVersion: '1.0',

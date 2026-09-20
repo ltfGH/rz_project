@@ -45,6 +45,12 @@ try {
     if (-not (Test-Path -LiteralPath $databasePath -PathType Leaf)) {
         throw "Installed application did not create its database: $databasePath"
     }
+    $installedManifest = Join-Path $installDirectory 'resources\runtime-resources\resource-manifest.json'
+    if (-not (Test-Path -LiteralPath $installedManifest -PathType Leaf)) {
+        throw 'Installed resource manifest was not found.'
+    }
+    $installedExecutableSha256 = (Get-FileHash -LiteralPath $executable.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    $installedManifestSha256 = (Get-FileHash -LiteralPath $installedManifest -Algorithm SHA256).Hash.ToLowerInvariant()
 
     $uninstall = Start-Process -FilePath $uninstaller.FullName -ArgumentList @('/S', '/KEEP_APP_DATA', '/currentuser', "_?=$installDirectory") `
         -Wait -PassThru -WindowStyle Hidden
@@ -63,6 +69,8 @@ try {
         status = 'passed'
         installerName = [IO.Path]::GetFileName($installer)
         installerSha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+        executableSha256 = $installedExecutableSha256
+        resourceManifestSha256 = $installedManifestSha256
         verifiedAt = [DateTime]::UtcNow.ToString('o')
     } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $reportDirectory 'installer-verification.json') -Encoding UTF8
     'Installer lifecycle verification passed.'

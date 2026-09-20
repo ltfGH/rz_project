@@ -40,10 +40,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File '.\tools\verify-installer.ps
   -InstallerPath (Resolve-Path '.\dist\installers\资产巡检整改管理软件 V1.0.0 安装包.exe').Path
 node tools/write-acceptance-report.cjs --domain-unit 63 --domain-integration 157 `
   --combinations 8 --desktop-unit 32 --desktop-integration 34 `
-  --restart blocked --package passed --installer passed
+  --restart passed --package passed --installer passed
 ```
 
-Reference E2E passwords are supplied only through the four `RZ_E2E_*_PASSWORD` environment variables. The reference resources contain scrypt digests, never plaintext passwords.
+The reference E2E runner generates four high-entropy passwords in memory and exposes them only to its child build and Playwright processes. Reference resources contain scrypt digests, never plaintext passwords.
 `build:reference` may use the checked-in fixture digests for deterministic tests. `build:reference:release` and `dist:win:reference` fail closed unless all four external release digests are present; those digests must correspond to passwords delivered through a separate secure channel.
 
 Validate an unpacked package:
