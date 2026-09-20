@@ -17,6 +17,7 @@ export interface RuntimeServices {
   metadata: { read(actor: ActorDto): unknown };
   entities: Pick<EntityRepository, 'list' | 'get' | 'create' | 'update'>;
   workflows: Pick<WorkflowEngine, 'allowedActions' | 'execute'>;
+  domain: { execute(commandId: string, payload: unknown, actor: ActorDto): unknown };
   dashboard: { read(actor: ActorDto): unknown };
   maintenance: {
     createBackup(actor: ActorDto): Promise<unknown>;
@@ -97,6 +98,11 @@ export function registerIpcHandlers(ipc: IpcRegistrar, services: RuntimeServices
     actor: actorFor(services, request),
     input: request.input as ExecuteTransitionRequest['input']
   }));
+  register(IPC_CHANNELS.domainExecute, (request) => services.domain.execute(
+    request.commandId as string,
+    request.payload,
+    actorFor(services, request)
+  ));
   register(IPC_CHANNELS.dashboardRead, (request) => services.dashboard.read(actorFor(services, request)));
   register(IPC_CHANNELS.maintenanceBackup, (request) => (
     services.maintenance.createBackup(actorFor(services, request))

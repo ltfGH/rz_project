@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react';
 import type { RuntimeEntity, RuntimeModule } from '../../shared/blueprint';
-import type { AllowedTransitionDto, EntityRecordDto, PageDto } from '../../shared/dto';
+import type { AllowedTransitionDto, DomainActionDto, EntityRecordDto, PageDto } from '../../shared/dto';
 import { DataTable } from '../components/DataTable';
 import { EntityDetail } from '../components/EntityDetail';
 import { EntityForm } from '../components/EntityForm';
 import { StatusView } from '../components/StatusView';
 import { WorkflowActions } from '../components/WorkflowActions';
+import { DomainActions } from '../components/DomainActions';
+import { RelatedRecords } from '../components/RelatedRecords';
 import { unwrap } from '../utils';
 
-export function ModuleScreen({ token, module, entity }: {
+export function ModuleScreen({ token, module, entity, domainActions }: {
   token: string;
   module: RuntimeModule;
   entity: RuntimeEntity | undefined;
+  domainActions: readonly DomainActionDto[];
 }) {
   const [page, setPage] = useState<PageDto<EntityRecordDto> | null>(null);
   const [error, setError] = useState('');
@@ -68,6 +71,8 @@ export function ModuleScreen({ token, module, entity }: {
       {selected && <aside className="detail-drawer" aria-label="记录详情">
         <div className="detail-header"><h3>{String(selected.values.code ?? `记录 ${selected.id}`)}</h3><button className="icon-button" aria-label="关闭详情" onClick={() => setSelected(null)}>×</button></div>
         <EntityDetail record={selected} />
+        {entity && <RelatedRecords token={token} entity={entity} record={selected} />}
+        <DomainActions token={token} entityId={module.entity} record={selected} actions={domainActions} onComplete={() => void view(selected).then(() => load())} />
         {entity && module.actions.includes('update') && <button className="secondary-button edit-button" onClick={() => setEditing(selected)}>编辑</button>}
         <WorkflowActions actions={actions} onExecute={(action) => void execute(action)} />
       </aside>}

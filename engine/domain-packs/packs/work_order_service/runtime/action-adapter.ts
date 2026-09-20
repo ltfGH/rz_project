@@ -2,7 +2,7 @@ import { createServiceActions, type PluginActionContext } from '../../../src/run
 import type { WorkOrderContext } from './types';
 import { WorkOrderService } from './work-order-service';
 
-function context(source: PluginActionContext): WorkOrderContext {
+export function workOrderDomainContext(source: PluginActionContext): WorkOrderContext {
   return {
     connection: source.connection,
     actor: source.actor,
@@ -17,7 +17,7 @@ function context(source: PluginActionContext): WorkOrderContext {
 
 export const workOrderDomainActions = createServiceActions(
   new WorkOrderService(),
-  context,
+  workOrderDomainContext,
   [
     { id: 'sla_policy.create', method: 'createSlaPolicy', permission: 'sla_policies.create_policy' },
     { id: 'sla_policy.update', method: 'updateSlaPolicy', permission: 'sla_policies.update_policy' },

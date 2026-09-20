@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { RuntimeEntity, RuntimeModule } from '../shared/blueprint';
 import type { ActorDto } from '../shared/dto';
+import type { DomainActionDto } from '../shared/dto';
 import { AppShell } from './components/AppShell';
 import { Dashboard } from './components/Dashboard';
 import { LoginScreen } from './screens/LoginScreen';
@@ -13,6 +14,7 @@ interface Metadata {
   readonly software: { readonly name: string };
   readonly modules: readonly RuntimeModule[];
   readonly entities?: readonly RuntimeEntity[];
+  readonly domainActions?: readonly DomainActionDto[];
 }
 
 interface LoginResult {
@@ -68,7 +70,7 @@ export function App() {
     >
       {selected === 'dashboard' ? <Dashboard metrics={metrics} />
         : selected === 'maintenance' ? <MaintenanceScreen token={session.token} />
-          : module ? <ModuleScreen token={session.token} module={module} entity={entity} />
+          : module ? <ModuleScreen token={session.token} module={module} entity={entity} domainActions={metadata.domainActions ?? []} />
             : <Dashboard metrics={metrics} />}
     </AppShell>
   );

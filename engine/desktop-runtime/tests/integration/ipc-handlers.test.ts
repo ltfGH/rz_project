@@ -63,6 +63,7 @@ function services(observed: ActorDto[]): RuntimeServices {
         return { id: request.recordId, version: 2, values: {} };
       }
     },
+    domain: { execute: (_commandId, _payload, current) => { observed.push(current); return {}; } },
     dashboard: { read: () => [] },
     maintenance: {
       createBackup: async () => ({ fileName: 'backup.sqlite' }),

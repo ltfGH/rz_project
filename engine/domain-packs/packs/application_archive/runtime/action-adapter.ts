@@ -11,8 +11,8 @@ function context(source: PluginActionContext): ApplicationContext {
     connection: source.connection,
     actor: source.actor,
     config: {
-      approvalLevels: Number(source.config.approval_levels ?? 2) as 1 | 2 | 3,
-      reminderDays: Number(source.config.reminder_days ?? 30)
+      approvalLevels: Number(source.pluginConfig('application_archive').approval_levels ?? 2) as 1 | 2 | 3,
+      reminderDays: Number(source.pluginConfig('application_archive').reminder_days ?? 30)
     },
     requirePermission: source.requirePermission,
     appendAudit: (connection: typeof source.connection, entry: Parameters<ApplicationContext['appendAudit']>[1]) => source.appendAudit(connection, entry),

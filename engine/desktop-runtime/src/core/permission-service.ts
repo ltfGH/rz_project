@@ -20,4 +20,11 @@ export class PermissionService {
   allows(actor: ActorDto, permission: string): boolean {
     return this.#permissions.get(actor.roleId)?.has(permission) ?? false;
   }
+
+  roleIncludes(roleId: string, requiredRoleId: string): boolean {
+    if (roleId === requiredRoleId) return true;
+    const actual = this.#permissions.get(roleId);
+    const required = this.#permissions.get(requiredRoleId);
+    return Boolean(actual && required && [...required].every((permission) => actual.has(permission)));
+  }
 }

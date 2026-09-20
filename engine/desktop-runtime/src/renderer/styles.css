@@ -84,6 +84,14 @@ tbody tr:hover { background: #f8fbfa; }
 .detail-header h3 { margin: 0; font-size: 16px; }
 .detail-drawer .workflow-actions { padding-top: 18px; justify-content: flex-end; }
 .edit-button { margin-top: 18px; }
+.domain-actions, .related-records { margin-top: 18px; padding-top: 16px; border-top: 1px solid #dce3e8; }
+.domain-actions h4 { margin: 0 0 12px; font-size: 14px; }
+.domain-actions form { display: grid; gap: 10px; margin-top: 14px; }
+.domain-actions label { display: grid; gap: 6px; color: #52636f; font-size: 13px; }
+.domain-actions input, .domain-actions select { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid #bac5ce; border-radius: 5px; background: #fff; }
+.action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.error-text { margin: 0; color: #a72d36; font-size: 13px; }
+.related-records ul { margin: 12px 0 0; padding-left: 20px; color: #40505e; font-size: 13px; }
 
 @media (max-width: 1180px) {
   .app-layout { grid-template-columns: 190px minmax(0, 1fr); }

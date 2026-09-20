@@ -46,7 +46,8 @@ async function installApi(page: Page): Promise<void> {
                 { id: 'name', name: '资产名称', type: 'text', required: true, unique: false },
                 { id: 'status', name: '状态', type: 'enum', required: true, unique: false, options: ['active', 'inactive'] }
               ], relations: []
-            }]
+            }],
+            domainActions: [{ id: 'asset.change_status', label: '状态操作', entityId: 'asset', order: 10 }]
           })
         },
         entities: {
@@ -62,6 +63,12 @@ async function installApi(page: Page): Promise<void> {
           update: () => success({})
         },
         workflows: { allowed: () => success([]), execute: () => success({}) },
+        domain: {
+          execute: (_token: string, commandId: string, payload: unknown) => {
+            (window as typeof window & { __domainAction?: unknown }).__domainAction = { commandId, payload };
+            return success({});
+          }
+        },
         dashboard: {
           read: () => success([
             { id: 'assets', name: '纳管资产', value: 120, tone: 'teal' },
@@ -76,6 +83,23 @@ async function installApi(page: Page): Promise<void> {
     });
   });
 }
+
+test('executes an authorized domain action from record detail', async ({ page }) => {
+  await installApi(page);
+  await page.goto('/');
+  await page.getByLabel('账号').fill('admin');
+  await page.getByLabel('密码').fill('Secret123!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '查看 AST-001' }).click();
+  await page.getByRole('button', { name: '变更状态' }).click();
+  await page.getByLabel('目标状态').selectOption('inactive');
+  await page.getByLabel('变更原因').fill('验收停用');
+  await page.getByRole('button', { name: '确认' }).click();
+  expect(await page.evaluate(() => (window as typeof window & { __domainAction?: unknown }).__domainAction)).toEqual({
+    commandId: 'asset.change_status',
+    payload: { assetId: 1, expectedVersion: 1, nextStatus: 'inactive', reason: '验收停用' }
+  });
+});
 
 test('creates a record through the metadata form', async ({ page }) => {
   await installApi(page);

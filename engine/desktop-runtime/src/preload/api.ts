@@ -19,6 +19,9 @@ export interface BusinessApi {
     allowed(token: string, entityId: string, id: number): Promise<unknown>;
     execute(token: string, request: Record<string, unknown>): Promise<unknown>;
   };
+  readonly domain: {
+    execute(token: string, commandId: string, payload: unknown): Promise<unknown>;
+  };
   readonly dashboard: { read(token: string): Promise<unknown> };
   readonly maintenance: {
     backup(token: string): Promise<unknown>;
@@ -50,6 +53,11 @@ export function createBusinessApi(invoke: IpcInvoke): BusinessApi {
     workflows: frozen({
       allowed: (token: string, entityId: string, id: number) => invoke(IPC_CHANNELS.workflowsAllowed, { token, entityId, id }),
       execute: (token: string, request: Record<string, unknown>) => invoke(IPC_CHANNELS.workflowsExecute, { token, ...request })
+    }),
+    domain: frozen({
+      execute: (token: string, commandId: string, payload: unknown) => (
+        invoke(IPC_CHANNELS.domainExecute, { token, commandId, payload })
+      )
     }),
     dashboard: frozen({ read: (token: string) => invoke(IPC_CHANNELS.dashboardRead, { token }) }),
     maintenance: frozen({

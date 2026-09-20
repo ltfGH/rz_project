@@ -7,6 +7,13 @@ export interface ActorDto {
   readonly roleId: string;
 }
 
+export interface DomainActionDto {
+  readonly id: string;
+  readonly label: string;
+  readonly entityId: string;
+  readonly order: number;
+}
+
 export interface PageDto<T> {
   readonly items: readonly T[];
   readonly page: number;

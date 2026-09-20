@@ -46,15 +46,32 @@ try {
   fs.writeFileSync(requestPath, canonical(envelope), 'utf8');
   const compose = spawnSync(process.execPath, [path.join(domainRoot, 'bin', 'domain-pack-cli.cjs'), '--request', requestPath, '--output', composeOutput], { cwd: domainRoot, encoding: 'utf8', windowsHide: true });
   if (compose.status !== 0) fail(compose.stderr || compose.stdout || 'Domain composition failed.');
-  const blueprintText = fs.readFileSync(path.join(composeOutput, 'blueprint.json'), 'utf8');
+  const composedBlueprintText = fs.readFileSync(path.join(composeOutput, 'blueprint.json'), 'utf8');
   const domainText = fs.readFileSync(path.join(composeOutput, 'domain-lock.json'), 'utf8');
-  const blueprint = JSON.parse(blueprintText);
+  const composedBlueprint = JSON.parse(composedBlueprintText);
+  const blueprint = {
+    ...composedBlueprint,
+    modules: [...(composedBlueprint.modules ?? []), ...(project.systemModules ?? [])],
+    roles: [...(composedBlueprint.roles ?? []), ...(project.roleProfiles ?? [])]
+  };
+  const { validateComposedBlueprint } = require('../../domain-packs/src/blueprint-validator.ts');
+  const validation = validateComposedBlueprint(blueprint);
+  if (!validation.canGenerate) fail(validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join('\n'));
+  const blueprintText = canonical(blueprint);
   const domainLock = JSON.parse(domainText);
   const { generateReferenceSeed } = require('../reference/asset-operations/generate-seed.ts');
-  const seed = generateReferenceSeed({
+  const generatedSeed = generateReferenceSeed({
     seed: project.seed.value, businessRows: project.seed.businessRows, baseline: project.seed.baseline,
     passwordDigests: Object.fromEntries(Object.entries(accounts).map(([id, account]) => [id, account.passwordDigest]))
   });
+  const accountsByUsername = new Map(Object.values(accounts).map((account) => [account.username, account]));
+  const seed = {
+    ...generatedSeed,
+    users: generatedSeed.users.map((user) => ({
+      ...user,
+      roleId: accountsByUsername.get(user.username).roleId
+    }))
+  };
   const seedText = canonical(seed);
   const catalogPath = path.join(temporary, 'production-runtime-catalog.cjs');
   const catalogBuild = spawnSync(process.execPath, [path.join(domainRoot, 'tools', 'build-runtime-catalog.cjs'), '--outfile', catalogPath], { cwd: domainRoot, encoding: 'utf8', windowsHide: true });

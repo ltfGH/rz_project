@@ -34,10 +34,7 @@ const extensions: readonly AssetUiExtension[] = Object.freeze([
     label: '状态操作',
     order: 10,
     actionIds: Object.freeze([
-      'asset.start_maintenance',
-      'asset.finish_maintenance',
-      'asset.deactivate',
-      'asset.reactivate'
+      'asset.change_status'
     ])
   })
 ]);

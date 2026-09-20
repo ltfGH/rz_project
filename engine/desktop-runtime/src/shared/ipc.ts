@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { JsonValue } from './blueprint';
 
 export const IPC_CHANNELS = Object.freeze({
   sessionLogin: 'business:session:login',
@@ -11,6 +12,7 @@ export const IPC_CHANNELS = Object.freeze({
   entitiesUpdate: 'business:entities:update',
   workflowsAllowed: 'business:workflows:allowed',
   workflowsExecute: 'business:workflows:execute',
+  domainExecute: 'business:domain:execute',
   dashboardRead: 'business:dashboard:read',
   maintenanceBackup: 'business:maintenance:backup',
   maintenanceInspectRestore: 'business:maintenance:inspect-restore',
@@ -36,6 +38,14 @@ const listQuery = z.object({
   filters: z.array(filter).max(20).optional()
 }).strict();
 const values = z.record(z.string().regex(/^[a-z][a-z0-9_]{1,63}$/), jsonScalar);
+const domainJson: z.ZodType<JsonValue> = z.lazy(() => z.union([
+  jsonScalar,
+  z.array(domainJson).max(1000),
+  z.record(z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,63}$/), domainJson)
+]));
+const domainPayload = z.record(
+  z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,63}$/), domainJson
+).refine((value) => Object.keys(value).length <= 100);
 
 export const IPC_REQUEST_SCHEMAS = {
   [IPC_CHANNELS.sessionLogin]: z.object({
@@ -58,6 +68,11 @@ export const IPC_REQUEST_SCHEMAS = {
     recordId: positiveId,
     expectedVersion: z.number().int().positive(),
     input: values
+  }).strict(),
+  [IPC_CHANNELS.domainExecute]: z.object({
+    token,
+    commandId: z.string().regex(/^[a-z][a-z0-9_.]{2,95}$/),
+    payload: domainPayload
   }).strict(),
   [IPC_CHANNELS.dashboardRead]: z.object({ token }).strict(),
   [IPC_CHANNELS.maintenanceBackup]: z.object({ token }).strict(),

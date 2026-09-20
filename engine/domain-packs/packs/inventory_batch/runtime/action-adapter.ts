@@ -2,11 +2,11 @@ import { createServiceActions, type PluginActionContext } from '../../../src/run
 import { InventoryService } from './inventory-service';
 import type { InventoryContext, InventoryIssueBlocker } from './types';
 
-function context(source: PluginActionContext): InventoryContext {
+export function inventoryDomainContext(source: PluginActionContext): InventoryContext {
   return {
     connection: source.connection,
     actor: source.actor,
-    quantityScale: Number(source.config.quantity_scale),
+    quantityScale: Number(source.pluginConfig('inventory_batch').quantity_scale),
     requirePermission: source.requirePermission,
     appendAudit: (connection, entry) => source.appendAudit(connection, entry),
     identityHasRole: source.identityHasRole,
@@ -21,7 +21,7 @@ function context(source: PluginActionContext): InventoryContext {
 
 export const inventoryDomainActions = createServiceActions(
   new InventoryService(),
-  context,
+  inventoryDomainContext,
   [
     { id: 'inventory.material.create', method: 'createMaterial', permission: 'materials.create_material' },
     { id: 'inventory.material.update', method: 'updateMaterial', permission: 'materials.update_material' },

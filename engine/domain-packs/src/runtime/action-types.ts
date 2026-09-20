@@ -13,6 +13,7 @@ export interface PluginActionContext {
   readonly connection: DatabaseSync;
   readonly actor: DomainCommandActor;
   readonly config: JsonObject;
+  readonly pluginConfig: (pluginId: string) => JsonObject;
   readonly requirePermission: (actor: DomainCommandActor, permission: string) => void;
   readonly appendAudit: (connection: DatabaseSync, entry: unknown) => void;
   readonly identityHasRole: (identityId: string, roleId: string, connection: DatabaseSync) => boolean;

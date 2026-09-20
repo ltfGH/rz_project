@@ -6,10 +6,13 @@ import { AuthService } from '../core/auth-service';
 import { BackupService, type BackupInspection, type DatabaseController } from '../core/backup-service';
 import { loadRuntimeBlueprint } from '../core/blueprint-loader';
 import { DashboardService } from '../core/dashboard-service';
+import { DomainCommandService } from '../core/domain-command-service';
 import { openDatabase, type RuntimeDatabase } from '../core/database';
 import { EntityRepository } from '../core/entity-repository';
 import { PermissionService } from '../core/permission-service';
+import { PluginHost } from '../core/plugin-host';
 import { PluginRegistry } from '../core/plugin-registry';
+import { loadProductionPluginCatalog } from '../core/production-plugin-loader';
 import { verifyProjectResources } from '../core/project-lock';
 import { compileSchema } from '../core/schema-compiler';
 import { seedAcceptanceData, seedProjectData } from '../core/seed';
@@ -34,11 +37,19 @@ function preloadPath(): string {
 async function start(): Promise<void> {
   const resources = resourceRoot();
   const verified = verifyProjectResources(resources);
+  const registry = new PluginRegistry();
+  for (const descriptor of loadProductionPluginCatalog(verified.productionCatalogPath)) {
+    registry.register(descriptor);
+  }
   const blueprint = loadRuntimeBlueprint(
     verified.blueprintText,
     verified.blueprintSha256,
-    new PluginRegistry()
+    registry
   );
+  registry.assertLocked(verified.domainLock);
+  const pluginHost = new PluginHost();
+  registry.activate(blueprint.plugins, pluginHost, verified.domainLock.dependencyOrder);
+  const plugins = pluginHost.freeze();
   const schema = compileSchema(blueprint);
   const databasePath = path.join(app.getPath('userData'), 'runtime.sqlite');
   let database: RuntimeDatabase = openDatabase({ filename: databasePath });
@@ -74,18 +85,37 @@ async function start(): Promise<void> {
     permissions,
     audit
   });
+  const domain = new DomainCommandService({
+    database: () => database,
+    blueprint,
+    plugins,
+    permissions,
+    audit
+  });
   const services: RuntimeServices = {
     auth,
     metadata: {
-      read: () => ({
+      read: (actor) => ({
         software: blueprint.software,
-        modules: (blueprint.modules ?? []).filter((module) => module.id !== 'maintenance'),
+        modules: blueprint.modules ?? [],
         entities: blueprint.entities ?? [],
-        workflows: blueprint.workflows ?? []
+        workflows: blueprint.workflows ?? [],
+        domainActions: Object.values(plugins.uiExtensions).flatMap((entry) => {
+          const extension = entry.value as {
+            slot?: string; entityId?: string; label?: string; order?: number; actionIds?: readonly string[];
+          };
+          if (extension.slot !== 'entity.detail.actions' || !extension.entityId) return [];
+          return (extension.actionIds ?? []).flatMap((id) => {
+            const action = plugins.domainActions[id]?.value as { permission?: string } | undefined;
+            if (!action?.permission || !permissions.allows(actor, action.permission)) return [];
+            return [{ id, entityId: extension.entityId!, label: extension.label ?? id, order: extension.order ?? 100 }];
+          });
+        })
       })
     },
     entities,
     workflows,
+    domain,
     dashboard,
     maintenance: {
       createBackup: (actor) => backup.createBackup(path.join(app.getPath('userData'), 'backups'), actor),
