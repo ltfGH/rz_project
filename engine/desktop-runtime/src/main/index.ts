@@ -1,5 +1,4 @@
 import { app, dialog, ipcMain } from 'electron';
-import fs from 'node:fs';
 import path from 'node:path';
 
 import { AuditService } from '../core/audit-service';
@@ -11,13 +10,12 @@ import { openDatabase, type RuntimeDatabase } from '../core/database';
 import { EntityRepository } from '../core/entity-repository';
 import { PermissionService } from '../core/permission-service';
 import { PluginRegistry } from '../core/plugin-registry';
+import { verifyProjectResources } from '../core/project-lock';
 import { compileSchema } from '../core/schema-compiler';
 import { seedAcceptanceData } from '../core/seed';
 import { WorkflowEngine } from '../core/workflow-engine';
 import { registerIpcHandlers, type IpcRegistrar, type RuntimeServices } from './ipc-handlers';
 import { createMainWindow } from './window';
-
-interface ResourceManifest { readonly blueprintSha256: string }
 
 function resourceRoot(): string {
   return app.isPackaged
@@ -35,16 +33,17 @@ function preloadPath(): string {
 
 async function start(): Promise<void> {
   const resources = resourceRoot();
-  const blueprintText = fs.readFileSync(path.join(resources, 'blueprint.json'), 'utf8');
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(resources, 'resource-manifest.json'), 'utf8')
-  ) as ResourceManifest;
-  const blueprint = loadRuntimeBlueprint(blueprintText, manifest.blueprintSha256, new PluginRegistry());
+  const verified = verifyProjectResources(resources);
+  const blueprint = loadRuntimeBlueprint(
+    verified.blueprintText,
+    verified.blueprintSha256,
+    new PluginRegistry()
+  );
   const schema = compileSchema(blueprint);
   const databasePath = path.join(app.getPath('userData'), 'runtime.sqlite');
   let database: RuntimeDatabase = openDatabase({ filename: databasePath });
   database.migrate(schema);
-  const seed = JSON.parse(fs.readFileSync(path.join(resources, 'seed.json'), 'utf8')) as Parameters<typeof seedAcceptanceData>[1];
+  const seed = JSON.parse(verified.seedText) as Parameters<typeof seedAcceptanceData>[1];
   seedAcceptanceData(database, seed);
 
   const controller: DatabaseController = {
