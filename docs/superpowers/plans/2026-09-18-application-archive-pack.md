@@ -351,7 +351,7 @@ git commit -m "feat: add application summaries and seed"
 - Create: `engine/domain-packs/tests/unit/application-ui.test.ts`
 - Create: `engine/domain-packs/tests/integration/application-pack-acceptance.test.ts`
 - Create: `engine/domain-packs/tests/integration/application-extension.test.ts`
-- Create: `engine/domain-packs/tests/fixtures/packs/application-domain-bridge/**`
+- Create: `engine/domain-packs/packs/domain_document_bridge/**`
 
 **Interfaces:**
 - Service `application.lifecycle`; acceptance `application.lifecycle.acceptance`; migration `application_archive.v1`.
@@ -369,9 +369,9 @@ Register fixed hooks only. IPC exposes named commands and queries, never arbitra
 
 Use production composition/plugin activation, real permissions/audit, real temporary archive roots and exact flow from the spec: first-round rejection, revision, second-round approval, staged→ready file, application archive, certificate creation, reminder refresh/acknowledge and renewal. Assert files, hashes, versions, nodes, records, audits and dashboard.
 
-- [ ] **Step 4: Add complete on-disk bridge fixture**
+- [ ] **Step 4: Add complete on-disk production bridge pack**
 
-Fixture provides a domain document capability, requires `application.core` and uses every public application/file/certificate extension point. It registers a test approval completion command through the typed bus and proves handler failure rolls back final approval.
+The bridge provides a domain document capability, requires `archive.core` and uses every public application/file/certificate extension point. It has a unique catalog ID, registers an approval completion command through the typed bus, coexists with the real project pack, and proves handler failure rolls back final approval.
 
 - [ ] **Step 5: Verify focused gates and commit**
 
