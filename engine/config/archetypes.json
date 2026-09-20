@@ -40,8 +40,15 @@
       "id": "application_archive",
       "name": "申请与归档",
       "description": "管理申请、审批、证照、文件、到期提醒和归档。",
-      "allowedPlugins": ["application_archive"],
+      "allowedPlugins": ["application_archive", "domain_document_bridge"],
       "requiredCapabilities": ["entity_crud", "workflow", "attachments", "audit"]
+    },
+    {
+      "id": "domain_document_bridge",
+      "name": "领域文档桥接",
+      "description": "连接领域文档与申请归档能力。",
+      "allowedPlugins": ["application_archive", "domain_document_bridge"],
+      "requiredCapabilities": ["entity_crud", "relationships", "audit"]
     }
   ]
 }

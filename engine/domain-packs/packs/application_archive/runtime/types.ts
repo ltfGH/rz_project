@@ -1,8 +1,8 @@
-import type{DatabaseSync}from'node:sqlite';
+import type{DatabaseSync}from'node:sqlite';import type{JsonValue}from'../../../../desktop-runtime/src/shared/blueprint';
 export interface ApplicationActor{userId:number;username:string;displayName:string;roleId:string}
 export interface ApplicationConfig{approvalLevels:1|2|3;reminderDays:number}
 export interface ApplicationAuditEntry{actor:ApplicationActor;permission:string;entityId:'application'|'approval_node'|'file_version'|'certificate'|'expiry_reminder';recordId:number;result:'success';details:Readonly<Record<string,unknown>>}
-export interface DomainCommandBus{invoke(commandId:string,payload:Readonly<Record<string,unknown>>):unknown}
+export interface DomainCommandBus{invoke(commandId:string,payload:Readonly<Record<string,JsonValue>>):unknown}
 export interface ApplicationApprovedDto{readonly applicationId:number;readonly applicationCode:string;readonly applicationType:string;readonly approvalRound:number;readonly applicantId:string}
 export type ApplicationApprovalCompletionHandler=(application:ApplicationApprovedDto,bus:DomainCommandBus)=>void;
 export interface ArchiveFileInspection{readonly sha256:string;readonly sizeBytes:number}

@@ -42,6 +42,13 @@
       "description": "提供申请审批、文件归档和到期提醒。",
       "compatibleArchetypes": ["application_archive", "inventory_batch", "project_task"],
       "configKeys": { "required": [], "optional": ["approval_levels", "reminder_days"] }
+    },
+    {
+      "id": "domain_document_bridge",
+      "name": "领域文档归档桥接",
+      "description": "注册领域文档审批完成命令和归档关系。",
+      "compatibleArchetypes": ["application_archive", "domain_document_bridge"],
+      "configKeys": { "required": [], "optional": [] }
     }
   ]
 }
