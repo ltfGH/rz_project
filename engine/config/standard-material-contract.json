@@ -1,0 +1,14 @@
+{
+  "contractVersion": "1.0",
+  "captureLimit": 5,
+  "requiredCaptureKinds": ["dashboard", "list", "detail", "action"],
+  "documents": [
+    { "id": "manual", "docx": true, "pdf": true },
+    { "id": "source", "docx": true, "pdf": true },
+    { "id": "application-info", "docx": true, "pdf": true },
+    { "id": "runtime", "docx": true, "pdf": false },
+    { "id": "prototype", "docx": true, "pdf": false }
+  ],
+  "applicantMarker": "【申请人填写】",
+  "sourceCountMarker": "【生成时按实际源码统计填写】"
+}
