@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.rz-project/schema/theme-profile-1.0.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["softwareName", "purpose", "industry", "entityAliases", "moduleAliases", "seedVocabulary"],
+  "properties": {
+    "softwareName": { "$ref": "#/$defs/displayText" },
+    "purpose": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "industry": { "$ref": "#/$defs/displayText" },
+    "entityAliases": { "$ref": "#/$defs/aliasMap" },
+    "moduleAliases": { "$ref": "#/$defs/aliasMap" },
+    "seedVocabulary": {
+      "type": "object",
+      "maxProperties": 20,
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 20,
+        "uniqueItems": true,
+        "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+    "displayText": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "aliasMap": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/displayText" }
+    }
+  }
+}

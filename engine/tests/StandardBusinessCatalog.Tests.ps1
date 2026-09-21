@@ -13,6 +13,8 @@ $reference = @($templates | Where-Object id -eq 'asset_inspection_rectification'
 Assert-Equal ($reference.packs -join ',') `
     'asset_registry,inspection_rectification,work_order_service,asset_inspection_bridge,asset_work_order_bridge,inspection_work_order_bridge'
 Assert-Equal ($reference.primaryEntities -join ',') 'asset,inspection_task,work_order'
+Assert-Equal ($reference.aliasableEntities -contains 'inspection_work_order_link') $true
+Assert-Equal ($reference.aliasableModules -contains 'work_orders') $true
 Assert-Equal $reference.viewRange.minimum 12
 Assert-Equal $reference.viewRange.maximum 13
 

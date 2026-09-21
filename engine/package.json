@@ -4,6 +4,7 @@
   "type": "commonjs",
   "scripts": {
     "build:blueprint-validator": "node tools/build-blueprint-validator.cjs",
+    "build:theme-profile-validator": "node tools/build-theme-profile-validator.cjs",
     "test:blueprint": "node --test tests/blueprint/*.test.js"
   },
   "devDependencies": {

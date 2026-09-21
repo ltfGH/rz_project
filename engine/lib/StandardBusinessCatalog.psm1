@@ -51,7 +51,7 @@ function Get-StandardBusinessTemplates {
     $seenIds = @{}
     foreach ($template in $templates) {
         $pathPrefix = "template[$($template.id)]"
-        Assert-ExactProperties $template @('id', 'name', 'packs', 'keywords', 'primaryEntities', 'roles', 'workflowSummary', 'viewRange') $pathPrefix
+        Assert-ExactProperties $template @('id', 'name', 'packs', 'keywords', 'primaryEntities', 'aliasableEntities', 'aliasableModules', 'roles', 'workflowSummary', 'viewRange') $pathPrefix
         Assert-NonEmptyText $template.id "$pathPrefix.id"
         if ($template.id -notmatch '^[a-z][a-z0-9_]{2,63}$') { throw "$pathPrefix.id is invalid." }
         if ($seenIds.ContainsKey($template.id)) { throw "Duplicate template id '$($template.id)'." }
@@ -77,10 +77,15 @@ function Get-StandardBusinessTemplates {
             if ($keyword.weight -isnot [int] -or $keyword.weight -le 0 -or $keyword.weight -gt 100) { throw "$pathPrefix keyword weight is invalid." }
         }
 
-        foreach ($collectionName in @('primaryEntities', 'roles')) {
+        foreach ($collectionName in @('primaryEntities', 'aliasableEntities', 'aliasableModules', 'roles')) {
             $values = @($template.$collectionName)
             if ($values.Count -eq 0 -or @($values | Sort-Object -Unique).Count -ne $values.Count) { throw "$pathPrefix.$collectionName must be non-empty and unique." }
-            foreach ($value in $values) { Assert-NonEmptyText $value "$pathPrefix.$collectionName" }
+            foreach ($value in $values) {
+                Assert-NonEmptyText $value "$pathPrefix.$collectionName"
+                if ($collectionName -ne 'roles' -and $value -notmatch '^[a-z][a-z0-9_]{1,63}$') {
+                    throw "$pathPrefix.$collectionName contains an invalid id."
+                }
+            }
         }
 
         Assert-ExactProperties $template.viewRange @('minimum', 'maximum') "$pathPrefix.viewRange"

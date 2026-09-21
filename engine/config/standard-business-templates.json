@@ -15,6 +15,8 @@
         { "value": "文件", "weight": 3 }
       ],
       "primaryEntities": ["application", "file_version", "certificate"],
+      "aliasableEntities": ["application", "approval_node", "approval_record", "file_version", "certificate", "expiry_reminder"],
+      "aliasableModules": ["applications", "approval_nodes", "approval_records", "file_versions", "certificates", "expiry_reminders"],
       "roles": ["申请人员", "审批人员", "复核人员", "系统管理员"],
       "workflowSummary": "申请提交、多级审批、文件归档、证照续期和到期提醒",
       "viewRange": { "minimum": 6, "maximum": 8 }
@@ -32,6 +34,8 @@
         { "value": "资产", "weight": 3 }
       ],
       "primaryEntities": ["asset", "inspection_plan", "inspection_task"],
+      "aliasableEntities": ["asset_category", "asset", "asset_responsibility", "asset_event", "inspection_plan", "inspection_task", "inspection_item", "inspection_event"],
+      "aliasableModules": ["asset_categories", "assets", "asset_responsibilities", "asset_events", "inspection_plans", "inspection_tasks", "inspection_items", "inspection_events"],
       "roles": ["计划人员", "执行人员", "复核人员", "系统管理员"],
       "workflowSummary": "资产建档、巡检计划、任务执行、结果复核和归档",
       "viewRange": { "minimum": 7, "maximum": 9 }
@@ -51,6 +55,8 @@
         { "value": "资产", "weight": 2 }
       ],
       "primaryEntities": ["asset", "inspection_task", "work_order"],
+      "aliasableEntities": ["asset_category", "asset", "asset_responsibility", "asset_event", "inspection_plan", "inspection_task", "inspection_item", "inspection_event", "service_catalog", "sla_policy", "work_order", "work_order_event", "inspection_work_order_link"],
+      "aliasableModules": ["asset_categories", "assets", "asset_responsibilities", "asset_events", "inspection_plans", "inspection_tasks", "inspection_items", "inspection_events", "service_catalogs", "sla_policies", "work_orders", "work_order_events"],
       "roles": ["调度人员", "处理人员", "复核人员", "系统管理员"],
       "workflowSummary": "资产建档、巡检执行、异常整改、复核关闭和巡检归档",
       "viewRange": { "minimum": 12, "maximum": 13 }
@@ -68,6 +74,8 @@
         { "value": "运维", "weight": 3 }
       ],
       "primaryEntities": ["asset", "work_order", "work_order_event"],
+      "aliasableEntities": ["asset_category", "asset", "asset_responsibility", "asset_event", "service_catalog", "sla_policy", "work_order", "work_order_event"],
+      "aliasableModules": ["asset_categories", "assets", "asset_responsibilities", "asset_events", "service_catalogs", "sla_policies", "work_orders", "work_order_events"],
       "roles": ["调度人员", "处理人员", "复核人员", "系统管理员"],
       "workflowSummary": "资产报修、工单分派、受理处理、解决提交和复核关闭",
       "viewRange": { "minimum": 7, "maximum": 9 }
@@ -84,6 +92,8 @@
         { "value": "工单", "weight": 5 }
       ],
       "primaryEntities": ["inspection_task", "inspection_item", "work_order"],
+      "aliasableEntities": ["inspection_plan", "inspection_task", "inspection_item", "inspection_event", "service_catalog", "sla_policy", "work_order", "work_order_event", "inspection_work_order_link"],
+      "aliasableModules": ["inspection_plans", "inspection_tasks", "inspection_items", "inspection_events", "service_catalogs", "sla_policies", "work_orders", "work_order_events"],
       "roles": ["计划人员", "执行人员", "复核人员", "系统管理员"],
       "workflowSummary": "巡检执行、异常发现、整改工单处理、复核关闭和巡检归档",
       "viewRange": { "minimum": 7, "maximum": 9 }
@@ -101,6 +111,8 @@
         { "value": "仓库", "weight": 6 }
       ],
       "primaryEntities": ["material", "inventory_batch", "application"],
+      "aliasableEntities": ["material", "warehouse", "inventory_batch", "inventory_transaction", "application", "approval_node", "approval_record", "file_version", "certificate", "expiry_reminder", "application_inventory_issue"],
+      "aliasableModules": ["materials", "warehouses", "inventory_batches", "inventory_transactions", "applications", "approval_nodes", "approval_records", "file_versions", "certificates", "expiry_reminders"],
       "roles": ["申领人员", "库存人员", "审批人员", "系统管理员"],
       "workflowSummary": "物料入库、批次管理、申领审批、库存扣减和流水追溯",
       "viewRange": { "minimum": 8, "maximum": 10 }
@@ -117,6 +129,8 @@
         { "value": "成果", "weight": 4 }
       ],
       "primaryEntities": ["project", "project_task", "deliverable", "file_version"],
+      "aliasableEntities": ["project", "milestone", "project_task", "project_risk", "deliverable", "project_event", "application", "approval_node", "approval_record", "file_version", "certificate", "expiry_reminder", "project_delivery_archive"],
+      "aliasableModules": ["projects", "milestones", "project_tasks", "project_risks", "deliverables", "project_events", "applications", "approval_nodes", "approval_records", "file_versions", "certificates", "expiry_reminders", "project_delivery_archives"],
       "roles": ["项目管理人员", "项目成员", "复核人员", "系统管理员"],
       "workflowSummary": "项目执行、任务推进、交付验收、文件归档和项目关闭",
       "viewRange": { "minimum": 8, "maximum": 10 }
@@ -133,6 +147,8 @@
         { "value": "进度", "weight": 4 }
       ],
       "primaryEntities": ["project", "milestone", "project_task", "project_risk"],
+      "aliasableEntities": ["project", "milestone", "project_task", "project_risk", "deliverable", "project_event"],
+      "aliasableModules": ["projects", "milestones", "project_tasks", "project_risks", "deliverables", "project_events"],
       "roles": ["项目管理人员", "项目成员", "复核人员", "系统管理员"],
       "workflowSummary": "项目立项、里程碑、任务执行、风险处置、交付验收和关闭复核",
       "viewRange": { "minimum": 6, "maximum": 8 }
