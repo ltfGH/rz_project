@@ -186,6 +186,10 @@ function Publish-Delivery {
     $workspace = [IO.Path]::GetFullPath($Context.WorkspacePath)
     $staging = Assert-SafeChildPath -Root $workspace -Candidate $StagingPath
     if (-not (Test-Path -LiteralPath $staging -PathType Container)) { throw "发布暂存目录不存在：$staging" }
+    foreach ($item in Get-ChildItem -LiteralPath $staging -Force) {
+        if ($item.PSIsContainer) { throw "发布暂存目录必须为平铺文件：$($item.Name)" }
+        if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "发布文件不能是重解析点：$($item.Name)" }
+    }
     $requested = [IO.Path]::GetFullPath($Context.RequestedDeliveryPath)
     $deliveryRoot = Split-Path -Parent $requested
     [void](Assert-SafeChildPath -Root $deliveryRoot -Candidate $requested)

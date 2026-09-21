@@ -105,6 +105,11 @@ try {
     Assert-Equal $secondPublished.StartsWith($requestedDelivery + '-', [StringComparison]::OrdinalIgnoreCase) $true
     Assert-Equal (Test-Path -LiteralPath $published -PathType Container) $true
 
+    $nestedStaging = Join-Path $workspace 'nested-publish-staging'
+    New-Item -ItemType Directory -Path (Join-Path $nestedStaging 'unexpected-directory') -Force | Out-Null
+    Assert-Throws { Publish-Delivery -Context $context -StagingPath $nestedStaging } '平铺文件'
+    Assert-Equal (Test-Path -LiteralPath $nestedStaging -PathType Container) $true
+
     $failureContext = [pscustomobject]@{
         WorkspacePath = $workspace
         SoftwareName = $softwareName
