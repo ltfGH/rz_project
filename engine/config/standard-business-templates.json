@@ -1,0 +1,141 @@
+{
+  "catalogVersion": "1.0",
+  "minimumScore": 5,
+  "closeScoreDelta": 2,
+  "templates": [
+    {
+      "id": "application_approval_archive",
+      "name": "申请审批归档",
+      "packs": ["application_archive"],
+      "keywords": [
+        { "value": "申请", "weight": 8 },
+        { "value": "审批", "weight": 8 },
+        { "value": "证照", "weight": 7 },
+        { "value": "归档", "weight": 4 },
+        { "value": "文件", "weight": 3 }
+      ],
+      "primaryEntities": ["application", "file_version", "certificate"],
+      "roles": ["申请人员", "审批人员", "复核人员", "系统管理员"],
+      "workflowSummary": "申请提交、多级审批、文件归档、证照续期和到期提醒",
+      "viewRange": { "minimum": 6, "maximum": 8 }
+    },
+    {
+      "id": "asset_inspection_management",
+      "name": "资产巡检管理",
+      "packs": ["asset_registry", "inspection_rectification", "asset_inspection_bridge"],
+      "keywords": [
+        { "value": "巡检", "weight": 7 },
+        { "value": "点检", "weight": 7 },
+        { "value": "检查", "weight": 4 },
+        { "value": "设施", "weight": 4 },
+        { "value": "设备", "weight": 3 },
+        { "value": "资产", "weight": 3 }
+      ],
+      "primaryEntities": ["asset", "inspection_plan", "inspection_task"],
+      "roles": ["计划人员", "执行人员", "复核人员", "系统管理员"],
+      "workflowSummary": "资产建档、巡检计划、任务执行、结果复核和归档",
+      "viewRange": { "minimum": 7, "maximum": 9 }
+    },
+    {
+      "id": "asset_inspection_rectification",
+      "name": "资产巡检整改",
+      "packs": ["asset_registry", "inspection_rectification", "work_order_service", "asset_inspection_bridge", "asset_work_order_bridge", "inspection_work_order_bridge"],
+      "keywords": [
+        { "value": "巡检", "weight": 6 },
+        { "value": "点检", "weight": 8 },
+        { "value": "整改", "weight": 7 },
+        { "value": "隐患", "weight": 6 },
+        { "value": "消防", "weight": 5 },
+        { "value": "设施", "weight": 4 },
+        { "value": "设备", "weight": 2 },
+        { "value": "资产", "weight": 2 }
+      ],
+      "primaryEntities": ["asset", "inspection_task", "work_order"],
+      "roles": ["调度人员", "处理人员", "复核人员", "系统管理员"],
+      "workflowSummary": "资产建档、巡检执行、异常整改、复核关闭和巡检归档",
+      "viewRange": { "minimum": 12, "maximum": 13 }
+    },
+    {
+      "id": "asset_work_order_operations",
+      "name": "资产工单运维",
+      "packs": ["asset_registry", "work_order_service", "asset_work_order_bridge"],
+      "keywords": [
+        { "value": "报修", "weight": 8 },
+        { "value": "维修", "weight": 7 },
+        { "value": "工单", "weight": 5 },
+        { "value": "设备", "weight": 4 },
+        { "value": "资产", "weight": 4 },
+        { "value": "运维", "weight": 3 }
+      ],
+      "primaryEntities": ["asset", "work_order", "work_order_event"],
+      "roles": ["调度人员", "处理人员", "复核人员", "系统管理员"],
+      "workflowSummary": "资产报修、工单分派、受理处理、解决提交和复核关闭",
+      "viewRange": { "minimum": 7, "maximum": 9 }
+    },
+    {
+      "id": "inspection_rectification_orders",
+      "name": "巡检整改工单",
+      "packs": ["inspection_rectification", "work_order_service", "inspection_work_order_bridge"],
+      "keywords": [
+        { "value": "巡检", "weight": 6 },
+        { "value": "检查", "weight": 4 },
+        { "value": "整改", "weight": 7 },
+        { "value": "隐患", "weight": 7 },
+        { "value": "工单", "weight": 5 }
+      ],
+      "primaryEntities": ["inspection_task", "inspection_item", "work_order"],
+      "roles": ["计划人员", "执行人员", "复核人员", "系统管理员"],
+      "workflowSummary": "巡检执行、异常发现、整改工单处理、复核关闭和巡检归档",
+      "viewRange": { "minimum": 7, "maximum": 9 }
+    },
+    {
+      "id": "inventory_application_approval",
+      "name": "库存申领审批",
+      "packs": ["inventory_batch", "application_archive", "inventory_application_bridge"],
+      "keywords": [
+        { "value": "库存", "weight": 9 },
+        { "value": "耗材", "weight": 8 },
+        { "value": "物料", "weight": 8 },
+        { "value": "申领", "weight": 7 },
+        { "value": "批次", "weight": 6 },
+        { "value": "仓库", "weight": 6 }
+      ],
+      "primaryEntities": ["material", "inventory_batch", "application"],
+      "roles": ["申领人员", "库存人员", "审批人员", "系统管理员"],
+      "workflowSummary": "物料入库、批次管理、申领审批、库存扣减和流水追溯",
+      "viewRange": { "minimum": 8, "maximum": 10 }
+    },
+    {
+      "id": "project_delivery_archive",
+      "name": "项目交付归档",
+      "packs": ["project_task", "application_archive", "project_archive_bridge"],
+      "keywords": [
+        { "value": "交付", "weight": 9 },
+        { "value": "归档", "weight": 8 },
+        { "value": "项目", "weight": 5 },
+        { "value": "验收", "weight": 5 },
+        { "value": "成果", "weight": 4 }
+      ],
+      "primaryEntities": ["project", "project_task", "deliverable", "file_version"],
+      "roles": ["项目管理人员", "项目成员", "复核人员", "系统管理员"],
+      "workflowSummary": "项目执行、任务推进、交付验收、文件归档和项目关闭",
+      "viewRange": { "minimum": 8, "maximum": 10 }
+    },
+    {
+      "id": "project_task_management",
+      "name": "项目任务管理",
+      "packs": ["project_task"],
+      "keywords": [
+        { "value": "任务", "weight": 8 },
+        { "value": "项目", "weight": 7 },
+        { "value": "里程碑", "weight": 7 },
+        { "value": "风险", "weight": 6 },
+        { "value": "进度", "weight": 4 }
+      ],
+      "primaryEntities": ["project", "milestone", "project_task", "project_risk"],
+      "roles": ["项目管理人员", "项目成员", "复核人员", "系统管理员"],
+      "workflowSummary": "项目立项、里程碑、任务执行、风险处置、交付验收和关闭复核",
+      "viewRange": { "minimum": 6, "maximum": 8 }
+    }
+  ]
+}
