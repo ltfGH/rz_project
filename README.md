@@ -58,6 +58,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 
 输入软件主题后，结果写入 `交付结果`，过程工作区和日志分别位于 `engine/工作区`、`engine/日志`。提交软著申请前必须替换材料中的所有“【申请人填写】”内容并核对权属信息。
 
+生成过程交互、11 个自动阶段、12 个交付文件、申请表逐字段填写规则和提交前检查清单见 [生成器使用与申报填写指南](docs/generator-usage-and-filing-guide.md)。
+
 ## 统一验证
 
 运行默认完整开发检查（不启动 GUI；首次缺少 Electron 二进制时可能联网下载）：
