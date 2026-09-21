@@ -103,7 +103,7 @@
       "roleProfiles": {
         "operations_dispatcher": { "name": "项目管理人员", "sources": ["project_manager", "application_applicant"] },
         "operations_operator": { "name": "项目成员", "sources": ["project_member", "application_applicant"] },
-        "operations_reviewer": { "name": "复核人员", "sources": ["project_reviewer", "application_reviewer"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["project_reviewer", "application_reviewer", "project_archive_manager"] },
         "operations_admin": { "name": "系统管理员", "sources": ["project_admin", "project_manager", "application_admin", "application_archive_manager"] }
       },
       "maintenanceEntity": "project",
