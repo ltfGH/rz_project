@@ -16,6 +16,7 @@
     "prepare:icon": "node tools/generate-icon.cjs",
     "build": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/copy-runtime-resources.cjs",
     "build:reference": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/build-project-resources.cjs --project ./reference/asset-operations/project.json --output ./dist/resources",
+    "build:standard-resources": "node tools/build-standard-resources.cjs",
     "build:reference:release": "npm run prepare:icon && npm run build:runtime && npm run build:renderer && node tools/build-project-resources.cjs --project ./reference/asset-operations/project.json --output ./dist/resources --require-external-digests",
     "start": "electron .",
     "dist:win": "node tools/clean-installers.cjs && npm run build && electron-builder --win nsis --x64",
