@@ -1,0 +1,133 @@
+{
+  "catalogVersion": "1.0",
+  "templates": [
+    {
+      "id": "application_approval_archive",
+      "packs": [{ "id": "application_archive", "version": "1.0.0", "config": { "approval_levels": 1, "reminder_days": 30 } }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "申请人员", "sources": ["application_applicant"] },
+        "operations_operator": { "name": "归档人员", "sources": ["application_applicant", "application_archive_manager"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["application_reviewer", "application_compliance_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["application_admin", "application_archive_manager"] }
+      },
+      "maintenanceEntity": "application",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["申请审批", "文件归档", "证照续期", "到期提醒"],
+      "materials": { "developmentPurpose": "形成可追溯的申请审批和文件归档闭环", "industry": "企业管理", "technicalFeatures": ["Electron离线运行", "SQLite事务", "多级审批", "文件版本"] },
+      "aliasableEntities": ["application", "approval_node", "approval_record", "file_version", "certificate", "expiry_reminder"],
+      "aliasableModules": ["applications", "approval_nodes", "approval_records", "file_versions", "certificates", "expiry_reminders"]
+    },
+    {
+      "id": "asset_inspection_management",
+      "packs": [{ "id": "asset_registry", "version": "1.0.0", "config": {} }, { "id": "inspection_rectification", "version": "1.0.0", "config": {} }, { "id": "asset_inspection_bridge", "version": "1.0.0", "config": {} }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "计划人员", "sources": ["asset_viewer", "inspection_planner"] },
+        "operations_operator": { "name": "执行人员", "sources": ["asset_viewer", "inspection_executor"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["asset_viewer", "inspection_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["asset_admin", "inspection_admin"] }
+      },
+      "maintenanceEntity": "asset",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["资产台账", "巡检计划", "巡检执行", "复核归档"],
+      "materials": { "developmentPurpose": "形成资产巡检执行和复核归档闭环", "industry": "企业运维", "technicalFeatures": ["Electron离线运行", "SQLite事务", "双版本控制", "角色权限"] },
+      "aliasableEntities": ["asset_category", "asset", "asset_responsibility", "asset_event", "inspection_plan", "inspection_task", "inspection_item", "inspection_event"],
+      "aliasableModules": ["asset_categories", "assets", "asset_responsibilities", "asset_events", "inspection_plans", "inspection_tasks", "inspection_items", "inspection_events"]
+    },
+    {
+      "id": "asset_inspection_rectification",
+      "packs": [{ "id": "asset_registry", "version": "1.0.0", "config": {} }, { "id": "inspection_rectification", "version": "1.0.0", "config": {} }, { "id": "work_order_service", "version": "1.0.0", "config": {} }, { "id": "asset_inspection_bridge", "version": "1.0.0", "config": {} }, { "id": "asset_work_order_bridge", "version": "1.0.0", "config": {} }, { "id": "inspection_work_order_bridge", "version": "1.0.0", "config": { "service_code": "SVC-RECTIFICATION", "priority": "normal" } }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "调度人员", "sources": ["asset_viewer", "inspection_planner", "work_order_dispatcher"] },
+        "operations_operator": { "name": "处理人员", "sources": ["asset_viewer", "inspection_executor", "work_order_handler"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["asset_viewer", "inspection_reviewer", "work_order_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["asset_admin", "inspection_admin", "work_order_admin"] }
+      },
+      "maintenanceEntity": "asset",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["资产台账", "巡检闭环", "整改工单"],
+      "materials": { "developmentPurpose": "形成可追溯的资产巡检整改闭环", "industry": "企业运维", "technicalFeatures": ["Electron离线运行", "SQLite事务", "角色权限", "异常整改"] },
+      "aliasableEntities": ["asset_category", "asset", "asset_responsibility", "asset_event", "inspection_plan", "inspection_task", "inspection_item", "inspection_event", "service_catalog", "sla_policy", "work_order", "work_order_event", "inspection_work_order_link"],
+      "aliasableModules": ["asset_categories", "assets", "asset_responsibilities", "asset_events", "inspection_plans", "inspection_tasks", "inspection_items", "inspection_events", "service_catalogs", "sla_policies", "work_orders", "work_order_events"]
+    },
+    {
+      "id": "asset_work_order_operations",
+      "packs": [{ "id": "asset_registry", "version": "1.0.0", "config": {} }, { "id": "work_order_service", "version": "1.0.0", "config": {} }, { "id": "asset_work_order_bridge", "version": "1.0.0", "config": {} }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "调度人员", "sources": ["asset_viewer", "work_order_dispatcher"] },
+        "operations_operator": { "name": "处理人员", "sources": ["asset_viewer", "work_order_handler"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["asset_viewer", "work_order_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["asset_admin", "work_order_admin"] }
+      },
+      "maintenanceEntity": "asset",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["资产台账", "报修工单", "处理复核"],
+      "materials": { "developmentPurpose": "形成资产报修和服务工单处理闭环", "industry": "企业运维", "technicalFeatures": ["Electron离线运行", "SQLite事务", "SLA策略", "角色分离"] },
+      "aliasableEntities": ["asset_category", "asset", "asset_responsibility", "asset_event", "service_catalog", "sla_policy", "work_order", "work_order_event"],
+      "aliasableModules": ["asset_categories", "assets", "asset_responsibilities", "asset_events", "service_catalogs", "sla_policies", "work_orders", "work_order_events"]
+    },
+    {
+      "id": "inspection_rectification_orders",
+      "packs": [{ "id": "inspection_rectification", "version": "1.0.0", "config": {} }, { "id": "work_order_service", "version": "1.0.0", "config": {} }, { "id": "inspection_work_order_bridge", "version": "1.0.0", "config": { "service_code": "SVC-RECTIFICATION", "priority": "normal" } }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "计划人员", "sources": ["inspection_planner", "work_order_dispatcher"] },
+        "operations_operator": { "name": "执行人员", "sources": ["inspection_executor", "work_order_handler"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["inspection_reviewer", "work_order_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["inspection_admin", "work_order_admin"] }
+      },
+      "maintenanceEntity": "inspection_task",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["巡检执行", "异常工单", "整改复核"],
+      "materials": { "developmentPurpose": "形成巡检异常和整改工单闭环", "industry": "质量与安全管理", "technicalFeatures": ["Electron离线运行", "SQLite事务", "异常联动", "归档阻断"] },
+      "aliasableEntities": ["inspection_plan", "inspection_task", "inspection_item", "inspection_event", "service_catalog", "sla_policy", "work_order", "work_order_event", "inspection_work_order_link"],
+      "aliasableModules": ["inspection_plans", "inspection_tasks", "inspection_items", "inspection_events", "service_catalogs", "sla_policies", "work_orders", "work_order_events"]
+    },
+    {
+      "id": "inventory_application_approval",
+      "packs": [{ "id": "inventory_batch", "version": "1.0.0", "config": { "quantity_scale": 0 } }, { "id": "application_archive", "version": "1.0.0", "config": { "approval_levels": 1, "reminder_days": 30 } }, { "id": "inventory_application_bridge", "version": "1.0.0", "config": {} }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "申领人员", "sources": ["inventory_requester", "application_applicant"] },
+        "operations_operator": { "name": "库存人员", "sources": ["inventory_keeper", "application_applicant"] },
+        "operations_reviewer": { "name": "审批人员", "sources": ["inventory_reviewer", "application_reviewer", "application_compliance_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["inventory_admin", "application_admin", "application_archive_manager"] }
+      },
+      "maintenanceEntity": "material",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["库存批次", "申领审批", "审批扣减", "出入库流水"],
+      "materials": { "developmentPurpose": "形成库存批次和申领审批扣减闭环", "industry": "物资管理", "technicalFeatures": ["Electron离线运行", "SQLite事务", "批次余额", "审批联动"] },
+      "aliasableEntities": ["material", "warehouse", "inventory_batch", "inventory_transaction", "application", "approval_node", "approval_record", "file_version", "certificate", "expiry_reminder", "application_inventory_issue"],
+      "aliasableModules": ["materials", "warehouses", "inventory_batches", "inventory_transactions", "applications", "approval_nodes", "approval_records", "file_versions", "certificates", "expiry_reminders"]
+    },
+    {
+      "id": "project_delivery_archive",
+      "packs": [{ "id": "project_task", "version": "1.0.0", "config": {} }, { "id": "application_archive", "version": "1.0.0", "config": { "approval_levels": 1, "reminder_days": 30 } }, { "id": "project_archive_bridge", "version": "1.0.0", "config": {} }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "项目管理人员", "sources": ["project_manager", "application_applicant"] },
+        "operations_operator": { "name": "项目成员", "sources": ["project_member", "application_applicant"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["project_reviewer", "application_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["project_admin", "project_manager", "application_admin", "application_archive_manager"] }
+      },
+      "maintenanceEntity": "project",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["项目任务", "交付验收", "文件归档", "项目关闭"],
+      "materials": { "developmentPurpose": "形成项目执行、交付验收和文件归档闭环", "industry": "项目管理", "technicalFeatures": ["Electron离线运行", "SQLite事务", "交付版本", "关闭阻断"] },
+      "aliasableEntities": ["project", "milestone", "project_task", "project_risk", "deliverable", "project_event", "application", "approval_node", "approval_record", "file_version", "certificate", "expiry_reminder", "project_delivery_archive"],
+      "aliasableModules": ["projects", "milestones", "project_tasks", "project_risks", "deliverables", "project_events", "applications", "approval_nodes", "approval_records", "file_versions", "certificates", "expiry_reminders", "project_delivery_archives"]
+    },
+    {
+      "id": "project_task_management",
+      "packs": [{ "id": "project_task", "version": "1.0.0", "config": {} }],
+      "roleProfiles": {
+        "operations_dispatcher": { "name": "项目管理人员", "sources": ["project_manager"] },
+        "operations_operator": { "name": "项目成员", "sources": ["project_member"] },
+        "operations_reviewer": { "name": "复核人员", "sources": ["project_reviewer"] },
+        "operations_admin": { "name": "系统管理员", "sources": ["project_admin", "project_manager"] }
+      },
+      "maintenanceEntity": "project",
+      "seed": { "value": 20260921, "targetBusinessRows": 1000, "baseline": "2026-09-21T00:00:00.000Z" },
+      "coverage": ["项目立项", "里程碑", "任务进度", "风险处置", "交付验收"],
+      "materials": { "developmentPurpose": "形成项目任务、风险和交付版本管理闭环", "industry": "项目管理", "technicalFeatures": ["Electron离线运行", "SQLite事务", "加权进度", "独立复核"] },
+      "aliasableEntities": ["project", "milestone", "project_task", "project_risk", "deliverable", "project_event"],
+      "aliasableModules": ["projects", "milestones", "project_tasks", "project_risks", "deliverables", "project_events"]
+    }
+  ]
+}
