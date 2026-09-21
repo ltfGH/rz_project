@@ -61,3 +61,20 @@ catch {
     Assert-Equal ($_.Exception.Message.Contains('SecretFailure123!')) $false
     Assert-Match $_.Exception.Message 'hashing failed'
 }
+
+$bundleValues = [Collections.Generic.Queue[string]]::new()
+foreach ($value in @(
+    'BundleDispatch123!', 'BundleDispatch123!', 'BundleOperator123!', 'BundleOperator123!',
+    'BundleReviewer123!', 'BundleReviewer123!', 'BundleAdminPass123!', 'BundleAdminPass123!'
+)) { $bundleValues.Enqueue($value) }
+$bundle = Read-StandardBusinessCredentialBundle -SecureReader { param($role,$confirmation) New-TestSecureString $bundleValues.Dequeue() } -DigestInvoker $hasher
+Assert-Equal (($bundle.Digests.PSObject.Properties.Name | Sort-Object) -join ',') 'administrator,dispatcher,operator,reviewer'
+Assert-Equal (($bundle.Secrets.Keys | Sort-Object) -join ',') 'administrator,dispatcher,operator,reviewer'
+$environmentResult = Use-StandardBusinessCredentialEnvironment -CredentialSecrets $bundle.Secrets -Action {
+    Assert-Equal $env:RZ_E2E_DISPATCHER_PASSWORD 'BundleDispatch123!'
+    Assert-Equal $env:RZ_E2E_ADMINISTRATOR_PASSWORD 'BundleAdminPass123!'
+    return 'passed'
+}
+Assert-Equal $environmentResult 'passed'
+Assert-Equal ([string]::IsNullOrEmpty($env:RZ_E2E_DISPATCHER_PASSWORD)) $true
+foreach($secret in $bundle.Secrets.Values){$secret.Dispose()}

@@ -34,15 +34,19 @@ function Get-StandardScreenshotPlan {
     if ($null -eq $actionModule) { $actionModule = $primary }
     $action = @($actionModule.actions | Where-Object { $_ -notin @('list','view','create','update') })[0]
     if ([string]::IsNullOrWhiteSpace([string]$action)) { $action = @($actionModule.actions)[0] }
+    $actionPermission = '{0}.{1}' -f $actionModule.id,$action
+    $actionRole = @($Blueprint.roles | Where-Object { $_.id -like 'operations_*' -and @($_.permissions) -contains $actionPermission } | Sort-Object id)[0]
+    if ($null -eq $actionRole) { $actionRole = @($Blueprint.roles | Where-Object id -eq 'operations_admin')[0] }
+    if ($null -eq $actionRole) { throw "No composite role can display action '$actionPermission'." }
     $secondary = @($modules | Where-Object id -ne $primary.id)[0]
     if ($null -eq $secondary) { $secondary = $primary }
 
     return @(
-        [pscustomobject]@{ id='dashboard'; kind='dashboard'; moduleId=$null; actionId=$null; fileName='dashboard-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('list-' + $primary.id); kind='list'; moduleId=[string]$primary.id; actionId='list'; fileName='records-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('detail-' + $primary.id); kind='detail'; moduleId=[string]$primary.id; actionId='view'; fileName='detail-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; fileName='operation-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('mobile-' + $secondary.id); kind='list'; moduleId=[string]$secondary.id; actionId='list'; fileName='records-mobile.png'; viewport='mobile' }
+        [pscustomobject]@{ id='dashboard'; kind='dashboard'; moduleId=$null; actionId=$null; roleId='operations_admin'; fileName='dashboard-desktop.png'; viewport='desktop' },
+        [pscustomobject]@{ id=('list-' + $primary.id); kind='list'; moduleId=[string]$primary.id; actionId='list'; roleId='operations_admin'; fileName='records-desktop.png'; viewport='desktop' },
+        [pscustomobject]@{ id=('detail-' + $primary.id); kind='detail'; moduleId=[string]$primary.id; actionId='view'; roleId='operations_admin'; fileName='detail-desktop.png'; viewport='desktop' },
+        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; roleId=[string]$actionRole.id; fileName='operation-desktop.png'; viewport='desktop' },
+        [pscustomobject]@{ id=('mobile-' + $secondary.id); kind='list'; moduleId=[string]$secondary.id; actionId='list'; roleId='operations_admin'; fileName='records-mobile.png'; viewport='mobile' }
     )
 }
 

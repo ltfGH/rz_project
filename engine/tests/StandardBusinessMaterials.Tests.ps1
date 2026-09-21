@@ -33,7 +33,10 @@ try {
             [pscustomobject]@{ id = 'work_orders'; name = '工单管理'; entity = 'work_order'; route = 'work_orders'; actions = @('list','view','dispatch','accept','review') }
         )
         workflows = @([pscustomobject]@{ id = 'work_order_lifecycle'; name = '工单闭环'; states = @('pending','closed') })
-        roles = @([pscustomobject]@{ id = 'operations_admin'; name = '系统管理员'; permissions = @('assets.list','work_orders.list') })
+        roles = @(
+            [pscustomobject]@{ id = 'operations_dispatcher'; name = '调度人员'; permissions = @('work_orders.dispatch') },
+            [pscustomobject]@{ id = 'operations_admin'; name = '系统管理员'; permissions = @('assets.list','assets.change_status','work_orders.list') }
+        )
         materials = [pscustomobject]@{ industry = '园区运维'; technicalFeatures = @('Electron离线运行','SQLite事务') }
     }
     $plan = @(Get-StandardScreenshotPlan -Blueprint $blueprint)
@@ -41,6 +44,8 @@ try {
     Assert-Equal (@($plan | Where-Object kind -eq 'list').Count -gt 0) $true
     Assert-Equal (@($plan | Where-Object kind -eq 'detail').Count -gt 0) $true
     Assert-Equal (@($plan | Where-Object kind -eq 'action').Count -gt 0) $true
+    $actionCapture = @($plan | Where-Object kind -eq 'action')[0]
+    Assert-Equal $actionCapture.roleId 'operations_admin'
     Assert-Equal (@($plan | Where-Object moduleId -eq 'inventory_batches').Count) 0
 
     $screenshots = @($plan | ForEach-Object {

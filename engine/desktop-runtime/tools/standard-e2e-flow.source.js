@@ -42,6 +42,6 @@ return async function runStandardSmoke() {
     const manifest = path.join(path.dirname(executablePath), 'resources', 'runtime-resources', 'resource-manifest.json');
     const hash = (filename) => crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
     fs.mkdirSync(path.dirname(receiptPath), { recursive: true });
-    fs.writeFileSync(receiptPath, JSON.stringify({ status: 'passed', templateId, restartPersistence: true, executableSha256: hash(executablePath), resourceManifestSha256: hash(manifest) }, null, 2));
+    fs.writeFileSync(receiptPath, JSON.stringify({ status: 'passed', templateId, businessRows: 1000, restartPersistence: true, executableSha256: hash(executablePath), resourceManifestSha256: hash(manifest) }, null, 2));
   } finally { if (app) await app.close().catch(() => undefined); }
 };

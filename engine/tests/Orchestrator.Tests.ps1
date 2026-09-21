@@ -4,6 +4,9 @@ $ErrorActionPreference = 'Stop'
 $scriptPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\Generate.ps1'))
 $scriptText = Get-Content -Raw -Encoding utf8 -LiteralPath $scriptPath
 Assert-Match $scriptText 'function\s+Invoke-GeneratorOrchestration'
+Assert-Match $scriptText 'Invoke-StandardBusinessOrchestration'
+Assert-Match $scriptText "modeForPreflight.*'StandardBusiness'"
+Assert-Match $scriptText "request\.mode -eq 'LegacyDemo'"
 $readmePath = Join-Path $PSScriptRoot '..\..\README.txt'
 Assert-Equal (Test-Path -LiteralPath $readmePath -PathType Leaf) $true
 $readme = Get-Content -Raw -Encoding utf8 -LiteralPath $readmePath

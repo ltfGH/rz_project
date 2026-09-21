@@ -1,6 +1,11 @@
 ﻿[CmdletBinding()]
 param(
+    [string]$GenerationMode,
     [string]$Theme,
+    [string]$TemplateId,
+    [switch]$NonInteractive,
+    [pscustomobject]$CredentialDigests,
+    [hashtable]$CredentialSecrets,
     [switch]$PreflightOnly,
     [switch]$KeepSuccessfulWorkspace,
     [hashtable]$StageOverrides
@@ -162,23 +167,55 @@ function Invoke-GeneratorOrchestration {
 
 function Invoke-GeneratorMain {
     param(
+        [string]$GenerationMode,
         [string]$Theme,
+        [string]$TemplateId,
+        [switch]$NonInteractive,
+        [pscustomobject]$CredentialDigests,
+        [hashtable]$CredentialSecrets,
         [switch]$PreflightOnly,
         [switch]$KeepSuccessfulWorkspace,
-        [hashtable]$StageOverrides
+        [hashtable]$StageOverrides,
+        [scriptblock]$Reader,
+        [scriptblock]$SecureReader,
+        [scriptblock]$DigestInvoker
     )
 
+    $context = $null
+    $ownedSecrets = $null
     try {
         Import-Module (Join-Path $PSScriptRoot 'lib\Generator.Core.psm1') -Force -DisableNameChecking
-        if ([string]::IsNullOrWhiteSpace($Theme)) { throw '主题不能为空。' }
-        $generatorRoot = Split-Path -Parent $PSScriptRoot
-        $context = New-GenerationContext -Theme $Theme -GeneratorRoot $generatorRoot -Now (Get-Date)
+        Import-Module (Join-Path $PSScriptRoot 'lib\GenerationInteraction.psm1') -Force -DisableNameChecking
+        Import-Module (Join-Path $PSScriptRoot 'lib\StandardBusinessCatalog.psm1') -Force -DisableNameChecking
+        $modeForPreflight = if ([string]::IsNullOrWhiteSpace($GenerationMode)) { 'StandardBusiness' } else { Resolve-GenerationMode -Mode $GenerationMode }
         if ($PreflightOnly) {
+            if ([string]::IsNullOrWhiteSpace($Theme)) { throw 'Theme is required for prompt-free preflight.' }
             Import-Module (Join-Path $PSScriptRoot 'lib\Dependencies.psm1') -Force -DisableNameChecking
-            Test-GeneratorDependencies | Format-List
+            if ($modeForPreflight -eq 'LegacyDemo') { Test-GeneratorDependencies | Format-List }
+            else { Test-StandardBusinessDependencies | Format-List }
             return 0
         }
-        $result = Invoke-GeneratorOrchestration -Context $context -StageOverrides $StageOverrides -KeepSuccessfulWorkspace:$KeepSuccessfulWorkspace
+        $templates = @(Get-StandardBusinessTemplates)
+        $request = Resolve-GenerationRequest -Mode $GenerationMode -Theme $Theme -TemplateId $TemplateId -Templates $templates -Reader $Reader -NonInteractive:$NonInteractive
+        $generatorRoot = Split-Path -Parent $PSScriptRoot
+        $context = New-GenerationContext -Theme $request.theme -GeneratorRoot $generatorRoot -Now (Get-Date)
+        if ($request.mode -eq 'LegacyDemo') {
+            $result = Invoke-GeneratorOrchestration -Context $context -StageOverrides $StageOverrides -KeepSuccessfulWorkspace:$KeepSuccessfulWorkspace
+        }
+        else {
+            $context.Version = '1.0.0'
+            if ($null -eq $CredentialDigests) {
+                if ($NonInteractive) { throw 'CredentialDigests are required for non-interactive standard generation.' }
+                Import-Module (Join-Path $PSScriptRoot 'lib\StandardBusinessCredentials.psm1') -Force -DisableNameChecking
+                $bundle = Read-StandardBusinessCredentialBundle -SecureReader $SecureReader -DigestInvoker $DigestInvoker
+                $CredentialDigests = $bundle.Digests
+                $CredentialSecrets = $bundle.Secrets
+                $ownedSecrets = $bundle.Secrets
+            }
+            Import-Module (Join-Path $PSScriptRoot 'lib\StandardBusinessOrchestrator.psm1') -Force -DisableNameChecking
+            $result = Invoke-StandardBusinessOrchestration -Context $context -Template $request.template -CredentialDigests $CredentialDigests `
+                -CredentialSecrets $CredentialSecrets -StageOverrides $StageOverrides -KeepSuccessfulWorkspace:$KeepSuccessfulWorkspace
+        }
         Write-Host "生成完成：$($result.DeliveryPath)"
         Write-Host "日志：$($result.LogPath)"
         return 0
@@ -187,11 +224,14 @@ function Invoke-GeneratorMain {
         $exitCode = 2
         if ($_.Exception.Data.Contains('GeneratorExitCode')) { $exitCode = [int]$_.Exception.Data['GeneratorExitCode'] }
         [Console]::Error.WriteLine($_.Exception.Message)
-        if ($null -ne (Get-Variable -Name context -ValueOnly -ErrorAction SilentlyContinue)) {
+        if ($null -ne $context) {
             [Console]::Error.WriteLine("工作区已保留：$($context.WorkspacePath)")
             [Console]::Error.WriteLine("日志：$($context.LogPath)")
         }
         return $exitCode
+    }
+    finally {
+        if ($null -ne $ownedSecrets) { foreach ($secret in $ownedSecrets.Values) { if ($null -ne $secret) { $secret.Dispose() } } }
     }
 }
 
@@ -210,6 +250,7 @@ function Resolve-GeneratorTheme {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    $resolvedTheme = Resolve-GeneratorTheme -Theme $Theme
-    exit (Invoke-GeneratorMain -Theme $resolvedTheme -PreflightOnly:$PreflightOnly -KeepSuccessfulWorkspace:$KeepSuccessfulWorkspace -StageOverrides $StageOverrides)
+    exit (Invoke-GeneratorMain -GenerationMode $GenerationMode -Theme $Theme -TemplateId $TemplateId -NonInteractive:$NonInteractive `
+        -CredentialDigests $CredentialDigests -CredentialSecrets $CredentialSecrets -PreflightOnly:$PreflightOnly `
+        -KeepSuccessfulWorkspace:$KeepSuccessfulWorkspace -StageOverrides $StageOverrides)
 }

@@ -24,8 +24,7 @@ function Get-StandardSourceManifest {
     $includeDirectories = @(
         'engine\desktop-runtime\src',
         'engine\domain-packs\src',
-        'engine\domain-packs\contracts',
-        'engine\lib'
+        'engine\domain-packs\contracts'
     )
     foreach ($packId in @($Template.packs)) {
         if ([string]$packId -notmatch '^[a-z][a-z0-9_]+$') { throw 'Template contains an invalid pack id.' }

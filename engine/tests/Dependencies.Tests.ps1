@@ -39,6 +39,21 @@ Assert-Throws {
     Test-GeneratorDependencies -CommandResolver $fakeResolver -WordProbe $fakeWord -InnoResolver { $null }
 } 'Inno Setup'
 
+$standardResolver = {
+    param([string]$Name)
+    switch ($Name) {
+        'codex' { 'C:\fake\codex.ps1' }
+        'node' { 'C:\fake\node.exe' }
+        'npm' { 'C:\fake\npm.cmd' }
+        'npx' { 'C:\fake\npx.cmd' }
+    }
+}
+$standard = Test-StandardBusinessDependencies -CommandResolver $standardResolver -WordProbe $fakeWord
+Assert-Equal $standard.NpmPath 'C:\fake\npm.cmd'
+Assert-Equal $standard.NpxPath 'C:\fake\npx.cmd'
+Assert-Equal $standard.WordPath 'C:\fake\WINWORD.EXE'
+Assert-Throws { Test-StandardBusinessDependencies -CommandResolver { param($name) if($name -eq 'npx'){$null}else{& $standardResolver $name} } -WordProbe $fakeWord } 'npx'
+
 $engineRoot = Split-Path -Parent $PSScriptRoot
 $invalidSignatureCache = Join-Path $engineRoot '工作区\tests-invalid-signature'
 try {

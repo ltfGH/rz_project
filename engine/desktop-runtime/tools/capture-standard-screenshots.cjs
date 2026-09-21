@@ -28,12 +28,26 @@ async function main() {
   try {
     app = await electron.launch({ executablePath, env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } });
     const page = await app.firstWindow();
-    await page.getByLabel('账号').fill('administrator');
-    await page.getByLabel('密码').fill(process.env.RZ_E2E_ADMINISTRATOR_PASSWORD);
-    await page.getByRole('button', { name: '登录' }).click();
-    await page.getByRole('navigation', { name: '主导航' }).waitFor();
+    const accounts = {
+      operations_dispatcher: ['dispatcher', process.env.RZ_E2E_DISPATCHER_PASSWORD],
+      operations_operator: ['operator', process.env.RZ_E2E_OPERATOR_PASSWORD],
+      operations_reviewer: ['reviewer', process.env.RZ_E2E_REVIEWER_PASSWORD],
+      operations_admin: ['administrator', process.env.RZ_E2E_ADMINISTRATOR_PASSWORD]
+    };
+    let currentRole;
+    const login = async (roleId) => {
+      const account = accounts[roleId];
+      if (!account || !account[1]) throw new Error(`Capture credential is unavailable for '${roleId}'.`);
+      if (currentRole) await page.getByRole('button', { name: '退出登录' }).click();
+      await page.getByLabel('账号').fill(account[0]);
+      await page.getByLabel('密码').fill(account[1]);
+      await page.getByRole('button', { name: '登录' }).click();
+      await page.getByRole('navigation', { name: '主导航' }).waitFor();
+      currentRole = roleId;
+    };
     const captures = [];
     for (const item of plan) {
+      if (currentRole !== item.roleId) await login(item.roleId);
       await page.setViewportSize(item.viewport === 'mobile' ? { width: 430, height: 932 } : { width: 1440, height: 960 });
       if (item.kind === 'dashboard') {
         await page.getByRole('button', { name: '运维总览', exact: true }).click();
@@ -53,7 +67,7 @@ async function main() {
       await page.screenshot({ path: filename, fullPage: true });
       captures.push({
         id: item.id, kind: item.kind, moduleId: item.moduleId, actionId: item.actionId,
-        path: item.fileName, viewport: item.viewport, sha256: sha256(filename)
+        roleId: item.roleId, path: item.fileName, viewport: item.viewport, sha256: sha256(filename)
       });
     }
     fs.writeFileSync(path.join(output, 'screenshot-manifest.json'), JSON.stringify({

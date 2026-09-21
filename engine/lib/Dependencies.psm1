@@ -149,6 +149,26 @@ function Test-GeneratorDependencies {
     }
 }
 
-Export-ModuleMember -Function Test-GeneratorDependencies, Install-VerifiedInnoSetup
+function Test-StandardBusinessDependencies {
+    [CmdletBinding()]
+    param([scriptblock]$CommandResolver, [scriptblock]$WordProbe)
+
+    if ($null -eq $CommandResolver) { $CommandResolver = { param([string]$Name) Resolve-CommandPath $Name } }
+    if ($null -eq $WordProbe) { $WordProbe = { Test-WordProbe } }
+    $resolved = [ordered]@{}
+    foreach ($name in @('codex','node','npm','npx')) { $resolved[$name] = & $CommandResolver $name }
+    $resolved['Word'] = & $WordProbe
+    $missing = @($resolved.Keys | Where-Object { [string]::IsNullOrWhiteSpace([string]$resolved[$_]) })
+    if ($missing.Count -gt 0) {
+        $status = @($resolved.Keys | ForEach-Object { Format-DependencyStatus $_ $resolved[$_] }) -join '; '
+        throw "缺少标准业务生成依赖：$($missing -join '、')。预检状态：$status"
+    }
+    return [pscustomobject]@{
+        CodexPath=[IO.Path]::GetFullPath($resolved.codex); NodePath=[IO.Path]::GetFullPath($resolved.node)
+        NpmPath=[IO.Path]::GetFullPath($resolved.npm); NpxPath=[IO.Path]::GetFullPath($resolved.npx); WordPath=[IO.Path]::GetFullPath($resolved.Word)
+    }
+}
+
+Export-ModuleMember -Function Test-GeneratorDependencies, Test-StandardBusinessDependencies, Install-VerifiedInnoSetup
 
 

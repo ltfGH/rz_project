@@ -54,7 +54,7 @@ function Invoke-StandardPasswordDigest {
 
 function Read-StandardBusinessCredentials {
     [CmdletBinding()]
-    param([scriptblock]$SecureReader, [scriptblock]$DigestInvoker)
+    param([scriptblock]$SecureReader, [scriptblock]$DigestInvoker, [switch]$IncludeSecureSecrets)
 
     if ($null -eq $SecureReader) {
         $SecureReader = {
@@ -67,6 +67,7 @@ function Read-StandardBusinessCredentials {
 
     $fingerprints = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $digests = [ordered]@{}
+    $secrets = [ordered]@{}
     foreach ($role in @('dispatcher', 'operator', 'reviewer', 'administrator')) {
         while ($true) {
             $firstSecure = $null
@@ -98,6 +99,11 @@ function Read-StandardBusinessCredentials {
                 catch { throw "Password hashing failed for role '$role'." }
                 if ($digest -notmatch '^scrypt\$16384\$8\$1\$') { throw "Password hashing failed for role '$role'." }
                 $digests[$role] = $digest.Trim()
+                if ($IncludeSecureSecrets) {
+                    $copy = $firstSecure.Copy()
+                    $copy.MakeReadOnly()
+                    $secrets[$role] = $copy
+                }
                 break
             }
             finally {
@@ -108,7 +114,36 @@ function Read-StandardBusinessCredentials {
             }
         }
     }
+    if ($IncludeSecureSecrets) { return [pscustomobject]@{ Digests=[pscustomobject]$digests; Secrets=[hashtable]$secrets } }
     return [pscustomobject]$digests
 }
 
-Export-ModuleMember -Function Test-InitialPasswordPolicy, Read-StandardBusinessCredentials
+function Read-StandardBusinessCredentialBundle {
+    [CmdletBinding()]
+    param([scriptblock]$SecureReader, [scriptblock]$DigestInvoker)
+    return Read-StandardBusinessCredentials -SecureReader $SecureReader -DigestInvoker $DigestInvoker -IncludeSecureSecrets
+}
+
+function Use-StandardBusinessCredentialEnvironment {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][hashtable]$CredentialSecrets, [Parameter(Mandatory)][scriptblock]$Action)
+    $environmentNames = [ordered]@{ dispatcher='RZ_E2E_DISPATCHER_PASSWORD'; operator='RZ_E2E_OPERATOR_PASSWORD'; reviewer='RZ_E2E_REVIEWER_PASSWORD'; administrator='RZ_E2E_ADMINISTRATOR_PASSWORD' }
+    $previous = @{}
+    foreach($role in $environmentNames.Keys){
+        if(-not $CredentialSecrets.ContainsKey($role)-or $CredentialSecrets[$role]-isnot[Security.SecureString]){throw "Secure credential is missing for role '$role'."}
+        $name=$environmentNames[$role];$previous[$name]=[Environment]::GetEnvironmentVariable($name)
+    }
+    try {
+        foreach($role in $environmentNames.Keys){
+            $plain=$null
+            try { $plain=ConvertFrom-GeneratorSecureString $CredentialSecrets[$role]; [Environment]::SetEnvironmentVariable($environmentNames[$role],$plain) }
+            finally { $plain=$null }
+        }
+        return & $Action
+    }
+    finally {
+        foreach($name in $environmentNames.Values){ [Environment]::SetEnvironmentVariable($name,$previous[$name]) }
+    }
+}
+
+Export-ModuleMember -Function Test-InitialPasswordPolicy, Read-StandardBusinessCredentials, Read-StandardBusinessCredentialBundle, Use-StandardBusinessCredentialEnvironment
