@@ -11,6 +11,7 @@
     "test:integration": "node --import tsx --test tests/integration/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:reference": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tools/run-reference-e2e.ps1",
+    "test:e2e:standard-smoke": "playwright test tests/e2e/standard-template-smoke.spec.ts",
     "build:runtime": "tsc -p tsconfig.json && vite build --config vite.preload.config.mts",
     "build:renderer": "vite build",
     "prepare:icon": "node tools/generate-icon.cjs",
