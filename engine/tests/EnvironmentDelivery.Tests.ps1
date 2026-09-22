@@ -39,11 +39,12 @@ $usageGuide = Get-Content -Raw -Encoding UTF8 (Join-Path $repositoryRoot 'docs\g
 $logPath = 'engine/' + (-join [char[]](0x65E5, 0x5FD7))
 $workspacePath = 'engine/' + (-join [char[]](0x5DE5, 0x4F5C, 0x533A))
 foreach ($requiredText in @(
-    'Preflight', 'Initialize', 'Generate', 'Validate', 'Screenshots', 'Materials',
-    'Launcher', 'Installer', 'InstallTest', 'Package', 'Publish',
+    'RecommendTemplate', 'CollectCredentials', 'BuildThemeProfile', 'ComposeDomain', 'AssembleResources',
+    'BuildDesktop', 'VerifyDomain', 'VerifyPackagedWorkflow', 'CaptureDesktopScreenshots', 'BuildBusinessMaterials',
+    'BuildWindowsInstaller', 'VerifyInstaller', 'PackageBusinessDelivery', 'Publish',
     'short_name', 'classification', 'completion_date', 'company_date', 'industry',
     'source_quantity', 'main_functions', 'technical_features',
-    $logPath, $workspacePath, '12'
+    $logPath, $workspacePath, '15'
 )) {
     Assert-Match $usageGuide ([regex]::Escape($requiredText))
 }

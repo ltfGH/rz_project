@@ -30,11 +30,14 @@ function Get-StandardScreenshotPlan {
     if ($modules.Count -eq 0) { throw 'Blueprint has no business modules for screenshots.' }
     $primary = @($modules | Where-Object { @($_.actions) -contains 'view' })[0]
     if ($null -eq $primary) { $primary = $modules[0] }
-    $actionModule = @($modules | Where-Object { @($_.actions | Where-Object { $_ -notin @('list','view','create','update') }).Count -gt 0 })[0]
-    if ($null -eq $actionModule) { $actionModule = $primary }
-    $action = @($actionModule.actions | Where-Object { $_ -notin @('list','view','create','update') })[0]
-    if ([string]::IsNullOrWhiteSpace([string]$action)) { $action = @($actionModule.actions)[0] }
-    $actionPermission = '{0}.{1}' -f $actionModule.id,$action
+    $workflow = @($Blueprint.workflows | Where-Object { @($_.transitions).Count -gt 0 })[0]
+    if ($null -eq $workflow) { throw 'Blueprint has no workflow transition for an action screenshot.' }
+    $actionModule = @($modules | Where-Object entity -eq $workflow.entity)[0]
+    if ($null -eq $actionModule) { throw "Workflow '$($workflow.id)' has no visible module." }
+    $transition = @($workflow.transitions)[0]
+    $action = [string]$transition.id
+    $actionLabel = [string]$transition.name
+    $actionPermission = [string]$transition.permission
     $actionRole = @($Blueprint.roles | Where-Object { $_.id -like 'operations_*' -and @($_.permissions) -contains $actionPermission } | Sort-Object id)[0]
     if ($null -eq $actionRole) { $actionRole = @($Blueprint.roles | Where-Object id -eq 'operations_admin')[0] }
     if ($null -eq $actionRole) { throw "No composite role can display action '$actionPermission'." }
@@ -45,7 +48,7 @@ function Get-StandardScreenshotPlan {
         [pscustomobject]@{ id='dashboard'; kind='dashboard'; moduleId=$null; actionId=$null; roleId='operations_admin'; fileName='dashboard-desktop.png'; viewport='desktop' },
         [pscustomobject]@{ id=('list-' + $primary.id); kind='list'; moduleId=[string]$primary.id; actionId='list'; roleId='operations_admin'; fileName='records-desktop.png'; viewport='desktop' },
         [pscustomobject]@{ id=('detail-' + $primary.id); kind='detail'; moduleId=[string]$primary.id; actionId='view'; roleId='operations_admin'; fileName='detail-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; roleId=[string]$actionRole.id; fileName='operation-desktop.png'; viewport='desktop' },
+        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; actionLabel=$actionLabel; actionType='workflow'; roleId=[string]$actionRole.id; fileName='operation-desktop.png'; viewport='desktop' },
         [pscustomobject]@{ id=('mobile-' + $secondary.id); kind='list'; moduleId=[string]$secondary.id; actionId='list'; roleId='operations_admin'; fileName='records-mobile.png'; viewport='mobile' }
     )
 }
@@ -107,6 +110,7 @@ function Build-StandardBusinessMaterials {
         [Parameter(Mandatory)]$ScreenshotManifest,
         [Parameter(Mandatory)]$SourceManifest,
         [Parameter(Mandatory)]$VerificationReceipt,
+        [Parameter(Mandatory)]$EvidenceHashes,
         [switch]$SkipDocumentExport,
         [string]$RepositoryRoot,
         [string]$ScreenshotRoot,
@@ -116,6 +120,10 @@ function Build-StandardBusinessMaterials {
     $contract = Get-Content -Raw -Encoding UTF8 -LiteralPath $script:ContractPath | ConvertFrom-Json
     if ($contract.contractVersion -ne '1.0') { throw 'Unsupported standard material contract.' }
     if ([string]$VerificationReceipt.status -ne 'passed') { throw 'Materials require a passed verification receipt.' }
+    foreach($name in @('executableSha256','blueprintSha256')){
+        if([string]$EvidenceHashes.$name -notmatch '^[0-9a-f]{64}$'){throw "Material evidence hash '$name' is invalid."}
+        if([string]$ScreenshotManifest.$name -cne [string]$EvidenceHashes.$name){throw "Screenshot evidence $name hash mismatch."}
+    }
     $modules = @($Blueprint.modules)
     $moduleIds = @($modules | ForEach-Object id)
     $captures = @($ScreenshotManifest.captures)
@@ -126,6 +134,7 @@ function Build-StandardBusinessMaterials {
     foreach ($capture in $captures) {
         if ($null -ne $capture.moduleId -and $moduleIds -cnotcontains [string]$capture.moduleId) { throw "Screenshot references unknown module '$($capture.moduleId)'." }
         if ([string]$capture.sha256 -notmatch '^[0-9a-f]{64}$') { throw 'Screenshot hash is invalid.' }
+        if([string]$capture.kind -eq 'action' -and ($capture.controlVerified -ne $true -or [string]::IsNullOrWhiteSpace([string]$capture.actionId))){throw 'Action screenshot did not verify its planned control.'}
     }
     foreach ($pair in @(
         @('softwareName',[string]$Profile.softwareName), @('purpose',[string]$Profile.purpose), @('industry',[string]$Profile.industry),
@@ -163,12 +172,14 @@ function Build-StandardBusinessMaterials {
             foreach ($capture in $captures) { $captureItems.Add((ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $capture.id,$capture.moduleId,$capture.actionId))) }
         }
         $captureHtml = if ($SkipDocumentExport) { '<ul>' + (($captureItems | ForEach-Object { '<li>' + $_ + '</li>' }) -join '') + '</ul>' } else { $captureItems -join '' }
+        $runtimeVersion = if($null-ne $ProjectLock.PSObject.Properties['runtime']){[string]$ProjectLock.runtime.desktop}else{[string]$ProjectLock.desktopRuntimeVersion}
+        $electronVersion = if($null-ne $ProjectLock.PSObject.Properties['runtime']){[string]$ProjectLock.runtime.electron}else{[string]$ProjectLock.electronVersion}
         $values = @{
             TITLE=ConvertTo-MaterialHtmlText $Blueprint.software.name; VERSION=ConvertTo-MaterialHtmlText $Blueprint.software.version
             PURPOSE=ConvertTo-MaterialHtmlText $Profile.purpose; INDUSTRY=ConvertTo-MaterialHtmlText $Profile.industry
             MODULES=$moduleHtml; WORKFLOWS=$workflowHtml; ROLES=$roleHtml; BOUNDARIES=$boundaryHtml
             SCREENSHOTS=$captureHtml; SCREENSHOT_PLAN=$captureHtml; SOURCE_LINES=[string]$SourceManifest.totalLines; SOURCE_FILES=[string]$SourceManifest.totalFiles
-            RUNTIME_VERSION=ConvertTo-MaterialHtmlText $ProjectLock.desktopRuntimeVersion; ELECTRON_VERSION=ConvertTo-MaterialHtmlText $ProjectLock.electronVersion
+            RUNTIME_VERSION=ConvertTo-MaterialHtmlText $runtimeVersion; ELECTRON_VERSION=ConvertTo-MaterialHtmlText $electronVersion
             DATABASE_VERSION=ConvertTo-MaterialHtmlText $ProjectLock.databaseSchemaVersion; VERIFICATION_STATUS='passed'; BUSINESS_ROWS=ConvertTo-MaterialHtmlText $VerificationReceipt.businessRows
         }
         $html = [Collections.Generic.List[string]]::new()

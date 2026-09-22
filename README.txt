@@ -1,10 +1,10 @@
 软著项目生成器使用说明
 
-首次使用前，请确认本机已安装并登录 Codex，且已安装 Node.js、Microsoft Edge 和 Microsoft Word。Inno Setup 6 缺失时，生成器会下载、验证发布者签名并静默安装。
+首次使用前，请确认本机已安装并登录 Codex，且已安装 Node.js 22.21.0 和 Microsoft Word。默认标准模式自带 Electron 构建链，不要求单独安装 Edge 或 Inno Setup。
 
-使用方法：双击“开始生成.bat”，输入一个简短的软件主题，例如“设备点检记录管理”，然后等待全部阶段完成。
+使用方法：双击“开始生成.bat”，选择默认标准业务模式，输入软件主题，确认推荐模板，再为调度、处理、复核和管理员设置四个不同的高强度密码，然后等待全部阶段完成。密码不会写入交付包，请单独保管。
 
-生成期间的交互、阶段说明、12 个交付文件用途、申请表逐字段填写方法、失败排查和提交前检查清单见 docs/generator-usage-and-filing-guide.md。
+生成期间的交互、八种模板、14 个阶段、15 个交付文件用途、申请表填写方法、失败排查和提交前检查清单见 docs/generator-usage-and-filing-guide.md。
 
 成功结果位于本目录的“交付结果”文件夹。每次结果均为一个平铺目录，其中包含标准安装包、操作手册、源码材料、申请信息底稿、项目源码 ZIP、完整交付包 ZIP 和校验报告。
 
@@ -30,7 +30,7 @@ npm 依赖只用于从 JSON Schema 重新生成已纳入源码的独立校验器
 
 桌面业务底座开发
 
-新桌面业务底座位于 engine/desktop-runtime，采用 Electron、React、TypeScript 和 SQLite。第一版生产领域包、桥接包、参考软件和 Windows 安装验收已经完成；它仍与原有四页面模板并存，不改变“开始生成.bat”的现有行为。
+新桌面业务底座位于 engine/desktop-runtime，采用 Electron、React、TypeScript 和 SQLite。第一版生产领域包、桥接包、八模板组合和 Windows 安装验收已经接入“开始生成.bat”，并作为默认模式；原有四页面模板仅通过 LegacyDemo 显式选择。
 
 进入 engine/desktop-runtime 后，可以依次执行 npm ci、npm run typecheck、npm run test:unit、npm run test:integration、npm run build、npm run test:e2e 和 npm run dist:win。详细安全边界、测试账号及打包验证方式见该目录 README.md。
 

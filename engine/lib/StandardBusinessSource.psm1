@@ -23,8 +23,11 @@ function Get-StandardSourceManifest {
 
     $includeDirectories = @(
         'engine\desktop-runtime\src',
+        'engine\desktop-runtime\build',
+        'engine\desktop-runtime\tools',
+        'engine\desktop-runtime\standard-templates',
         'engine\domain-packs\src',
-        'engine\domain-packs\contracts'
+        'engine\domain-packs\tools'
     )
     foreach ($packId in @($Template.packs)) {
         if ([string]$packId -notmatch '^[a-z][a-z0-9_]+$') { throw 'Template contains an invalid pack id.' }
@@ -32,10 +35,18 @@ function Get-StandardSourceManifest {
     }
     $includeFiles = @(
         'engine\desktop-runtime\package.json',
+        'engine\desktop-runtime\package-lock.json',
+        'engine\desktop-runtime\index.html',
         'engine\desktop-runtime\tsconfig.json',
-        'engine\desktop-runtime\tsconfig.renderer.json'
+        'engine\desktop-runtime\tsconfig.renderer.json',
+        'engine\desktop-runtime\vite.config.mts',
+        'engine\desktop-runtime\vite.preload.config.mts',
+        'engine\domain-packs\package.json',
+        'engine\domain-packs\package-lock.json',
+        'engine\domain-packs\tsconfig.json',
+        'engine\domain-packs\tsconfig.build.json'
     )
-    $allowedExtensions = @('.ts','.tsx','.js','.cjs','.mjs','.json','.ps1','.psm1','.html','.css','.sql')
+    $allowedExtensions = @('.ts','.tsx','.js','.cjs','.mjs','.json','.ps1','.psm1','.html','.css','.sql','.svg','.md')
     $resolved = [Collections.Generic.List[IO.FileInfo]]::new()
     foreach ($relativeDirectory in $includeDirectories) {
         $directory = Join-Path $root $relativeDirectory

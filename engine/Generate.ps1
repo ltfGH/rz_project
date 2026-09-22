@@ -212,6 +212,7 @@ function Invoke-GeneratorMain {
                 $CredentialSecrets = $bundle.Secrets
                 $ownedSecrets = $bundle.Secrets
             }
+            if ($NonInteractive -and $null -eq $CredentialSecrets) { throw 'CredentialSecrets are required for non-interactive packaged verification and screenshots.' }
             Import-Module (Join-Path $PSScriptRoot 'lib\StandardBusinessOrchestrator.psm1') -Force -DisableNameChecking
             $result = Invoke-StandardBusinessOrchestration -Context $context -Template $request.template -CredentialDigests $CredentialDigests `
                 -CredentialSecrets $CredentialSecrets -StageOverrides $StageOverrides -KeepSuccessfulWorkspace:$KeepSuccessfulWorkspace

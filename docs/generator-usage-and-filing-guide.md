@@ -4,17 +4,19 @@
 
 ## 两条使用路径
 
-### 一键软著交付生成
+### 标准业务软件生成（默认）
 
-根目录的 `开始生成.bat` 是当前面向普通使用者的入口。它接收一个软件主题，生成固定四页面的离线演示软件、安装包、截图、操作手册、源码材料、申请表底稿和压缩包。
+根目录的 `开始生成.bat` 是面向普通使用者的入口。默认模式根据主题推荐一个受控业务模板，生成可长期离线使用的 Electron + SQLite 桌面软件、安装包、真实运行截图、操作手册、源码材料、申请表底稿和验证证据。业务状态转换和跨表事务来自固定生产领域包，不由模型临时编造。
 
-### 领域包与 Electron 参考软件
+支持的模板共八个：申请审批归档、资产巡检管理、资产巡检整改、资产工单运维、巡检整改工单、库存申领审批、项目交付归档、项目任务管理。主题只改变软件名称、显示术语和演示数据词汇，不改变数据库字段、权限、状态机和事务。
 
-`engine/domain-packs` 与 `engine/desktop-runtime` 是第一版新的业务软件底座，包含领域状态机、跨表事务、角色权限和 Windows 安装验收。它目前通过开发命令组合和构建，尚未接入 `开始生成.bat` 的主题交互流程。参考软件的构建方法见 `engine/desktop-runtime/README.md`。
+### 旧版演示生成
+
+在模式选择时输入 `2` 可显式选择 `LegacyDemo`。它保留原固定四页面、浏览器存储和 12 文件交付行为，只用于兼容既有项目。标准模式失败时不会自动回退到旧版。
 
 ## 第一次使用
 
-1. 按根目录 `README.md` 安装 Node.js 22.21.0、Codex CLI、Edge、Word 和 Inno Setup 6 所需环境。
+1. 按根目录 `README.md` 安装 Node.js 22.21.0、Codex CLI 和 Word。旧版模式另需 Edge 和 Inno Setup 6。
 2. 双击 `setup-dev.bat` 安装锁定依赖。
 3. 执行生成器预检：
 
@@ -27,11 +29,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 
 ## 生成过程中的交互
 
-当前只会询问一个内容：软件主题。
+标准模式依次询问以下内容：
 
 ```text
-请输入软件主题：
+1=StandardBusiness, 2=LegacyDemo（直接回车选择 1）
+软件主题
+推荐模板或模板编号
+确认生成摘要
+dispatcher/operator/reviewer/administrator 的密码及再次确认
 ```
+
+四个密码均须至少 12 位，并同时包含大写字母、小写字母、数字和特殊字符，且彼此不同。密码明文只在当前生成进程内存中用于打包态登录、截图和验收，不进入日志、源码、资源、安装包或交付 ZIP。生成器不会创建密码交接文件，操作人必须通过与安装包不同的安全渠道保管和交付密码。
 
 推荐输入业务对象加核心用途，例如：
 
@@ -49,7 +57,28 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 
 主题末尾没有“软件”时，生成器会自动规范为软件名称。例如“设备点检记录管理”会生成“设备点检记录管理软件”。
 
-输入主题后不再询问申请人、著作权人或发表信息。生成器不会替申请人猜测这些内容，未知项保留为 `【申请人填写】`。
+模板确认发生在密码输入和工作区创建之前。若推荐不合适，可从八个模板中手工选择。确认后不再询问申请人、著作权人或发表信息；未知项保留为 `【申请人填写】`。
+
+### 非交互自动化
+
+自动化调用必须显式提供 `StandardBusiness`、主题、模板 ID、四个 scrypt 摘要以及与摘要对应的四个 `SecureString`。后者仅用于打包态登录和截图，不会写入产物。建议由本机密码库或 CI secret provider 构造，禁止把明文写进脚本。调用形式如下：
+
+```powershell
+. .\engine\Generate.ps1
+$digests = [pscustomobject]@{
+  dispatcher = '<scrypt digest>'; operator = '<scrypt digest>'
+  reviewer = '<scrypt digest>'; administrator = '<scrypt digest>'
+}
+$secrets = @{
+  dispatcher = $secretProvider.Dispatcher; operator = $secretProvider.Operator
+  reviewer = $secretProvider.Reviewer; administrator = $secretProvider.Administrator
+}
+$exitCode = Invoke-GeneratorMain -GenerationMode StandardBusiness -Theme '园区资产工单' `
+  -TemplateId asset_work_order_operations -NonInteractive `
+  -CredentialDigests $digests -CredentialSecrets $secrets
+```
+
+`CredentialSecrets` 的四个值必须是 `System.Security.SecureString`。非交互模式缺少任一显式值时直接失败，不会等待输入，也不会回退到旧版。
 
 ## 自动执行阶段
 
@@ -57,35 +86,38 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 
 | 阶段 | 作用 | 常见失败原因 |
 | --- | --- | --- |
-| `Preflight` | 检查 Codex、Node、Edge、Word、Inno Setup | 工具缺失、Word COM 不可用 |
-| `Initialize` | 创建隔离工作区并复制模板 | 同名工作区已存在、路径权限不足 |
-| `Generate` | 调用 Codex 生成主题化源码与材料内容 | Codex 未登录、调用失败 |
-| `Validate` | 校验文件、四条路由、离线限制并运行源码测试 | 生成内容越界、测试失败 |
-| `Screenshots` | 使用 Edge 生成桌面与移动端截图 | Edge 启动失败、页面加载失败 |
-| `Materials` | 使用 Word 生成 DOCX/PDF 材料 | Word 自动化失败、模板异常 |
-| `Launcher` | 构建软件启动程序 | 编译环境异常 |
-| `Installer` | 使用 Inno Setup 构建安装包 | ISCC 不可用、文件被占用 |
-| `InstallTest` | 在隔离目录安装、启动并卸载 | 安装器或卸载器验证失败 |
-| `Package` | 生成源码 ZIP、校验报告和完整交付包 | 文件缺失、名称不符合约定 |
+| `RecommendTemplate` | 记录已确认的八模板之一 | 模板未确认或不受支持 |
+| `CollectCredentials` | 校验四角色密码摘要 | 密码规则、确认或唯一性失败 |
+| `BuildThemeProfile` | 创建工作区并生成受约束显示配置 | Codex 未登录、配置越界 |
+| `ComposeDomain` | 固定领域包、角色和生成请求 | 组合配置无效 |
+| `AssembleResources` | 生成蓝图、1000 条种子、锁和资源清单 | 引用、权限或数据约束失败 |
+| `BuildDesktop` | 构建 Electron 应用与 NSIS 安装包 | TypeScript/Vite/Electron 构建失败 |
+| `VerifyDomain` | 运行类型、单元、集成和包体自检 | 领域逻辑或资源哈希失败 |
+| `VerifyPackagedWorkflow` | 四角色登录、列表、重启与持久化验收 | 登录、数据量或持久化失败 |
+| `CaptureDesktopScreenshots` | 从打包后的 Electron 应用截图 | 页面、角色或记录不可访问 |
+| `BuildBusinessMaterials` | 按蓝图、回执和截图生成材料 | Word 自动化或事实绑定失败 |
+| `BuildWindowsInstaller` | 确认本次 NSIS 安装包 | 安装包缺失 |
+| `VerifyInstaller` | 隔离安装、启动、自检和卸载 | 安装生命周期失败 |
+| `PackageBusinessDelivery` | 生成源码 ZIP、报告和完整包 | 文件或证据哈希不一致 |
 | `Publish` | 原子发布到 `交付结果` | 目标目录权限不足 |
 
-成功后工作区默认删除，只保留交付目录和日志。`Initialize` 完成后的阶段失败时，已经创建的工作区会保留，便于检查和修复；`Preflight` 失败发生在创建工作区之前，因此该次运行没有可检查的工作区。
+成功后工作区默认删除，只保留交付目录和日志。`BuildThemeProfile` 开始后的失败会保留工作区；模板确认或凭据阶段失败时尚未创建工作区。
 
 ## 生成时如何等待
 
 - 命令窗口没有继续提问时，不需要输入其他内容。
-- 不要关闭 Word、Edge、Codex 或生成器窗口。
+- 不要关闭 Word、Electron、Codex 或生成器窗口。
 - 不要修改正在使用的 `engine/工作区` 内容。
 - 窗口显示“生成完成”并给出交付目录后才算成功。
 - 若显示失败，先记录失败阶段和日志路径，不要直接删除保留的工作区。
 
-## 交付结果中的 12 个文件
+## 标准交付结果中的 15 个文件
 
 假设软件名为“设备点检记录管理软件”，交付目录是平铺结构，包含：
 
 | 文件模式 | 用途 |
 | --- | --- |
-| `软件名 V1.0 安装包.exe` | 在 Windows 上安装、运行和卸载软件 |
+| `软件名 V1.0.0 安装包.exe` | 在 Windows 上安装、运行和卸载软件 |
 | `软件名-操作手册.docx` | 可编辑的用户操作说明 |
 | `软件名-操作手册.pdf` | 提交或预览用操作说明 |
 | `软件名-源码.docx` | 按材料版式整理的源程序 |
@@ -95,24 +127,32 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 | `软件名-运行环境.docx` | 开发、运行环境和离线存储说明 |
 | `软件名-原型设计图.docx` | 页面原型和业务结构说明 |
 | `软件名-项目源码.zip` | `project.json`、离线应用源码、测试和重建说明 |
+| `业务蓝图.json` | 最终实体、模块、角色、权限和工作流定义 |
+| `领域版本锁.json` | 本次使用的生产领域包及精确版本 |
+| `验收报告.json` | 打包态登录、数据量、重启持久化和哈希证据 |
 | `校验报告.txt` | 软件名、版本、运行编号和自动验证结果 |
-| `软件名-完整交付包.zip` | 汇总以上其他 11 个文件的完整归档 |
+| `软件名-完整交付包.zip` | 汇总以上其他 14 个文件的完整归档 |
+
+显式选择 `LegacyDemo` 时仍生成原 12 文件交付集，不包含三份标准业务证据 JSON。
 
 不要直接修改完整交付包 ZIP 内的文件。应先修改目录中的原始 DOCX，重新导出对应 PDF，核对后再重新整理最终归档。
 
 ## 安装和使用生成的软件
 
-1. 双击 `软件名 V1.0 安装包.exe`。
+1. 双击 `软件名 V1.0.0 安装包.exe`。
 2. Windows SmartScreen 可能显示“未知发布者”，因为当前安装包没有商业代码签名。确认文件来自本次交付目录后再继续。
 3. 安装完成后从桌面或开始菜单打开软件。
-4. 软件包含 `dashboard`、`records`、`operation`、`history` 四个固定页面，分别用于统计概览、记录维护、主题核心操作和历史查询。
-5. 数据保存在本机浏览器存储中，无需外部数据库。清理浏览器数据、重置用户配置或更换电脑可能导致数据丢失，正式使用前应确认数据保留要求。
+4. 使用生成时设置的四个账号之一登录：`dispatcher`、`operator`、`reviewer`、`administrator`。不同角色看到的操作权限不同。
+5. 页面和流程取决于已确认模板，例如资产工单包含资产建档、派单、受理、处理、提交解决和复核关闭，而不是固定四页面。
+6. 数据保存在本机 SQLite 数据库中。管理员可使用软件内的数据备份与恢复功能；迁移电脑或重装前应先创建并核验备份。
 
-该一键流程生成的是软著演示交付软件，不应描述为已经连接真实企业数据库、短信、邮件、支付或外部业务系统。
+标准软件功能真实、规模受控并可长期离线使用，但不应描述为已经连接真实企业数据库、短信、邮件、支付或外部业务系统。
 
 ## 申请表字段填写说明
 
-打开 `软件名-申请表.docx`，同时保留一份未修改备份。表格有 19 个稳定字段：
+打开 `软件名-申请表.docx`，同时保留一份未修改备份。标准模式底稿包含软件全称、版本、开发目的、行业、实际源码清单统计和功能模块，并将申请人、联系人、权利归属保留为 `【申请人填写】`。它是事实底稿，不会伪造当前申报平台的官方表单样式。
+
+以下 19 字段表仅用于显式选择 `LegacyDemo` 时生成的旧版申请表；标准模式按上段内容核对：
 
 | 字段标识 | 页面名称 | 处理方式 |
 | --- | --- | --- |
@@ -130,7 +170,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 | `runtime_platform` | 运行平台 | 自动生成；与安装包支持范围一致 |
 | `runtime_support` | 运行支撑环境 | 自动生成；不得声称不存在的数据库或服务 |
 | `language` | 编程语言 | 自动生成；与源码材料一致 |
-| `source_quantity` | 源程序量 | 人工按最终提交源码和受理口径统计；生成器当前不会可靠地自动计算 |
+| `source_quantity` | 源程序量 | 材料会给出与源码 ZIP 共用清单的实际统计值，但仍保留“【生成时按实际源码统计填写】”，申请人须按最终提交口径核对填写 |
 | `development_purpose` | 开发目的 | 自动生成；核对与真实用途一致 |
 | `industry` | 面向领域/行业 | 申请人填写真实行业，不确定时不要编造 |
 | `main_functions` | 软件主要功能 | 自动生成；逐项对照实际页面和操作 |
@@ -140,7 +180,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 
 ## 申报平台中还需自行准备的信息
 
-生成的 16 行申请表底稿不包含完整申请人身份和联系信息。实际申报平台可能另外要求以下内容，字段以提交当日平台为准：
+生成的申请信息底稿不包含完整申请人身份和联系信息。实际申报平台可能另外要求以下内容，字段以提交当日平台为准：
 
 - 著作权人或申请人名称
 - 主体类型、证件号码或统一社会信用代码
@@ -169,25 +209,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 engine/日志
 ```
 
-若失败发生在 `Initialize` 完成之后，保留的工作区位于：
+若失败发生在 `BuildThemeProfile` 创建工作区之后，保留的工作区位于：
 
 ```text
 engine/工作区
 ```
 
-`Preflight` 失败时尚未创建工作区，只查看窗口错误和 `engine/日志`。
+模板确认或凭据收集失败时尚未创建工作区，只查看窗口错误；依赖预检失败会记录在 `BuildThemeProfile` 阶段。
 
 排查顺序：
 
 1. 查看窗口最后显示的失败阶段。
 2. 打开对应运行编号的日志，找到最后一条 `[失败]`。
-3. 若为 `Preflight`，修复缺失工具后重新运行。
-4. 若为 `Generate`，确认 Codex 已登录且可正常执行。
-5. 若为 `Validate`，保留工作区和测试输出，不要手工绕过校验。
-6. 若为 `Screenshots`，确认 Edge 可启动且没有残留进程占用配置目录。
-7. 若为 `Materials`，确认 Word 桌面版可正常启动和保存文档。
-8. 若为 `Installer` 或 `InstallTest`，检查 Inno Setup、文件占用和安装权限。
-9. 若为 `Publish`，检查 `交付结果` 写入权限和磁盘空间。
+3. 若在 `BuildThemeProfile` 前失败，检查模板选择和四个密码；此时通常没有工作区。
+4. 若为 `BuildThemeProfile`，确认 Codex 已登录且 Word、Node、npm、npx 可用。
+5. 若为 `ComposeDomain` 或 `AssembleResources`，保留工作区和锁文件，不要手工绕过蓝图或引用校验。
+6. 若为 `BuildDesktop` 或 `VerifyDomain`，检查桌面构建输出和测试报告。
+7. 若为 `VerifyPackagedWorkflow` 或 `CaptureDesktopScreenshots`，确认没有残留 Electron 进程占用临时用户目录。
+8. 若为 `BuildBusinessMaterials`，确认 Word 桌面版可正常启动和保存文档。
+9. 若为 `VerifyInstaller`，检查文件占用、安装权限和卸载结果。
+10. 若为 `PackageBusinessDelivery` 或 `Publish`，检查证据哈希、`交付结果` 写入权限和磁盘空间。
 
 环境问题可先运行：
 

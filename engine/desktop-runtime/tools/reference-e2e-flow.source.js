@@ -16,6 +16,7 @@ return async function runReferenceFlow() {
     if (name === 'domain') return window.businessApi.domain.execute(values[0], values[1], values[2]);
     if (name === 'create') return window.businessApi.entities.create(values[0], values[1], values[2]);
     if (name === 'list') return window.businessApi.entities.list(values[0], values[1], values[2]);
+    if (name === 'metadata') return window.businessApi.metadata.read(values[0]);
     throw new Error('Unknown browser API call.');
   }, [method, args]);
   const login = async (page, user, password) => unwrap(await invoke(page, 'login', [user, password]));
@@ -25,7 +26,11 @@ return async function runReferenceFlow() {
     await page.getByLabel('密码').fill(passwords.administrator);
     await page.getByRole('button', { name: '登录' }).click();
     await page.getByRole('navigation', { name: '主导航' }).waitFor();
-    await page.getByRole('button', { name: '资产台账', exact: true }).click();
+    const session = await login(page, 'administrator', passwords.administrator);
+    const metadata = unwrap(await invoke(page, 'metadata', [session.token]));
+    const moduleName = metadata.modules.find((entry) => entry.id === 'assets')?.name;
+    if (!moduleName) throw new Error('Assets module is unavailable.');
+    await page.getByRole('button', { name: moduleName, exact: true }).click();
     await page.getByPlaceholder('搜索记录').fill('AST-E2E-001');
     const row = page.getByRole('row').filter({ hasText: 'AST-E2E-001' });
     await row.waitFor();
@@ -36,7 +41,11 @@ return async function runReferenceFlow() {
     await page.getByLabel('密码').fill(passwords.administrator);
     await page.getByRole('button', { name: '登录' }).click();
     await page.getByRole('navigation', { name: '主导航' }).waitFor();
-    await page.getByRole('button', { name: '资产台账', exact: true }).click();
+    const session = await login(page, 'administrator', passwords.administrator);
+    const metadata = unwrap(await invoke(page, 'metadata', [session.token]));
+    const moduleName = metadata.modules.find((entry) => entry.id === 'assets')?.name;
+    if (!moduleName) throw new Error('Assets module is unavailable.');
+    await page.getByRole('button', { name: moduleName, exact: true }).click();
     await page.getByPlaceholder('搜索记录').fill('AST-E2E-001');
     await page.getByRole('button', { name: '查看 AST-E2E-001' }).click();
     await page.getByRole('button', { name: '变更状态' }).click();
@@ -55,8 +64,10 @@ return async function runReferenceFlow() {
     const roles = [dispatcher.actor.roleId, operator.actor.roleId, reviewer.actor.roleId];
     if (roles.join(',') !== 'operations_dispatcher,operations_operator,operations_reviewer') throw new Error(`Unexpected roles: ${roles.join(',')}`);
 
+    const categories = unwrap(await invoke(page, 'list', [admin.token, 'asset_category', { page: 1, pageSize: 1 }])).items;
+    if (categories.length !== 1) throw new Error('Seeded asset category is unavailable.');
     const asset = unwrap(await invoke(page, 'create', [admin.token, 'asset', {
-      code: 'AST-E2E-001', name: 'E2E 空压机', category_code: 'CAT-001', status: 'active', location: '验收区域'
+      code: 'AST-E2E-001', name: 'E2E 空压机', category_code: categories[0].values.code, status: 'active', location: '验收区域'
     }]));
     const denied = await invoke(page, 'domain', [operator.token, 'asset.change_status', {
       assetId: asset.id, expectedVersion: asset.version, nextStatus: 'inactive', reason: '越权操作'

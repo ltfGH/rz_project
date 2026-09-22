@@ -15,11 +15,9 @@
 运行完整生成器还需要：
 
 - 已安装并登录的 Codex CLI
-- Microsoft Edge
 - Microsoft Word 桌面版
-- Inno Setup 6；缺失时生成器会下载、验证发布者签名并静默安装
 
-普通源码开发、领域测试和桌面运行时测试不需要 Word、Edge、Codex 或 Inno Setup。
+默认标准业务模式使用 Electron/Playwright 截图和 electron-builder/NSIS 打包，不要求单独安装 Edge 或 Inno Setup。只有显式选择旧版 `LegacyDemo` 时才需要 Edge 和 Inno Setup。普通源码开发、领域测试和桌面运行时测试不需要 Word、Edge、Codex 或 Inno Setup。
 
 ## 克隆与初始化
 
@@ -56,9 +54,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\engine\Generate.ps1 -Prefl
 .\开始生成.bat
 ```
 
-输入软件主题后，结果写入 `交付结果`，过程工作区和日志分别位于 `engine/工作区`、`engine/日志`。提交软著申请前必须替换材料中的所有“【申请人填写】”内容并核对权属信息。
+依次选择生成模式、输入软件主题、确认推荐模板，再为调度、处理、复核、管理员设置四个不同的高强度密码。标准模式支持申请审批归档、资产巡检管理、资产巡检整改、资产工单运维、巡检整改工单、库存申领审批、项目交付归档、项目任务管理八种受控模板。密码明文不会写入交付物，需由操作人另行保管和交付。
 
-生成过程交互、11 个自动阶段、12 个交付文件、申请表逐字段填写规则和提交前检查清单见 [生成器使用与申报填写指南](docs/generator-usage-and-filing-guide.md)。
+结果写入 `交付结果`，过程工作区和日志分别位于 `engine/工作区`、`engine/日志`。标准结果是 15 个平铺文件，包含实际 Electron 安装包、材料、源码归档、业务蓝图、领域版本锁、验收报告、校验报告和完整交付包。提交软著申请前必须替换材料中的所有“【申请人填写】”内容并核对权属信息。
+
+生成过程交互、14 个标准阶段、15 个交付文件、申请表填写规则和提交前检查清单见 [生成器使用与申报填写指南](docs/generator-usage-and-filing-guide.md)。
 
 ## 统一验证
 
@@ -80,6 +80,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-All.ps1 -Includ
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-All.ps1 -IncludeE2E
+```
+
+需要运行代表模板的完整标准生成验收（会启动 Electron、Word、安装器，耗时较长）时：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\Test-All.ps1 -IncludeStandardBusinessAcceptance
 ```
 
 完整参考软件打包态闭环测试会下载 Electron 构建文件并生成临时高熵账号密码：
@@ -142,7 +148,7 @@ npm run dist:win:reference
 
 **生成器预检失败**
 
-根据 `Generate.ps1 -PreflightOnly` 输出安装缺失的 Codex CLI、Edge、Word、Inno Setup。该预检只确认 Codex 命令存在，不检查账号登录状态；首次生成前还需单独确认 Codex 已登录。Inno Setup 自动安装需要网络和安装权限。
+根据 `Generate.ps1 -PreflightOnly` 输出安装缺失的 Codex CLI、Node、npm、npx 或 Word。该预检只确认 Codex 命令存在，不检查账号登录状态；首次生成前还需单独确认 Codex 已登录。旧版模式的预检仍会检查 Edge 和 Inno Setup。
 
 **Windows 显示“未知发布者”**
 

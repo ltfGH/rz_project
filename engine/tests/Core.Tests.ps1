@@ -20,7 +20,10 @@ $invalidThemeProcess = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
     '-NoProfile',
     '-ExecutionPolicy', 'Bypass',
     '-File', $generateScript,
-    '-Theme', '仓库/巡检'
+    '-GenerationMode', 'StandardBusiness',
+    '-Theme', '仓库/巡检',
+    '-TemplateId', 'asset_inspection_management',
+    '-NonInteractive'
 ) -Wait -PassThru -WindowStyle Hidden
 Assert-Equal $invalidThemeProcess.ExitCode 2
 

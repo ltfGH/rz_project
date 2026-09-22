@@ -32,7 +32,7 @@ try {
             [pscustomobject]@{ id = 'assets'; name = '资产台账'; entity = 'asset'; route = 'assets'; actions = @('list','view','change_status') },
             [pscustomobject]@{ id = 'work_orders'; name = '工单管理'; entity = 'work_order'; route = 'work_orders'; actions = @('list','view','dispatch','accept','review') }
         )
-        workflows = @([pscustomobject]@{ id = 'work_order_lifecycle'; name = '工单闭环'; states = @('pending','closed') })
+        workflows = @([pscustomobject]@{ id = 'asset_lifecycle'; name = '资产生命周期'; entity='asset'; states = @('active','inactive'); transitions=@([pscustomobject]@{id='deactivate';name='停用资产';permission='assets.change_status'}) })
         roles = @(
             [pscustomobject]@{ id = 'operations_dispatcher'; name = '调度人员'; permissions = @('work_orders.dispatch') },
             [pscustomobject]@{ id = 'operations_admin'; name = '系统管理员'; permissions = @('assets.list','assets.change_status','work_orders.list') }
@@ -46,16 +46,17 @@ try {
     Assert-Equal (@($plan | Where-Object kind -eq 'action').Count -gt 0) $true
     $actionCapture = @($plan | Where-Object kind -eq 'action')[0]
     Assert-Equal $actionCapture.roleId 'operations_admin'
+    Assert-Equal $actionCapture.actionLabel '停用资产'
     Assert-Equal (@($plan | Where-Object moduleId -eq 'inventory_batches').Count) 0
 
     $screenshots = @($plan | ForEach-Object {
-        [pscustomobject]@{ id = $_.id; kind = $_.kind; moduleId = $_.moduleId; actionId = $_.actionId; path = ($_.id + '.png'); sha256 = ('a' * 64) }
+        [pscustomobject]@{ id = $_.id; kind = $_.kind; moduleId = $_.moduleId; actionId = $_.actionId; controlVerified=($_.kind -eq 'action'); path = ($_.id + '.png'); sha256 = ('a' * 64) }
     })
     $outputRoot = Join-Path $fixtureRoot 'materials-output'
     $result = Build-StandardBusinessMaterials -OutputDirectory $outputRoot -Blueprint $blueprint `
         -Template $template -Profile ([pscustomobject]@{ softwareName='园区资产工单软件'; purpose='管理园区资产与工单闭环'; industry='园区运维' }) `
-        -ProjectLock ([pscustomobject]@{ desktopRuntimeVersion='1.0.0'; electronVersion='44.4.1'; databaseSchemaVersion=1 }) `
-        -ScreenshotManifest ([pscustomobject]@{ captures=$screenshots }) -SourceManifest $manifest `
+        -ProjectLock ([pscustomobject]@{ runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'}; databaseSchemaVersion=1 }) `
+        -ScreenshotManifest ([pscustomobject]@{ executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$screenshots }) -SourceManifest $manifest -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) `
         -VerificationReceipt ([pscustomobject]@{ status='passed'; businessRows=1000 }) -SkipDocumentExport
 
     Assert-Equal $result.html.Count 4
@@ -68,6 +69,14 @@ try {
     Assert-Equal ($allHtml -match [regex]::Escape($fixtureRoot)) $false
     Assert-Equal ($allHtml -match 'ghp_[A-Za-z0-9]+') $false
     Assert-Equal ($allHtml -match 'StrongPass123!') $false
+    $mismatchedManifest=[pscustomobject]@{executableSha256=('9'*64);blueprintSha256=('2'*64);captures=$screenshots}
+    Assert-Throws {
+        Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'mismatch-output') -Blueprint $blueprint -Template $template `
+            -Profile ([pscustomobject]@{softwareName='园区资产工单软件';purpose='管理园区资产与工单闭环';industry='园区运维'}) `
+            -ProjectLock ([pscustomobject]@{runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'};databaseSchemaVersion=1}) `
+            -ScreenshotManifest $mismatchedManifest -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) `
+            -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -SkipDocumentExport
+    } 'hash mismatch'
 
     $screenshotRoot = Join-Path $fixtureRoot 'screenshots'
     New-Item -ItemType Directory -Path $screenshotRoot | Out-Null
@@ -75,7 +84,7 @@ try {
         $fileName = $_.id + '.png'
         $filePath = Join-Path $screenshotRoot $fileName
         [IO.File]::WriteAllBytes($filePath, [Text.UTF8Encoding]::new($false).GetBytes('fixture-' + $_.id))
-        [pscustomobject]@{ id=$_.id; kind=$_.kind; moduleId=$_.moduleId; actionId=$_.actionId; path=$fileName; sha256=(Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant() }
+        [pscustomobject]@{ id=$_.id; kind=$_.kind; moduleId=$_.moduleId; actionId=$_.actionId; controlVerified=($_.kind -eq 'action'); path=$fileName; sha256=(Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant() }
     })
     $fakeWorker = Join-Path $fixtureRoot 'fake-word-worker.ps1'
     [IO.File]::WriteAllText($fakeWorker, @'
@@ -86,8 +95,8 @@ if(-not [string]::IsNullOrWhiteSpace([string]$item.PdfPath)){[IO.File]::WriteAll
 '@, [Text.UTF8Encoding]::new($true))
     $formal = Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'formal-materials') -Blueprint $blueprint `
         -Template $template -Profile ([pscustomobject]@{ softwareName='园区资产工单软件'; purpose='管理园区资产与工单闭环'; industry='园区运维' }) `
-        -ProjectLock ([pscustomobject]@{ desktopRuntimeVersion='1.0.0'; electronVersion='44.4.1'; databaseSchemaVersion=1 }) `
-        -ScreenshotManifest ([pscustomobject]@{ captures=$verifiedCaptures }) -SourceManifest $manifest `
+        -ProjectLock ([pscustomobject]@{ runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'}; databaseSchemaVersion=1 }) `
+        -ScreenshotManifest ([pscustomobject]@{ executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$verifiedCaptures }) -SourceManifest $manifest -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) `
         -VerificationReceipt ([pscustomobject]@{ status='passed'; businessRows=1000 }) -RepositoryRoot $fixtureRoot `
         -ScreenshotRoot $screenshotRoot -WordWorkerPath $fakeWorker
     Assert-Equal $formal.documents.Count 8

@@ -103,8 +103,10 @@ function New-StandardSourceArchive {
             $instructions = $archive.CreateEntry('重建说明.txt', [IO.Compression.CompressionLevel]::Optimal)
             $writer = [IO.StreamWriter]::new($instructions.Open(), [Text.UTF8Encoding]::new($true))
             try {
-                $writer.WriteLine('本压缩包包含标准桌面运行时、所选生产领域包、锁定生成配置和资源清单。')
-                $writer.WriteLine('在仓库根目录安装锁定依赖后，使用 generated/standard-project-request.json 重新执行标准资源与桌面打包命令。')
+                $writer.WriteLine('本压缩包包含标准桌面运行时、所选生产领域包、锁定生成配置、构建工具和资源清单。')
+                $writer.WriteLine('解压后在 engine/domain-packs 与 engine/desktop-runtime 分别执行 npm ci。')
+                $writer.WriteLine('在 engine/desktop-runtime 执行 npm run build，再执行：')
+                $writer.WriteLine('powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-standard-desktop.ps1 -RequestPath <generated/standard-project-request.json 的绝对路径> -OutputRoot <新的绝对输出目录>')
             } finally { $writer.Dispose() }
         } finally { $archive.Dispose() }
         Assert-StandardZipReadable -Path $archivePath
@@ -167,7 +169,7 @@ function New-StandardDeliveryStaging {
         }
         $report = @(
             "软件名称：$($Context.SoftwareName)", "版本：V$($Context.Version)", "运行编号：$($Context.RunId)",
-            '结果：安装包、桌面程序、资源、业务流程、持久化、截图和材料验证均已通过。',
+            '结果：安装包、桌面程序、资源、领域测试、打包态登录、持久化、截图和材料验证均已通过。',
             "程序 SHA-256：$($hashes.executable)", "资源清单 SHA-256：$($hashes.resource)", "源码清单 SHA-256：$($hashes.source)"
         ) -join "`r`n"
         if ($report -match '(?i)gh[pousr]_|github_pat_|password|token|[A-Z]:\\') { throw 'Validation report contains forbidden content.' }

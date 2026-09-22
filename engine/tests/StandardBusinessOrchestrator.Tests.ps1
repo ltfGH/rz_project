@@ -3,6 +3,8 @@ $ErrorActionPreference = 'Stop'
 
 $modulePath = Join-Path $PSScriptRoot '..\lib\StandardBusinessOrchestrator.psm1'
 Import-Module $modulePath -Force -DisableNameChecking
+$moduleText=Get-Content -Raw -Encoding UTF8 -LiteralPath $modulePath
+foreach($specializedSpec in @('reference-acceptance.spec.ts','inventory-application-acceptance.spec.ts','project-archive-acceptance.spec.ts')){Assert-Match $moduleText ([regex]::Escape($specializedSpec))}
 
 $stages = @(
     'RecommendTemplate','CollectCredentials','BuildThemeProfile','ComposeDomain','AssembleResources','BuildDesktop',

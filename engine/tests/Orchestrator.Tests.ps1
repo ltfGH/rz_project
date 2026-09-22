@@ -7,6 +7,7 @@ Assert-Match $scriptText 'function\s+Invoke-GeneratorOrchestration'
 Assert-Match $scriptText 'Invoke-StandardBusinessOrchestration'
 Assert-Match $scriptText "modeForPreflight.*'StandardBusiness'"
 Assert-Match $scriptText "request\.mode -eq 'LegacyDemo'"
+Assert-Match $scriptText 'CredentialSecrets are required for non-interactive'
 $readmePath = Join-Path $PSScriptRoot '..\..\README.txt'
 Assert-Equal (Test-Path -LiteralPath $readmePath -PathType Leaf) $true
 $readme = Get-Content -Raw -Encoding utf8 -LiteralPath $readmePath

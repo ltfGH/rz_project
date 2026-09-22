@@ -3,6 +3,7 @@ param(
     [string]$RepositoryRoot,
     [switch]$IncludeE2E,
     [switch]$IncludeReferenceE2E,
+    [switch]$IncludeStandardBusinessAcceptance,
     [switch]$IncludeExternalPipelineTests
 )
 
@@ -22,6 +23,7 @@ function Invoke-Checked {
     param([string]$WorkingDirectory, [string]$Command, [string[]]$Arguments)
     Push-Location $WorkingDirectory
     try {
+        Write-Host ("Running: {0} {1}" -f $Command,($Arguments -join ' '))
         & $Command @Arguments
         if ($LASTEXITCODE -ne 0) { throw "$Command $($Arguments -join ' ') failed with exit code $LASTEXITCODE." }
     }
@@ -37,7 +39,7 @@ if ($IncludeExternalPipelineTests) {
 }
 else {
     Get-ChildItem -LiteralPath $engineTests -Filter '*.Tests.ps1' -File |
-        Where-Object Name -ne 'BuildPipeline.Tests.ps1' |
+        Where-Object Name -notin @('BuildPipeline.Tests.ps1','StandardBusinessAcceptance.Tests.ps1') |
         Sort-Object Name |
         ForEach-Object {
             Invoke-Checked $root 'powershell' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $_.FullName)
@@ -60,5 +62,8 @@ Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'test:integration')
 Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'build')
 if ($IncludeE2E) { Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'test:e2e') }
 if ($IncludeReferenceE2E) { Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'test:e2e:reference') }
+if ($IncludeStandardBusinessAcceptance) {
+    Invoke-Checked $root 'powershell' @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $engineTests 'StandardBusinessAcceptance.Tests.ps1'),'-IncludeRepresentativeDelivery')
+}
 
 Write-Host 'All requested checks passed.'

@@ -49,8 +49,10 @@ function Invoke-CheckedNative {
     param([string]$WorkingDirectory,[string]$Command,[string[]]$Arguments,[string]$FailureMessage)
     Push-Location $WorkingDirectory
     try {
-        $nativeOutput = (& $Command @Arguments 2>&1 | Out-String)
-        if ($LASTEXITCODE -ne 0) { throw "$FailureMessage $($nativeOutput.Trim())" }
+        $previousPreference=$ErrorActionPreference
+        try { $ErrorActionPreference='Continue';$nativeOutput=(& $Command @Arguments 2>&1|Out-String);$nativeExit=$LASTEXITCODE }
+        finally { $ErrorActionPreference=$previousPreference }
+        if ($nativeExit -ne 0) { throw "$FailureMessage $($nativeOutput.Trim())" }
         if (-not [string]::IsNullOrWhiteSpace($nativeOutput)) { Write-Host $nativeOutput.Trim() }
     } finally { Pop-Location }
 }
@@ -141,10 +143,21 @@ function Invoke-StandardDefaultAction {
                 $env:RZ_E2E_EXECUTABLE_PATH=$executable.FullName;$env:RZ_E2E_RECEIPT_PATH=$receiptPath;$env:RZ_E2E_TEMPLATE_ID=[string]$State.Template.id
                 Use-StandardBusinessCredentialEnvironment -CredentialSecrets $State.CredentialSecrets -Action {
                     Invoke-CheckedNative -WorkingDirectory $desktopRoot -Command 'npx.cmd' -Arguments @('playwright','test','tests/e2e/standard-template-smoke.spec.ts') -FailureMessage 'Packaged standard workflow verification failed.'
+                    $specialized=@{
+                        asset_inspection_rectification='tests/e2e/reference-acceptance.spec.ts'
+                        inventory_application_approval='tests/e2e/inventory-application-acceptance.spec.ts'
+                        project_delivery_archive='tests/e2e/project-archive-acceptance.spec.ts'
+                    }
+                    if($specialized.ContainsKey([string]$State.Template.id)){
+                        Invoke-CheckedNative -WorkingDirectory $desktopRoot -Command 'npx.cmd' -Arguments @('playwright','test',$specialized[[string]$State.Template.id]) -FailureMessage 'Packaged template business workflow verification failed.'
+                    }
                 }
             }finally{foreach($name in $names){[Environment]::SetEnvironmentVariable($name,$previous[$name])}}
             $receipt=Get-Content -Raw -Encoding UTF8 -LiteralPath $receiptPath|ConvertFrom-Json
             if([string]$receipt.executableSha256-cne[string]$State.DomainReceipt.executableSha256-or[string]$receipt.resourceManifestSha256-cne[string]$State.DomainReceipt.resourceManifestSha256){throw 'Packaged workflow receipt hash mismatch.'}
+            $workflowLevel=if(([string]$State.Template.id) -in @('asset_inspection_rectification','inventory_application_approval','project_delivery_archive')){'full'}else{'smoke'}
+            $receipt|Add-Member -NotePropertyName workflowLevel -NotePropertyValue $workflowLevel
+            [IO.File]::WriteAllText($receiptPath,($receipt|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
             return $receipt
         }
         'CaptureDesktopScreenshots' {
@@ -166,7 +179,7 @@ function Invoke-StandardDefaultAction {
             $materialOutput=Join-Path $State.Context.WorkspacePath 'materials'
             $built=Build-StandardBusinessMaterials -OutputDirectory $materialOutput -Blueprint $State.Resources.blueprint -Template $State.Template -Profile $State.Profile.Profile `
                 -ProjectLock $State.Resources.projectLock -ScreenshotManifest $State.ScreenshotManifest -SourceManifest $sourceManifest -VerificationReceipt $State.AcceptanceReceipt `
-                -RepositoryRoot $generatorRoot -ScreenshotRoot (Join-Path $State.Context.WorkspacePath 'screenshots')
+                -EvidenceHashes $State.DomainReceipt -RepositoryRoot $generatorRoot -ScreenshotRoot (Join-Path $State.Context.WorkspacePath 'screenshots')
             $State.SourceManifest=$sourceManifest
             $State.MaterialReceipt=[pscustomobject]@{status='passed';executableSha256=$State.DomainReceipt.executableSha256;resourceManifestSha256=$State.DomainReceipt.resourceManifestSha256;sourceManifestSha256=$sourceManifest.sha256}
             return $built
