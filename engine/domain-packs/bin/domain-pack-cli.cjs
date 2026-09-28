@@ -19732,6 +19732,7 @@ var entryPath = external_exports.string().refine((value) => {
 }, { message: "Entrypoint must be a normalized safe relative path." });
 var uiSlot = external_exports.enum([
   "entity.detail.tabs",
+  "entity.module.actions",
   "entity.detail.actions",
   "dashboard.sections",
   "form.field.renderers",

@@ -59,10 +59,10 @@ try {
         $secureReader={param($role,$confirmation) ConvertTo-SecureString $queue.Dequeue() -AsPlainText -Force}.GetNewClosure()
         $bundle=Read-StandardBusinessCredentialBundle -SecureReader $secureReader
         try{
-            $template=@($templates|Where-Object id -eq 'asset_inspection_rectification')[0]
+            $template=@($templates|Where-Object id -eq 'project_task_management')[0]
             $context=New-GenerationContext -Theme '标准验收资产工单' -GeneratorRoot $root -Now (Get-Date);$context.Version='1.0.0'
             $overrides=@{BuildThemeProfile={param($state)
-                $profile=[pscustomobject]@{softwareName='标准验收资产工单软件';purpose='管理资产报修与工单闭环';industry='企业运维';entityAliases=[pscustomobject]@{};moduleAliases=[pscustomobject]@{};seedVocabulary=[pscustomobject]@{}}
+                $profile=[pscustomobject]@{softwareName='标准验收业务分发软件';purpose='管理业务分发项目与任务闭环';industry='企业项目管理';entityAliases=[pscustomobject]@{};moduleAliases=[pscustomobject]@{};seedVocabulary=[pscustomobject]@{}}
                 $path=Join-Path $state.Context.WorkspacePath 'acceptance-profile.json';[IO.File]::WriteAllText($path,($profile|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false));[pscustomobject]@{Path=$path;Profile=$profile}
             }}
             $result=Invoke-StandardBusinessOrchestration -Context $context -Template $template -CredentialDigests $bundle.Digests -CredentialSecrets $bundle.Secrets -StageOverrides $overrides -KeepSuccessfulWorkspace
@@ -72,6 +72,11 @@ try {
             Assert-Equal ($delivery.Name -contains '业务蓝图.json') $true
             Assert-Equal ($delivery.Name -contains '领域版本锁.json') $true
             Assert-Equal ($delivery.Name -contains '验收报告.json') $true
+            $screenshotManifest=Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $context.WorkspacePath 'screenshots\screenshot-manifest.json')|ConvertFrom-Json
+            $actionCapture=@($screenshotManifest.captures|Where-Object kind -eq 'action')[0]
+            Assert-Equal $actionCapture.actionId 'project.create'
+            Assert-Equal $actionCapture.actionScope 'module'
+            Assert-Equal $actionCapture.controlVerified $true
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             foreach($document in @($delivery|Where-Object Extension -eq '.docx')){
                 $archive=[IO.Compression.ZipFile]::OpenRead($document.FullName)

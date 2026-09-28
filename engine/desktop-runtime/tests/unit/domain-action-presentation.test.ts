@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { selectPresentableActions } from '../../src/renderer/domain/action-presentation';
+import { actionFormStateKey, selectPresentableActions } from '../../src/renderer/domain/action-presentation';
 
 const action = (id:string,entityId:string,scope:'module'|'record') => ({id,entityId,scope,label:id,order:10});
 const record = {id:1,version:1,values:{}} as any;
@@ -33,4 +33,11 @@ test('preserves supported legacy record actions and rejects unknown actions', ()
   assert.deepEqual(selectPresentableActions(actions,'inspection_task','record',record).map((item)=>item.id),['inspection.start']);
   assert.deepEqual(selectPresentableActions(actions,'work_order','record',record).map((item)=>item.id),['work_order.accept']);
   assert.deepEqual(selectPresentableActions(actions,'asset','module',undefined),[]);
+});
+
+test('changes form state key across record identity and version changes', () => {
+  assert.equal(actionFormStateKey('project','module'), 'module:project');
+  assert.equal(actionFormStateKey('project','record',record), 'record:project:1:1');
+  assert.notEqual(actionFormStateKey('project','record',record), actionFormStateKey('project','record',{...record,id:2}));
+  assert.notEqual(actionFormStateKey('project','record',record), actionFormStateKey('project','record',{...record,version:2}));
 });

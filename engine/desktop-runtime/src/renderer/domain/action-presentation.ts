@@ -9,6 +9,10 @@ export const legacyDomainActionIds = Object.freeze([
 ]);
 const legacyIds = new Set(legacyDomainActionIds);
 
+export function actionFormStateKey(entityId:string,scope:ActionScope,record?:EntityRecordDto):string{
+  return scope==='module'?`module:${entityId}`:`record:${entityId}:${record?.id??'none'}:${record?.version??'none'}`;
+}
+
 export function selectPresentableActions(
   actions:readonly DomainActionDto[], entityId:string, scope:ActionScope, record?:EntityRecordDto
 ):readonly DomainActionDto[]{

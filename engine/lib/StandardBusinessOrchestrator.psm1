@@ -138,24 +138,27 @@ function Invoke-StandardDefaultAction {
             Import-Module (Join-Path $PSScriptRoot 'StandardBusinessCredentials.psm1') -Force -DisableNameChecking
             $receiptPath=Join-Path $State.Context.WorkspacePath 'acceptance-report.json'
             $names=@('RZ_E2E_EXECUTABLE_PATH','RZ_E2E_RECEIPT_PATH','RZ_E2E_TEMPLATE_ID');$previous=@{}
+            $specialized=@{
+                asset_inspection_rectification=@('tests/e2e/reference-acceptance.spec.ts')
+                inventory_application_approval=@('tests/e2e/inventory-application-acceptance.spec.ts')
+                project_delivery_archive=@('tests/e2e/project-actions-acceptance.spec.ts','tests/e2e/project-archive-acceptance.spec.ts')
+                project_task_management=@('tests/e2e/project-actions-acceptance.spec.ts')
+            }
             foreach($name in $names){$previous[$name]=[Environment]::GetEnvironmentVariable($name)}
             try{
                 $env:RZ_E2E_EXECUTABLE_PATH=$executable.FullName;$env:RZ_E2E_RECEIPT_PATH=$receiptPath;$env:RZ_E2E_TEMPLATE_ID=[string]$State.Template.id
                 Use-StandardBusinessCredentialEnvironment -CredentialSecrets $State.CredentialSecrets -Action {
                     Invoke-CheckedNative -WorkingDirectory $desktopRoot -Command 'npx.cmd' -Arguments @('playwright','test','tests/e2e/standard-template-smoke.spec.ts') -FailureMessage 'Packaged standard workflow verification failed.'
-                    $specialized=@{
-                        asset_inspection_rectification='tests/e2e/reference-acceptance.spec.ts'
-                        inventory_application_approval='tests/e2e/inventory-application-acceptance.spec.ts'
-                        project_delivery_archive='tests/e2e/project-archive-acceptance.spec.ts'
-                    }
                     if($specialized.ContainsKey([string]$State.Template.id)){
-                        Invoke-CheckedNative -WorkingDirectory $desktopRoot -Command 'npx.cmd' -Arguments @('playwright','test',$specialized[[string]$State.Template.id]) -FailureMessage 'Packaged template business workflow verification failed.'
+                        foreach($spec in @($specialized[[string]$State.Template.id])){
+                            Invoke-CheckedNative -WorkingDirectory $desktopRoot -Command 'npx.cmd' -Arguments @('playwright','test',$spec) -FailureMessage 'Packaged template business workflow verification failed.'
+                        }
                     }
                 }
             }finally{foreach($name in $names){[Environment]::SetEnvironmentVariable($name,$previous[$name])}}
             $receipt=Get-Content -Raw -Encoding UTF8 -LiteralPath $receiptPath|ConvertFrom-Json
             if([string]$receipt.executableSha256-cne[string]$State.DomainReceipt.executableSha256-or[string]$receipt.resourceManifestSha256-cne[string]$State.DomainReceipt.resourceManifestSha256){throw 'Packaged workflow receipt hash mismatch.'}
-            $workflowLevel=if(([string]$State.Template.id) -in @('asset_inspection_rectification','inventory_application_approval','project_delivery_archive')){'full'}else{'smoke'}
+            $workflowLevel=if($specialized.ContainsKey([string]$State.Template.id)){'full'}else{'smoke'}
             $receipt|Add-Member -NotePropertyName workflowLevel -NotePropertyValue $workflowLevel
             [IO.File]::WriteAllText($receiptPath,($receipt|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
             return $receipt
