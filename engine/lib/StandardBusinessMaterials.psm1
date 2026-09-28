@@ -2,6 +2,9 @@
 
 $script:ContractPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config\standard-material-contract.json'
 $script:TemplateRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'template-standard\materials\content'
+$script:DomainScreenshotActions = [ordered]@{
+    'projects.create_project' = [pscustomobject]@{ DomainActionId='project.create'; Label='创建项目'; Scope='module' }
+}
 
 function ConvertTo-MaterialHtmlText {
     param($Value)
@@ -30,16 +33,36 @@ function Get-StandardScreenshotPlan {
     if ($modules.Count -eq 0) { throw 'Blueprint has no business modules for screenshots.' }
     $primary = @($modules | Where-Object { @($_.actions) -contains 'view' })[0]
     if ($null -eq $primary) { $primary = $modules[0] }
-    $workflow = @($Blueprint.workflows | Where-Object { @($_.transitions).Count -gt 0 })[0]
-    if ($null -eq $workflow) { throw 'Blueprint has no workflow transition for an action screenshot.' }
-    $actionModule = @($modules | Where-Object entity -eq $workflow.entity)[0]
-    if ($null -eq $actionModule) { throw "Workflow '$($workflow.id)' has no visible module." }
-    $transition = @($workflow.transitions)[0]
-    $action = [string]$transition.id
-    $actionLabel = [string]$transition.name
-    $actionPermission = [string]$transition.permission
-    $actionRole = @($Blueprint.roles | Where-Object { $_.id -like 'operations_*' -and @($_.permissions) -contains $actionPermission } | Sort-Object id)[0]
-    if ($null -eq $actionRole) { $actionRole = @($Blueprint.roles | Where-Object id -eq 'operations_admin')[0] }
+    $workflowRows = @($Blueprint.workflows | Where-Object { @($_.transitions).Count -gt 0 })
+    $actionModule = $null; $action = ''; $actionLabel = ''; $actionType = ''; $actionScope = ''; $actionPermission = ''
+    if ($workflowRows.Count -gt 0) {
+        $workflow = $workflowRows[0]
+        $actionModule = @($modules | Where-Object entity -eq $workflow.entity)[0]
+        if ($null -eq $actionModule) { throw "Workflow '$($workflow.id)' has no visible module." }
+        $transition = @($workflow.transitions)[0]
+        $action = [string]$transition.id; $actionLabel = [string]$transition.name
+        $actionPermission = [string]$transition.permission; $actionType = 'workflow'; $actionScope = 'record'
+    }
+    else {
+        foreach ($module in $modules) {
+            foreach ($moduleAction in @($module.actions)) {
+                $key = '{0}.{1}' -f $module.id,$moduleAction
+                if ($script:DomainScreenshotActions.Contains($key)) {
+                    $definition = $script:DomainScreenshotActions[$key]
+                    $actionModule = $module; $action = [string]$definition.DomainActionId; $actionLabel = [string]$definition.Label
+                    $actionPermission = $key; $actionType = 'domain'; $actionScope = [string]$definition.Scope
+                    break
+                }
+            }
+            if ($null -ne $actionModule) { break }
+        }
+        if ($null -eq $actionModule) { throw 'Blueprint has no supported action for a screenshot.' }
+    }
+    $actionRole = $null
+    foreach ($roleId in @('operations_dispatcher','operations_operator','operations_reviewer','operations_admin')) {
+        $matchedRole = @($Blueprint.roles | Where-Object { $_.id -eq $roleId -and @($_.permissions) -contains $actionPermission })
+        if ($matchedRole.Count -eq 1) { $actionRole = $matchedRole[0]; break }
+    }
     if ($null -eq $actionRole) { throw "No composite role can display action '$actionPermission'." }
     $secondary = @($modules | Where-Object id -ne $primary.id)[0]
     if ($null -eq $secondary) { $secondary = $primary }
@@ -48,7 +71,7 @@ function Get-StandardScreenshotPlan {
         [pscustomobject]@{ id='dashboard'; kind='dashboard'; moduleId=$null; actionId=$null; roleId='operations_admin'; fileName='dashboard-desktop.png'; viewport='desktop' },
         [pscustomobject]@{ id=('list-' + $primary.id); kind='list'; moduleId=[string]$primary.id; actionId='list'; roleId='operations_admin'; fileName='records-desktop.png'; viewport='desktop' },
         [pscustomobject]@{ id=('detail-' + $primary.id); kind='detail'; moduleId=[string]$primary.id; actionId='view'; roleId='operations_admin'; fileName='detail-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; actionLabel=$actionLabel; actionType='workflow'; roleId=[string]$actionRole.id; fileName='operation-desktop.png'; viewport='desktop' },
+        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; actionLabel=$actionLabel; actionType=$actionType; actionScope=$actionScope; roleId=[string]$actionRole.id; fileName='operation-desktop.png'; viewport='desktop' },
         [pscustomobject]@{ id=('mobile-' + $secondary.id); kind='list'; moduleId=[string]$secondary.id; actionId='list'; roleId='operations_admin'; fileName='records-mobile.png'; viewport='mobile' }
     )
 }

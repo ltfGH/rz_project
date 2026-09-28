@@ -63,19 +63,25 @@ async function main() {
           await page.getByRole('complementary', { name: '记录详情' }).waitFor();
         }
         if (item.kind === 'action') {
-          const existingClose = page.getByRole('button', { name: '关闭详情' });
-          if (await existingClose.count() > 0 && await existingClose.first().isVisible()) {
-            await existingClose.first().click({ timeout: 1_000 }).catch(() => undefined);
-          }
-          const views = page.getByRole('button', { name: /^查看 / });
-          const count = Math.min(await views.count(), 20);
-          for (let index = 0; index < count; index += 1) {
-            await views.nth(index).click();
-            const detail = page.getByRole('complementary', { name: '记录详情' });
-            await detail.waitFor();
-            const control = detail.getByRole('button', { name: item.actionLabel, exact: true });
-            if (await control.count() > 0 && await control.first().isVisible()) { controlVerified = true; break; }
-            await page.getByRole('button', { name: '关闭详情' }).click();
+          if (item.actionScope === 'module') {
+            const control = page.getByRole('button', { name: item.actionLabel, exact: true });
+            await control.waitFor();
+            controlVerified = await control.isVisible();
+          } else {
+            const existingClose = page.getByRole('button', { name: '关闭详情' });
+            if (await existingClose.count() > 0 && await existingClose.first().isVisible()) {
+              await existingClose.first().click({ timeout: 1_000 }).catch(() => undefined);
+            }
+            const views = page.getByRole('button', { name: /^查看 / });
+            const count = Math.min(await views.count(), 20);
+            for (let index = 0; index < count; index += 1) {
+              await views.nth(index).click();
+              const detail = page.getByRole('complementary', { name: '记录详情' });
+              await detail.waitFor();
+              const control = detail.getByRole('button', { name: item.actionLabel, exact: true });
+              if (await control.count() > 0 && await control.first().isVisible()) { controlVerified = true; break; }
+              await page.getByRole('button', { name: '关闭详情' }).click();
+            }
           }
           if (!controlVerified) throw new Error(`Planned action control '${item.actionId}' was not visible for '${item.roleId}'.`);
         }
@@ -84,7 +90,8 @@ async function main() {
       await page.screenshot({ path: filename, fullPage: true });
       captures.push({
         id: item.id, kind: item.kind, moduleId: item.moduleId, actionId: item.actionId,
-        actionLabel: item.actionLabel ?? null, controlVerified, roleId: item.roleId,
+        actionLabel: item.actionLabel ?? null, actionType: item.actionType ?? null,
+        actionScope: item.actionScope ?? null, controlVerified, roleId: item.roleId,
         path: item.fileName, viewport: item.viewport, sha256: sha256(filename)
       });
     }

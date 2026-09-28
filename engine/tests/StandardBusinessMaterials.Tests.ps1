@@ -49,6 +49,26 @@ try {
     Assert-Equal $actionCapture.actionLabel '停用资产'
     Assert-Equal (@($plan | Where-Object moduleId -eq 'inventory_batches').Count) 0
 
+    $projectBlueprint = [pscustomobject]@{
+        modules = @(
+            [pscustomobject]@{ id='projects';name='分发项目';entity='project';route='projects';actions=@('list','view','create_project','activate') },
+            [pscustomobject]@{ id='project_tasks';name='分发任务';entity='project_task';route='project_tasks';actions=@('list','view','start') }
+        )
+        workflows = @()
+        roles = @(
+            [pscustomobject]@{id='operations_dispatcher';permissions=@('projects.list','projects.view','projects.create_project','projects.activate')},
+            [pscustomobject]@{id='operations_admin';permissions=@('projects.list','projects.view')}
+        )
+    }
+    $projectPlan = @(Get-StandardScreenshotPlan -Blueprint $projectBlueprint)
+    $projectAction = @($projectPlan | Where-Object kind -eq 'action')[0]
+    Assert-Equal $projectAction.moduleId 'projects'
+    Assert-Equal $projectAction.actionId 'project.create'
+    Assert-Equal $projectAction.actionLabel '创建项目'
+    Assert-Equal $projectAction.actionType 'domain'
+    Assert-Equal $projectAction.actionScope 'module'
+    Assert-Equal $projectAction.roleId 'operations_dispatcher'
+
     $screenshots = @($plan | ForEach-Object {
         [pscustomobject]@{ id = $_.id; kind = $_.kind; moduleId = $_.moduleId; actionId = $_.actionId; controlVerified=($_.kind -eq 'action'); path = ($_.id + '.png'); sha256 = ('a' * 64) }
     })
