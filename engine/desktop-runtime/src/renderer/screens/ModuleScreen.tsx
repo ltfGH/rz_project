@@ -66,13 +66,15 @@ export function ModuleScreen({ token, module, entity, domainActions }: {
   useEffect(() => { setSelected(null); setActions([]); setEditing(null); void load(); }, [module.id]);
   return (
     <section>
-      <div className="section-heading"><div><h2>{module.name}</h2><p>查询和维护当前业务记录</p></div></div>
+      <div className="section-heading"><div><h2>{module.name}</h2><p>查询和维护当前业务记录</p></div>
+        <DomainActions token={token} entityId={module.entity} scope="module" actions={domainActions} onComplete={() => void load()} />
+      </div>
       {error ? <StatusView kind="error" title={error} /> : page ? <DataTable page={page} onSearch={(value) => void load(value)} onView={(record) => void view(record)} onCreate={entity && module.actions.includes('create') ? () => setEditing('new') : undefined} /> : <StatusView kind="loading" title="正在加载" />}
       {selected && <aside className="detail-drawer" aria-label="记录详情">
         <div className="detail-header"><h3>{String(selected.values.code ?? `记录 ${selected.id}`)}</h3><button className="icon-button" aria-label="关闭详情" onClick={() => setSelected(null)}>×</button></div>
         <EntityDetail record={selected} />
         {entity && <RelatedRecords token={token} entity={entity} record={selected} />}
-        <DomainActions token={token} entityId={module.entity} record={selected} actions={domainActions} onComplete={() => void view(selected).then(() => load())} />
+        <DomainActions token={token} entityId={module.entity} record={selected} scope="record" actions={domainActions} onComplete={() => void view(selected).then(() => load())} />
         {entity && module.actions.includes('update') && <button className="secondary-button edit-button" onClick={() => setEditing(selected)}>编辑</button>}
         <WorkflowActions actions={actions} onExecute={(action) => void execute(action)} />
       </aside>}
