@@ -150,7 +150,7 @@ function Invoke-ThemeProfileGeneration {
             $failureSummary = (@($validation.Issues) -join '; ').Replace([string]$Context.WorkspacePath, '<workspace>')
             if ($failureSummary.Length -gt 2000) { $failureSummary = $failureSummary.Substring(0, 2000) }
         }
-        throw 'Theme profile validation failed after one repair attempt.'
+        throw "Theme profile validation failed after one repair attempt: $failureSummary"
     }
     catch {
         Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue

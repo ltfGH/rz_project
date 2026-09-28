@@ -72,6 +72,8 @@ try {
     Assert-Match $prompt 'asset'
     Assert-Match $prompt 'assets'
     Assert-Match $prompt 'Do not change stable ids'
+    Assert-Match $prompt 'seedVocabulary MUST be a JSON object'
+    Assert-Match $prompt '"sample_names"\s*:\s*\["Example Name"\]'
 
     $script:invocations = 0
     $script:summaries = [Collections.Generic.List[string]]::new()
@@ -106,6 +108,21 @@ try {
             -CodexPath 'fake-codex' -CodexInvoker $alwaysInvalid
     } 'validation failed'
     Assert-Equal $script:failedInvocations 2
+
+    $script:arrayInvocations = 0
+    $alwaysArrayVocabulary = {
+        param($receivedContext, $receivedTemplate, $outputPath, $failureSummary, $codexPath)
+        $script:arrayInvocations++
+        $bad = New-ValidProfile
+        $bad.seedVocabulary = @('wrong shape')
+        Write-Profile $outputPath $bad
+        return 0
+    }
+    Assert-Throws {
+        Invoke-ThemeProfileGeneration -Context $context -Template $template `
+            -CodexPath 'fake-codex' -CodexInvoker $alwaysArrayVocabulary
+    } 'seedVocabulary'
+    Assert-Equal $script:arrayInvocations 2
 }
 finally {
     if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
