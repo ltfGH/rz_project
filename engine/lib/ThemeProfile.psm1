@@ -2,6 +2,21 @@ Set-StrictMode -Version Latest
 
 $script:ThemeValidatorPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'theme-profile\validator.cjs'
 $script:ThemeContractPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config\theme-profile-contract.md'
+$script:SeedVocabularyTargets = [ordered]@{
+    asset_names = 'asset'
+    material_names = 'material'
+    project_names = 'project'
+    application_titles = 'application'
+    inspection_titles = 'inspection_task'
+    work_order_titles = 'work_order'
+    findings = 'inspection_item'
+}
+
+function Get-AllowedThemeSeedVocabularyKeys {
+    param([Parameter(Mandatory)]$Template)
+    $entities = @($Template.aliasableEntities)
+    return @($script:SeedVocabularyTargets.Keys | Where-Object { $entities -ccontains $script:SeedVocabularyTargets[$_] })
+}
 
 function Invoke-ThemeValidatorProcess {
     param([Parameter(Mandatory)][string]$ProfilePath)
@@ -42,12 +57,16 @@ function Test-ThemeProfile {
     foreach ($issue in @($result.issues)) { $issues.Add([string]$issue) }
     if ([bool]$result.valid) {
         $allowedEntities = @($Template.aliasableEntities)
-        foreach ($id in @($result.profile.entityAliases.PSObject.Properties.Name)) {
+        foreach ($id in @($result.profile.entityAliases.PSObject.Properties | ForEach-Object Name)) {
             if ($allowedEntities -cnotcontains $id) { $issues.Add("entityAliases/${id}: alias id is not allowed for this template") }
         }
         $allowedModules = @($Template.aliasableModules)
-        foreach ($id in @($result.profile.moduleAliases.PSObject.Properties.Name)) {
+        foreach ($id in @($result.profile.moduleAliases.PSObject.Properties | ForEach-Object Name)) {
             if ($allowedModules -cnotcontains $id) { $issues.Add("moduleAliases/${id}: alias id is not allowed for this template") }
+        }
+        $allowedVocabulary = @(Get-AllowedThemeSeedVocabularyKeys -Template $Template)
+        foreach ($id in @($result.profile.seedVocabulary.PSObject.Properties | ForEach-Object Name)) {
+            if ($allowedVocabulary -cnotcontains $id) { $issues.Add("seedVocabulary/${id}: vocabulary key is not allowed for this template") }
         }
     }
     $passed = [bool]$result.valid -and $issues.Count -eq 0
@@ -63,6 +82,14 @@ function New-ThemeProfilePrompt {
     param([Parameter(Mandatory)]$Context, [Parameter(Mandatory)]$Template, [string]$FailureSummary)
 
     $contract = Get-Content -Raw -Encoding UTF8 -LiteralPath $script:ThemeContractPath
+    $allowedVocabulary = @(Get-AllowedThemeSeedVocabularyKeys -Template $Template)
+    $vocabularyLine = if ($allowedVocabulary.Count -eq 0) {
+        'Allowed seed vocabulary keys: none. Use an empty object.'
+    }
+    else {
+        $exampleKey = $allowedVocabulary[0]
+        'Allowed seed vocabulary keys: {0}. Valid shape example: "seedVocabulary":{{"{1}":["Example Name"]}}' -f ($allowedVocabulary -join ', '),$exampleKey
+    }
     $prompt = @"
 Create the presentation profile for this supported standard business application.
 Theme: $($Context.Theme)
@@ -70,6 +97,7 @@ Software name: $($Context.SoftwareName)
 Template id: $($Template.id)
 Allowed entity alias ids: $($Template.aliasableEntities -join ', ')
 Allowed module alias ids: $($Template.aliasableModules -join ', ')
+$vocabularyLine
 
 Do not change stable ids, fields, permissions, states, transitions, migrations, commands or transactions.
 

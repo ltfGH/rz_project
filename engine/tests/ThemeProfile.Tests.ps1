@@ -31,6 +31,14 @@ try {
     Assert-Equal $valid.Profile.entityAliases.asset 'Facility'
     Assert-Equal @($valid.Issues).Count 0
 
+    $emptyCustomization = New-ValidProfile
+    $emptyCustomization.entityAliases = [ordered]@{}
+    $emptyCustomization.moduleAliases = [ordered]@{}
+    $emptyCustomization.seedVocabulary = [ordered]@{}
+    $emptyCustomizationPath = Join-Path $testRoot 'empty-customization.json'
+    Write-Profile $emptyCustomizationPath $emptyCustomization
+    Assert-Equal (Test-ThemeProfile -Path $emptyCustomizationPath -Template $template).Passed $true
+
     $unknownAlias = New-ValidProfile
     $unknownAlias.entityAliases = [ordered]@{ unknown_entity = 'Unknown' }
     $unknownAliasPath = Join-Path $testRoot 'unknown-alias.json'
@@ -73,7 +81,22 @@ try {
     Assert-Match $prompt 'assets'
     Assert-Match $prompt 'Do not change stable ids'
     Assert-Match $prompt 'seedVocabulary MUST be a JSON object'
-    Assert-Match $prompt '"sample_names"\s*:\s*\["Example Name"\]'
+    Assert-Match $prompt 'Allowed seed vocabulary keys: asset_names, inspection_titles, work_order_titles, findings'
+    Assert-Match $prompt '"seedVocabulary"\s*:\s*\{"asset_names"\s*:\s*\["Example Name"\]\}'
+
+    $projectTemplate = @(Get-StandardBusinessTemplates | Where-Object id -eq 'project_task_management')[0]
+    $projectPrompt = New-ThemeProfilePrompt -Context $context -Template $projectTemplate
+    Assert-Match $projectPrompt 'Allowed seed vocabulary keys: project_names'
+    Assert-Equal ($projectPrompt -match 'milestone_names') $false
+    $unsupportedVocabulary = New-ValidProfile
+    $unsupportedVocabulary.entityAliases = [ordered]@{ project = 'Distribution Project' }
+    $unsupportedVocabulary.moduleAliases = [ordered]@{ projects = 'Distribution Projects' }
+    $unsupportedVocabulary.seedVocabulary = [ordered]@{ milestone_names = @('Release Wave') }
+    $unsupportedVocabularyPath = Join-Path $testRoot 'unsupported-vocabulary.json'
+    Write-Profile $unsupportedVocabularyPath $unsupportedVocabulary
+    $unsupportedVocabularyResult = Test-ThemeProfile -Path $unsupportedVocabularyPath -Template $projectTemplate
+    Assert-Equal $unsupportedVocabularyResult.Passed $false
+    Assert-Match ($unsupportedVocabularyResult.Issues -join ' ') 'milestone_names'
 
     $script:invocations = 0
     $script:summaries = [Collections.Generic.List[string]]::new()
