@@ -5,6 +5,7 @@ import path from 'node:path';
 import { loadPack } from '../../src/catalog/load-pack';
 import { PackRegistry } from '../../src/catalog/registry';
 import { composeDomainPacks } from '../../src/composition/compose';
+import { projectUiDescriptor } from '../../packs/project_task/ui/index';
 
 test('loads and composes the production project task pack', () => {
   const pack = loadPack(path.resolve(__dirname, '..', '..', 'packs', 'project_task'));
@@ -59,4 +60,18 @@ test('loads and composes the production project task pack', () => {
     'deliverable.fields', 'deliverable.relations'
   ]);
   assert.deepEqual(pack.catalog.provides, ['project.core']);
+
+  const extension = (id: string) => projectUiDescriptor.extensions.find((entry) => entry.id === id) as any;
+  assert.deepEqual(extension('project.module.actions'), {
+    id: 'project.module.actions', slot: 'entity.module.actions', entityId: 'project',
+    label: '项目操作', order: 10, actionIds: ['project.create']
+  });
+  assert.deepEqual(extension('project.lifecycle.actions').actionIds, [
+    'project.update', 'project.activate', 'project.request_close', 'project.reject_close',
+    'project.approve_close', 'project.milestone.create', 'project.task.create',
+    'project.risk.create', 'project.deliverable.submit'
+  ]);
+  assert.deepEqual(extension('project.milestone.actions').actionIds, ['project.milestone.complete']);
+  assert.equal(extension('project.task.actions').actionIds.includes('project.task.update'), true);
+  assert.equal(projectUiDescriptor.slots.includes('entity.module.actions' as any), true);
 });

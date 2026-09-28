@@ -5,10 +5,12 @@ const extensions=Object.freeze([
  Object.freeze({id:'project.deliverables.tab',slot:'entity.detail.tabs',entityId:'project',label:'交付版本',order:50,viewId:'project_deliverables'}),
  Object.freeze({id:'project.events.tab',slot:'entity.detail.tabs',entityId:'project',label:'项目事件',order:60,viewId:'project_events'}),
  Object.freeze({id:'project.task.events.tab',slot:'entity.detail.tabs',entityId:'project_task',label:'任务事件',order:20,viewId:'project_task_events'}),
- Object.freeze({id:'project.lifecycle.actions',slot:'entity.detail.actions',entityId:'project',label:'项目操作',order:10,actionIds:Object.freeze(['project.activate','project.request_close','project.reject_close','project.approve_close'])}),
- Object.freeze({id:'project.task.actions',slot:'entity.detail.actions',entityId:'project_task',label:'任务操作',order:10,actionIds:Object.freeze(['project.task.start','project.task.progress','project.task.submit','project.task.reject','project.task.approve','project.task.cancel','project.task.restore'])}),
+ Object.freeze({id:'project.module.actions',slot:'entity.module.actions',entityId:'project',label:'项目操作',order:10,actionIds:Object.freeze(['project.create'])}),
+ Object.freeze({id:'project.lifecycle.actions',slot:'entity.detail.actions',entityId:'project',label:'项目操作',order:10,actionIds:Object.freeze(['project.update','project.activate','project.request_close','project.reject_close','project.approve_close','project.milestone.create','project.task.create','project.risk.create','project.deliverable.submit'])}),
+ Object.freeze({id:'project.milestone.actions',slot:'entity.detail.actions',entityId:'milestone',label:'里程碑操作',order:10,actionIds:Object.freeze(['project.milestone.complete'])}),
+ Object.freeze({id:'project.task.actions',slot:'entity.detail.actions',entityId:'project_task',label:'任务操作',order:10,actionIds:Object.freeze(['project.task.update','project.task.start','project.task.progress','project.task.submit','project.task.reject','project.task.approve','project.task.cancel','project.task.restore'])}),
  Object.freeze({id:'project.risk.actions',slot:'entity.detail.actions',entityId:'project_risk',label:'风险操作',order:10,actionIds:Object.freeze(['project.risk.mitigate','project.risk.close','project.risk.reopen'])}),
  Object.freeze({id:'project.deliverable.actions',slot:'entity.detail.actions',entityId:'deliverable',label:'交付复核',order:10,actionIds:Object.freeze(['project.deliverable.review'])}),
  Object.freeze({id:'project.dashboard',slot:'dashboard.sections',label:'项目概览',order:20,viewId:'project_dashboard',dataSource:'project.dashboard_summary'})
 ]);
-export const projectUiDescriptor=Object.freeze({id:'project_task',version:'1.0.0',slots:Object.freeze(['entity.detail.tabs','entity.detail.actions','dashboard.sections']as const),extensions});
+export const projectUiDescriptor=Object.freeze({id:'project_task',version:'1.0.0',slots:Object.freeze(['entity.detail.tabs','entity.module.actions','entity.detail.actions','dashboard.sections']as const),extensions});

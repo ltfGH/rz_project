@@ -17,6 +17,7 @@ import { verifyProjectResources } from '../core/project-lock';
 import { compileSchema } from '../core/schema-compiler';
 import { seedAcceptanceData, seedProjectData } from '../core/seed';
 import { WorkflowEngine } from '../core/workflow-engine';
+import { collectDomainActionMetadata } from './domain-action-metadata';
 import { registerIpcHandlers, type IpcRegistrar, type RuntimeServices } from './ipc-handlers';
 import { createMainWindow } from './window';
 
@@ -100,17 +101,11 @@ async function start(): Promise<void> {
         modules: blueprint.modules ?? [],
         entities: blueprint.entities ?? [],
         workflows: blueprint.workflows ?? [],
-        domainActions: Object.values(plugins.uiExtensions).flatMap((entry) => {
-          const extension = entry.value as {
-            slot?: string; entityId?: string; label?: string; order?: number; actionIds?: readonly string[];
-          };
-          if (extension.slot !== 'entity.detail.actions' || !extension.entityId) return [];
-          return (extension.actionIds ?? []).flatMap((id) => {
-            const action = plugins.domainActions[id]?.value as { permission?: string } | undefined;
-            if (!action?.permission || !permissions.allows(actor, action.permission)) return [];
-            return [{ id, entityId: extension.entityId!, label: extension.label ?? id, order: extension.order ?? 100 }];
-          });
-        })
+        domainActions: collectDomainActionMetadata(
+          plugins.uiExtensions,
+          plugins.domainActions,
+          (permission) => permissions.allows(actor, permission)
+        )
       })
     },
     entities,

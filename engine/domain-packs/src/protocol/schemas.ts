@@ -31,6 +31,7 @@ const entryPath = z.string().refine((value) => {
 
 const uiSlot = z.enum([
   'entity.detail.tabs',
+  'entity.module.actions',
   'entity.detail.actions',
   'dashboard.sections',
   'form.field.renderers',

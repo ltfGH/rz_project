@@ -12,6 +12,7 @@ export interface DomainActionDto {
   readonly label: string;
   readonly entityId: string;
   readonly order: number;
+  readonly scope: 'module' | 'record';
 }
 
 export interface PageDto<T> {

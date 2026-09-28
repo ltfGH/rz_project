@@ -27,7 +27,7 @@ function catalog(): any {
       seed: 'seed/index.json',
       tests: 'tests/index.js'
     },
-    uiSlots: ['entity.detail.tabs']
+    uiSlots: ['entity.detail.tabs', 'entity.module.actions']
   };
 }
 
@@ -62,6 +62,7 @@ test('parses and freezes complete catalogs and fragments', () => {
   assert.equal(parsedFragment.pack.version, '1.0.0');
   assert.equal(Object.isFrozen(parsedCatalog), true);
   assert.equal(Object.isFrozen(parsedCatalog.entrypoints), true);
+  assert.deepEqual(parsedCatalog.uiSlots, ['entity.detail.tabs', 'entity.module.actions']);
   assert.equal(Object.isFrozen(parsedFragment.blueprint), true);
 });
 
