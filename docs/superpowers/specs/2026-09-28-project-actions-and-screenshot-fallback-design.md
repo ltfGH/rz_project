@@ -26,6 +26,19 @@ Add a renderer-owned, declarative action form registry adjacent to `DomainAction
 
 The registry is presentation glue only. It does not decide whether an action is allowed. Actions continue to come from runtime metadata filtered by the authenticated role, and the main-process domain command remains authoritative for state, identity, optimistic version, permission, and transaction checks.
 
+### Scoped Action Metadata
+
+Extend the fixed project UI descriptor with an `entity.module.actions` slot for `project.create` and complete the existing `entity.detail.actions` contributions for update and child-creation commands. Runtime metadata emits an explicit `scope: module | record` for each permitted action. The main process continues to filter every action by the authenticated actor's permission before sending metadata to the renderer.
+
+The fixed project contributions are:
+
+- project module: create project;
+- project detail: update, lifecycle actions, create milestone, create task, create risk, submit deliverable;
+- milestone detail: complete;
+- task detail: update and lifecycle actions;
+- risk detail: mitigate, close, reopen;
+- deliverable detail: review.
+
 ### Supported Project Actions
 
 Module-level forms:
@@ -46,7 +59,7 @@ Project-child creation commands use the selected project record as `projectId`. 
 
 ### Module-Level Actions
 
-`ModuleScreen` renders module-level actions near the section heading. `project.create` opens its form without requiring a selected row. Successful completion closes the form and reloads the current page.
+`ModuleScreen` renders authorized module-level actions near the section heading. `project.create` opens its form without requiring a selected row. Successful completion closes the form and reloads the current page.
 
 Record-level actions stay inside the detail drawer. Successful completion reloads both the selected record and the list. Errors remain redacted and user-facing; raw stack traces or request payloads are not displayed.
 
