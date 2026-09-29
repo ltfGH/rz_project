@@ -319,23 +319,23 @@ git commit -m "feat: render detailed standard operation manual"
 - Produces PNG navigation, list/detail/form, role matrix, workflow, and ER diagrams.
 - Produces `Render-StandardPrototypeHtml` and `Render-StandardDatabaseHtml`.
 
-- [ ] **Step 1: Write failing diagram and database truthfulness tests**
+- [x] **Step 1: Write failing diagram and database truthfulness tests**
 
 Assert five nonblank PNGs with stable dimensions, every core entity appears in ER/database tables, every rendered column/index/foreign key exists in schema facts, and unselected entities never appear.
 
-- [ ] **Step 2: Generate diagrams with System.Drawing**
+- [x] **Step 2: Generate diagrams with System.Drawing**
 
 Use bounded grids, wrapped labels, measured text, consistent colors, arrows, and legends. Diagram captions identify their fact sources but expose no local paths.
 
-- [ ] **Step 3: Render database dictionaries and transaction sections**
+- [x] **Step 3: Render database dictionaries and transaction sections**
 
 Create one field table per core business entity plus system-table overview, index/constraint tables, relationship descriptions, state fields, seed/version/backup sections, and at least 3,500 non-whitespace characters.
 
-- [ ] **Step 4: Render prototype document around the five diagrams**
+- [x] **Step 4: Render prototype document around the five diagrams**
 
 Include six to twelve pages worth of navigation, page structures, role-operation matrix, workflow, and ER explanation; ordinary screenshots are supplemental only.
 
-- [ ] **Step 5: Run focused tests and commit**
+- [x] **Step 5: Run focused tests and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardBusinessDiagrams.Tests.ps1
