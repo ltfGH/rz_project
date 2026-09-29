@@ -219,7 +219,7 @@ function Build-StandardBusinessMaterials {
         $html = [Collections.Generic.List[string]]::new()
         foreach ($name in @('manual','application-info','runtime','prototype')) {
             $path = Join-Path $renderRoot ($name + '.html')
-            $templateName = if ($name -in @('manual','runtime','prototype')) { $name + '-legacy' } else { $name }
+            $templateName = if ($name -in @('manual','application-info','runtime','prototype')) { $name + '-legacy' } else { $name }
             [void]$html.Add((New-RenderedMaterialHtml -TemplatePath (Join-Path $script:TemplateRoot ($templateName + '.html')) -Values $values -OutputPath $path))
         }
         $sourceHtml = Join-Path $renderRoot 'source.html'
@@ -236,10 +236,13 @@ function Build-StandardBusinessMaterials {
             [pscustomobject]@{ id='prototype'; html=(Join-Path $renderRoot 'prototype.html'); pdf=$false; source=$false }
         )
         $documents = [Collections.Generic.List[string]]::new()
+        $applicationTemplatePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'template\materials\application-form-template.docx'
+        if (-not (Test-Path -LiteralPath $applicationTemplatePath -PathType Leaf)) { throw 'Application form template was not found.' }
         foreach ($definition in $definitions) {
             $docx = Join-Path $documentRoot ($definition.id + '.docx')
             $pdf = if ($definition.pdf) { Join-Path $documentRoot ($definition.id + '.pdf') } else { $null }
-            $workItem = [pscustomobject]@{ HtmlPath=$definition.html; DocxPath=$docx; PdfPath=$pdf; SourceDocument=$definition.source; PrototypeDocument=$false; ApplicationDocument=$false; SoftwareName=[string]$Blueprint.software.name; Version=[string]$Blueprint.software.version }
+            $isApplication = $definition.id -eq 'application-info'
+            $workItem = [pscustomobject]@{ HtmlPath=$definition.html; DocxPath=$docx; PdfPath=$pdf; SourceDocument=$definition.source; PrototypeDocument=$false; ApplicationDocument=$isApplication; ApplicationTemplatePath=if($isApplication){$applicationTemplatePath}else{$null}; SoftwareName=[string]$Blueprint.software.name; Version=[string]$Blueprint.software.version }
             $workPath = Join-Path $renderRoot ($definition.id + '.work.json')
             [IO.File]::WriteAllText($workPath, ($workItem | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
             $workerOutput = (& powershell -NoProfile -ExecutionPolicy Bypass -File $WordWorkerPath -ProjectRoot $output -WorkItemsPath $workPath 2>&1 | Out-String)

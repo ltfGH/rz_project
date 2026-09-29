@@ -358,19 +358,19 @@ git commit -m "feat: generate database and prototype materials"
 - Produces the exact nineteen `data-field` values consumed by `Export-MaterialsApplicationForm`.
 - Standard work item sets `ApplicationDocument=true` and uses `engine/template/materials/application-form-template.docx`.
 
-- [ ] **Step 1: Write failing field, bookmark, marker, and page tests**
+- [x] **Step 1: Write failing field, bookmark, marker, and page tests**
 
 Assert nineteen exact fields, no extras, real Electron/SQLite/TypeScript facts, both required placeholders, all template bookmarks, at least one table, and exactly two final DOCX/PDF pages.
 
-- [ ] **Step 2: Render fact-backed application values**
+- [x] **Step 2: Render fact-backed application values**
 
 Populate software/runtime/language/purpose/industry/functions/technical fields from `MaterialFacts`. Keep abbreviation, classification, completion date, and organization date as applicant placeholders. Put measured source lines next to the source marker.
 
-- [ ] **Step 3: Wire existing bookmark exporter**
+- [x] **Step 3: Wire existing bookmark exporter**
 
 Pass the real template path through the standard Word work item. Reject generic HTML export for `application-info`.
 
-- [ ] **Step 4: Run real Word fixture test and commit**
+- [x] **Step 4: Run real Word fixture test and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardApplicantForm.Tests.ps1

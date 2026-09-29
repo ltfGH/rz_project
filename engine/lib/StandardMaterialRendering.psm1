@@ -328,4 +328,40 @@ function Render-StandardDatabaseHtml {
     return Complete-DocumentHtml $Facts 'database-design' '数据库设计说明书' $body $OutputPath
 }
 
-Export-ModuleMember -Function Render-StandardIntroductionHtml,Render-StandardFeatureTableHtml,Render-StandardRuntimeHtml,Render-StandardManualHtml,Render-StandardPrototypeHtml,Render-StandardDatabaseHtml
+function Get-ApplicantLanguageText($Facts){
+    $labels=[Collections.Generic.List[string]]::new()
+    foreach($file in @($Facts.source.files)){
+        switch -Regex ([IO.Path]::GetExtension([string]$file.path).ToLowerInvariant()){
+            '^\.tsx?$'{if(-not$labels.Contains('TypeScript')){$labels.Add('TypeScript')};break}
+            '^\.(js|cjs|mjs)$'{if(-not$labels.Contains('JavaScript')){$labels.Add('JavaScript')};break}
+            '^\.html?$'{if(-not$labels.Contains('HTML')){$labels.Add('HTML')};break}
+            '^\.css$'{if(-not$labels.Contains('CSS')){$labels.Add('CSS')};break}
+            '^\.ps1$'{if(-not$labels.Contains('PowerShell')){$labels.Add('PowerShell')};break}
+        }
+    }
+    if($labels.Count-eq0){return '以源码清单所列文件类型为准'}
+    return $labels-join '、'
+}
+function Add-ApplicantCell($Body,[string]$Field,[string]$Value,[string]$Attributes=''){
+    Add-Html $Body ('<td data-field="'+$Field+'"'+$Attributes+'>'+(ConvertTo-StandardHtmlText $Value)+'</td>')
+}
+function Render-StandardApplicantHtml {
+    [CmdletBinding()]param([Parameter(Mandatory)]$Facts,[string]$OutputPath)
+    Assert-RenderingFacts $Facts
+    $language=Get-ApplicantLanguageText $Facts;$moduleNames=@($Facts.modules|ForEach-Object{[string]$_.name});$workflowLabels=@(Get-WorkflowSteps $Facts|ForEach-Object{[string]$_.label})
+    $mainFunctions='软件包含'+($moduleNames-join '、')+'等业务模块，按“'+($workflowLabels-join '、')+'”流程完成登记、处理、复核和结果留痕。'
+    $industry='【申请人填写】'
+    $runtimeSupport='Electron '+[string]$Facts.runtime.electron+'、Node.js '+[string]$Facts.runtime.node+'、SQLite '+[string]$Facts.runtime.sqlite+'；运行组件随安装包交付，无需外部数据库服务'
+    $technical='Electron 桌面容器与隔离渲染界面，Node.js 主进程执行权限、领域事务和审计，SQLite 本地持久化；数据库结构版本 '+[string]$Facts.runtime.databaseSchemaVersion+'；'+[string]$Facts.runtime.dataPolicy+'；核心流程支持离线运行。'
+    $hardware='【申请人按实际设备填写】；交付目标为 '+[string]$Facts.runtime.platform
+    $developmentEnvironment='【申请人按实际开发环境填写】；交付目标为 '+[string]$Facts.runtime.platform
+    $developmentTools='【申请人按实际开发工具填写】；源码清单证明使用 '+$language+'，运行时包含 Node.js '+[string]$Facts.runtime.node
+    $sourceQuantity='【生成时按实际源码统计填写】（清单统计 '+[string]$Facts.source.totalLines+' 行，'+[string]$Facts.source.totalFiles+' 个文件）'
+    $body=[Text.StringBuilder]::new();Add-Html $body '<h1>计算机软件著作权登记申请信息</h1><p class="document-note">本页十九项技术与功能信息来自已验证软件事实；简称、分类号、法定日期、开发设备和开发环境由申请人结合真实情况确认。</p><table class="compact"><tbody>'
+    Add-Html $body '<tr><td class="section-title" rowspan="2">软件基本信息</td><td class="label">软件名称</td>';Add-ApplicantCell $body 'software_name' ([string]$Facts.software.name);Add-Html $body '<td class="label">版本号</td>';Add-ApplicantCell $body 'version' ('V'+[string]$Facts.software.version);Add-Html $body '</tr><tr><td class="label">软件简称</td>';Add-ApplicantCell $body 'short_name' '【申请人填写】';Add-Html $body '<td class="label">分类号</td>';Add-ApplicantCell $body 'classification' '【申请人填写】';Add-Html $body '</tr>'
+    Add-Html $body '<tr><td class="label" colspan="2">开发完成日期</td>';Add-ApplicantCell $body 'completion_date' '【申请人填写】' ' colspan="3"';Add-Html $body '</tr><tr><td class="label" colspan="2">组织成立日期</td>';Add-ApplicantCell $body 'company_date' '【申请人填写】' ' colspan="3"';Add-Html $body '</tr><tr><td class="label" colspan="2">软件分类</td>';Add-ApplicantCell $body 'category' '☑应用软件　□中间件　□嵌入式软件　□操作系统' ' colspan="3"';Add-Html $body '</tr>'
+    Add-Html $body '<tr><td class="section-title" rowspan="11">软件功能和技术特点</td><td class="label">开发的硬件环境</td>';Add-ApplicantCell $body 'development_hardware' $hardware ' colspan="3"';Add-Html $body '</tr><tr><td class="label">运行的硬件环境</td>';Add-ApplicantCell $body 'runtime_hardware' $hardware ' colspan="3"';Add-Html $body '</tr><tr><td class="label">开发该软件的操作系统</td>';Add-ApplicantCell $body 'development_os' $developmentEnvironment ' colspan="3"';Add-Html $body '</tr><tr><td class="label">软件开发环境/开发工具</td>';Add-ApplicantCell $body 'development_tools' $developmentTools ' colspan="3"';Add-Html $body '</tr><tr><td class="label">该软件的运行平台/操作系统</td>';Add-ApplicantCell $body 'runtime_platform' ([string]$Facts.runtime.platform) ' colspan="3"';Add-Html $body '</tr><tr><td class="label">软件运行支撑环境/支持软件</td>';Add-ApplicantCell $body 'runtime_support' $runtimeSupport ' colspan="3"';Add-Html $body '</tr><tr><td class="label">编程语言</td>';Add-ApplicantCell $body 'language' $language;Add-Html $body '<td class="label">源程序量</td>';Add-ApplicantCell $body 'source_quantity' $sourceQuantity;Add-Html $body '</tr><tr><td class="label">开发目的</td>';Add-ApplicantCell $body 'development_purpose' ([string]$Facts.software.purpose) ' colspan="3"';Add-Html $body '</tr><tr><td class="label">面向领域/行业</td>';Add-ApplicantCell $body 'industry' $industry ' colspan="3"';Add-Html $body '</tr><tr><td class="label">软件的主要功能</td>';Add-ApplicantCell $body 'main_functions' $mainFunctions ' class="long-text" colspan="3"';Add-Html $body '</tr><tr><td class="label">软件的技术特点</td>';Add-ApplicantCell $body 'technical_features' $technical ' class="long-text" colspan="3"';Add-Html $body '</tr></tbody></table><p class="footer-note">申请人应在正式申报前核对所有【申请人填写】项目，并以最终提交源程序材料确认源程序量。</p>'
+    return Complete-DocumentHtml $Facts 'application-info' '软件著作权申请信息' $body $OutputPath
+}
+
+Export-ModuleMember -Function Render-StandardIntroductionHtml,Render-StandardFeatureTableHtml,Render-StandardRuntimeHtml,Render-StandardManualHtml,Render-StandardPrototypeHtml,Render-StandardDatabaseHtml,Render-StandardApplicantHtml

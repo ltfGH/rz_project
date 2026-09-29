@@ -117,6 +117,14 @@ try {
     [IO.File]::WriteAllText($fakeWorker, @'
 param([string]$ProjectRoot,[string]$WorkItemsPath)
 $item=Get-Content -Raw -Encoding UTF8 -LiteralPath $WorkItemsPath|ConvertFrom-Json
+$id=[IO.Path]::GetFileNameWithoutExtension($WorkItemsPath)
+if($id-eq'application-info.work'){
+    if(-not[bool]$item.ApplicationDocument){throw 'application-info must use the application document exporter'}
+    if(-not(Test-Path -LiteralPath ([string]$item.ApplicationTemplatePath) -PathType Leaf)){throw 'application-info template path is missing'}
+    $applicationHtml=Get-Content -Raw -Encoding UTF8 -LiteralPath ([string]$item.HtmlPath)
+    $applicationFields=@([regex]::Matches($applicationHtml,'(?is)<td\b(?=[^>]*\bdata-field\s*=\s*["''](?<name>[a-z0-9_]+)["''])'))
+    if($applicationFields.Count-ne19-or@($applicationFields|ForEach-Object{$_.Groups['name'].Value}|Sort-Object -Unique).Count-ne19){throw 'application-info must provide 19 unique data fields'}
+}elseif([bool]$item.ApplicationDocument){throw 'only application-info may use the application document exporter'}
 [IO.File]::WriteAllText([string]$item.DocxPath,'fixture-docx',[Text.UTF8Encoding]::new($false))
 if(-not [string]::IsNullOrWhiteSpace([string]$item.PdfPath)){[IO.File]::WriteAllText([string]$item.PdfPath,'fixture-pdf',[Text.UTF8Encoding]::new($false))}
 '@, [Text.UTF8Encoding]::new($true))

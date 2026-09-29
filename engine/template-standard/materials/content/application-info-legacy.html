@@ -1,0 +1,18 @@
+<!doctype html><html><head><meta charset="UTF-8"><title>{{TITLE}} 申请信息</title></head><body><table>
+<tr><td rowspan="2">软件基本信息</td><td>软件名称</td><td data-field="software_name">{{TITLE}}</td><td>版本号</td><td data-field="version">V{{VERSION}}</td></tr>
+<tr><td>软件简称</td><td data-field="short_name">【申请人填写】</td><td>分类号</td><td data-field="classification">【申请人填写】</td></tr>
+<tr><td colspan="2">开发完成日期</td><td data-field="completion_date" colspan="3">【申请人填写】</td></tr>
+<tr><td colspan="2">组织成立日期</td><td data-field="company_date" colspan="3">【申请人填写】</td></tr>
+<tr><td colspan="2">软件分类</td><td data-field="category" colspan="3">☑应用软件　□中间件　□嵌入式软件　□操作系统</td></tr>
+<tr><td rowspan="11">软件功能和技术特点</td><td>开发的硬件环境</td><td data-field="development_hardware" colspan="3">【申请人按实际设备填写】；目标平台为 Windows 10/11 x64</td></tr>
+<tr><td>运行的硬件环境</td><td data-field="runtime_hardware" colspan="3">【申请人按实际设备填写】；目标平台为 Windows 10/11 x64</td></tr>
+<tr><td>开发该软件的操作系统</td><td data-field="development_os" colspan="3">【申请人按实际开发环境填写】；交付目标为 Windows 10/11 x64</td></tr>
+<tr><td>软件开发环境/开发工具</td><td data-field="development_tools" colspan="3">【申请人按实际开发工具填写】；桌面运行时版本 {{RUNTIME_VERSION}}</td></tr>
+<tr><td>运行平台/操作系统</td><td data-field="runtime_platform" colspan="3">Windows 10/11 x64</td></tr>
+<tr><td>运行支撑环境/支持软件</td><td data-field="runtime_support" colspan="3">Electron {{ELECTRON_VERSION}}、SQLite 本地数据库；无需外部数据库服务</td></tr>
+<tr><td>编程语言</td><td data-field="language">TypeScript、JavaScript</td><td>源程序量</td><td data-field="source_quantity">【生成时按实际源码统计填写】（清单统计 {{SOURCE_LINES}} 行，{{SOURCE_FILES}} 个文件）</td></tr>
+<tr><td>开发目的</td><td data-field="development_purpose" colspan="3">{{PURPOSE}}</td></tr>
+<tr><td>面向领域/行业</td><td data-field="industry" colspan="3">{{INDUSTRY}}</td></tr>
+<tr><td>软件的主要功能</td><td data-field="main_functions" colspan="3">{{MODULES}}</td></tr>
+<tr><td>软件的技术特点</td><td data-field="technical_features" colspan="3">Electron 离线桌面架构、SQLite 本地持久化、数据库结构版本 {{DATABASE_VERSION}}</td></tr>
+</table></body></html>
