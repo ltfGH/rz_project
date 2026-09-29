@@ -219,7 +219,7 @@ function Build-StandardBusinessMaterials {
         $html = [Collections.Generic.List[string]]::new()
         foreach ($name in @('manual','application-info','runtime','prototype')) {
             $path = Join-Path $renderRoot ($name + '.html')
-            $templateName = if ($name -eq 'runtime') { 'runtime-legacy' } else { $name }
+            $templateName = if ($name -in @('manual','runtime')) { $name + '-legacy' } else { $name }
             [void]$html.Add((New-RenderedMaterialHtml -TemplatePath (Join-Path $script:TemplateRoot ($templateName + '.html')) -Values $values -OutputPath $path))
         }
         $sourceHtml = Join-Path $renderRoot 'source.html'

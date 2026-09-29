@@ -284,19 +284,19 @@ git commit -m "feat: render fact-driven standard documents"
 - Produces `Render-StandardManualHtml -Facts -ScreenshotRoot -OutputPath`.
 - Every flow step renders prerequisites, numbered actions, expected result, failure behavior, and bound screenshot captions.
 
-- [ ] **Step 1: Write failing manual depth tests**
+- [x] **Step 1: Write failing manual depth tests**
 
 Assert cover/install/login/roles/navigation/shared-controls/core-modules/workflow/backup/errors/uninstall/data-retention sections, at least 3,000 non-whitespace characters, one complete numbered flow, 12–18 distinct image paths, and zero raw stable action IDs.
 
-- [ ] **Step 2: Implement screenshot-bound module and workflow sections**
+- [x] **Step 2: Implement screenshot-bound module and workflow sections**
 
 Render one module section per descriptor core module. Render images only when their scenario/step and hashes match `MaterialFacts`; captions use Chinese operation labels.
 
-- [ ] **Step 3: Render backup, recovery, common errors, and lifecycle guidance**
+- [x] **Step 3: Render backup, recovery, common errors, and lifecycle guidance**
 
 Use verified runtime/maintenance capabilities and do not claim export, networking, or password-change behavior unless present.
 
-- [ ] **Step 4: Run focused tests and commit**
+- [x] **Step 4: Run focused tests and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardOperationManual.Tests.ps1

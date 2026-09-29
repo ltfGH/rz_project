@@ -113,4 +113,154 @@ function Render-StandardRuntimeHtml {
     return Complete-DocumentHtml $Facts 'runtime' '运行环境说明' $body $OutputPath
 }
 
-Export-ModuleMember -Function Render-StandardIntroductionHtml,Render-StandardFeatureTableHtml,Render-StandardRuntimeHtml
+function Get-ManualCapturePresentation($Capture,$CommandMap,$ModuleMap,$WorkflowStepMap,[int]$Ordinal){
+    $actionId=[string]$Capture.actionId;$workflowStepId=[string]$Capture.workflowStepId;$moduleId=[string]$Capture.moduleId
+    if(-not[string]::IsNullOrWhiteSpace($actionId)-and$CommandMap.ContainsKey($actionId)){
+        $label=[string]$CommandMap[$actionId].label
+        return [pscustomobject]@{caption=($label+'操作界面');alt=($label+'操作截图')}
+    }
+    if(-not[string]::IsNullOrWhiteSpace($workflowStepId)-and$WorkflowStepMap.ContainsKey($workflowStepId)){
+        $label=[string]$WorkflowStepMap[$workflowStepId].label
+        return [pscustomobject]@{caption=($label+'处理界面');alt=($label+'处理截图')}
+    }
+    if(-not[string]::IsNullOrWhiteSpace($moduleId)-and$ModuleMap.ContainsKey($moduleId)){
+        $label=[string]$ModuleMap[$moduleId].name
+        return [pscustomobject]@{caption=($label+'业务界面');alt=($label+'界面截图')}
+    }
+    $commonLabels=@('用户登录界面','业务总览界面','窄屏导航界面','系统维护界面')
+    $common=$commonLabels[($Ordinal-1)%$commonLabels.Count]
+    return [pscustomobject]@{caption=$common;alt=($common+'截图')}
+}
+
+function Add-ManualFigure($Body,$Capture,$Presentation){
+    $source='screenshots/'+[uri]::EscapeDataString([string]$Capture.fileName)
+    Add-Html $Body ('<figure><img src="'+(ConvertTo-StandardHtmlText $source)+'" alt="'+(ConvertTo-StandardHtmlText $Presentation.alt)+'"><figcaption>'+(ConvertTo-StandardHtmlText $Presentation.caption)+'</figcaption></figure>')
+}
+
+function Get-VerifiedManualCaptures($Facts,[string]$ScreenshotRoot){
+    if([string]::IsNullOrWhiteSpace($ScreenshotRoot)-or-not[IO.Path]::IsPathRooted($ScreenshotRoot)){throw 'Screenshot root must be an absolute directory.'}
+    $root=[IO.Path]::GetFullPath($ScreenshotRoot)
+    if(-not(Test-Path -LiteralPath $root -PathType Container)){throw 'Screenshot root does not exist.'}
+    $rootItem=Get-Item -LiteralPath $root -Force
+    if(($rootItem.Attributes-band[IO.FileAttributes]::ReparsePoint)-ne0){throw 'Screenshot root cannot be a reparse point.'}
+    $captures=@($Facts.screenshots.captures)
+    if($captures.Count-lt12-or$captures.Count-gt18){throw 'Operation manual requires 12 to 18 screenshot facts.'}
+    $seen=@{};$verified=@();$rootPrefix=$root.TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    foreach($capture in $captures){
+        $fileName=[string]$capture.fileName
+        if($fileName-notmatch'^[a-z0-9][a-z0-9_-]*\.png$'-or[IO.Path]::GetFileName($fileName)-ne$fileName){throw 'Screenshot file name is invalid.'}
+        if($seen.ContainsKey($fileName)){throw 'Screenshot file names must be unique.'};$seen[$fileName]=$true
+        $source=[IO.Path]::GetFullPath((Join-Path $root $fileName))
+        if(-not$source.StartsWith($rootPrefix,[StringComparison]::OrdinalIgnoreCase)-or-not(Test-Path -LiteralPath $source -PathType Leaf)){throw 'Screenshot evidence file is missing.'}
+        $item=Get-Item -LiteralPath $source -Force
+        if(($item.Attributes-band[IO.FileAttributes]::ReparsePoint)-ne0){throw 'Screenshot evidence cannot be a reparse point.'}
+        $expectedHash=([string]$capture.imageSha256).ToLowerInvariant()
+        if($expectedHash-notmatch'^[0-9a-f]{64}$'){throw 'Screenshot evidence hash is invalid.'}
+        $verified+=,[pscustomobject]@{capture=$capture;source=$source;expectedHash=$expectedHash}
+    }
+    return $verified
+}
+
+function Render-StandardManualHtml {
+    [CmdletBinding()]param(
+        [Parameter(Mandatory)]$Facts,
+        [Parameter(Mandatory)][string]$ScreenshotRoot,
+        [Parameter(Mandatory)][string]$OutputPath
+    )
+    Assert-RenderingFacts $Facts
+    if([string]::IsNullOrWhiteSpace($OutputPath)){throw 'Operation manual output path is required.'}
+    $target=[IO.Path]::GetFullPath($OutputPath)
+    if(Test-Path -LiteralPath $target){throw 'Refusing to overwrite rendered material.'}
+    $parent=Split-Path -Parent $target;$imageTarget=Join-Path $parent 'screenshots'
+    if(Test-Path -LiteralPath $imageTarget){throw 'Refusing to overwrite rendered screenshots.'}
+    $verified=Get-VerifiedManualCaptures $Facts $ScreenshotRoot
+    $commands=Get-CommandMap $Facts;$entities=Get-EntityMap $Facts;$modules=Get-ModuleMap $Facts
+    $workflowSteps=@(Get-WorkflowSteps $Facts);$workflowStepMap=@{};foreach($step in $workflowSteps){$workflowStepMap[[string]$step.id]=$step}
+    $scenarioIds=@{};$captureStepIds=@{}
+    foreach($item in $verified){
+        $capture=$item.capture;$scenarioId=[string]$capture.scenarioId;$captureStepId=[string]$capture.stepId;$moduleId=[string]$capture.moduleId;$workflowStepId=[string]$capture.workflowStepId;$actionId=[string]$capture.actionId
+        if([string]::IsNullOrWhiteSpace($scenarioId)-or$scenarioIds.ContainsKey($scenarioId)-or[string]::IsNullOrWhiteSpace($captureStepId)-or$captureStepIds.ContainsKey($captureStepId)){throw 'Screenshot scenario and step references must be unique.'}
+        $scenarioIds[$scenarioId]=$true;$captureStepIds[$captureStepId]=$true
+        if((-not[string]::IsNullOrWhiteSpace($moduleId)-and-not$modules.ContainsKey($moduleId))-or(-not[string]::IsNullOrWhiteSpace($workflowStepId)-and-not$workflowStepMap.ContainsKey($workflowStepId))-or(-not[string]::IsNullOrWhiteSpace($actionId)-and-not$commands.ContainsKey($actionId))){throw 'Screenshot evidence contains an unknown business reference.'}
+        if(-not[string]::IsNullOrWhiteSpace($actionId)-and[string]$commands[$actionId].moduleId-ne$moduleId){throw 'Screenshot evidence does not match its workflow or command.'}
+        if(-not[string]::IsNullOrWhiteSpace($workflowStepId)){
+            $workflowStep=$workflowStepMap[$workflowStepId];$workflowActionId=if($null-ne$workflowStep.PSObject.Properties['actionId']){[string]$workflowStep.actionId}else{''}
+            $expectedModuleId=if(-not[string]::IsNullOrWhiteSpace($workflowActionId)){[string]$commands[$workflowActionId].moduleId}else{[string]$workflowStep.moduleId}
+            if($moduleId-ne$expectedModuleId-or(-not[string]::IsNullOrWhiteSpace($actionId)-and$actionId-ne$workflowActionId)){throw 'Screenshot evidence does not match its workflow or command.'}
+        }
+    }
+    foreach($step in $workflowSteps){if(@($verified|Where-Object{[string]$_.capture.workflowStepId-eq[string]$step.id}).Count-eq0){throw 'Every workflow step requires screenshot evidence.'}}
+    $presentations=@{};$ordinal=0
+    foreach($item in $verified){$ordinal++;$presentations[[string]$item.capture.fileName]=Get-ManualCapturePresentation $item.capture $commands $modules $workflowStepMap $ordinal}
+
+    $body=[Text.StringBuilder]::new();Add-Html $body (New-CoverHtml $Facts '操作手册')
+    Add-Html $body ('<h1>操作手册</h1><p class="document-note">本手册用于指导已授权用户安装、登录并操作 '+(ConvertTo-StandardHtmlText $Facts.software.name)+'。章节中的模块、岗位、字段、业务动作、流程结果和截图均来自同一份已验证事实；截图文件在发布前按摘要逐一核对。手册只说明当前版本已经验证的离线能力。</p>')
+    Add-Html $body ('<h2>一、安装与首次启动</h2><p>本软件适用于 '+(ConvertTo-StandardHtmlText $Facts.runtime.platform)+'，交付方式为'+(ConvertTo-StandardHtmlText $Facts.runtime.installationMode)+'。运行安装包后按安装向导完成部署，程序已包含 Electron、Node.js 和 SQLite 所需运行组件，普通业务用户不需要另行安装数据库服务。安装前应确认当前 Windows 用户对其应用数据目录具有读写权限，并为程序、业务数据库和备份快照保留足够空间。</p><p>首次启动时，程序会校验随包发布的项目资源和版本锁，加载领域模块，执行结构版本 '+(ConvertTo-StandardHtmlText $Facts.runtime.databaseSchemaVersion)+' 对应的数据库迁移，然后显示登录界面。若资源摘要、模块版本或数据库结构不一致，启动将停止；此时应保留现场并联系交付人员核对安装包，不应手工替换锁文件或直接修改数据库。</p>')
+    Add-Html $body '<h2>二、登录</h2><p>启动完成后，在登录界面输入交付时分配的本地账号和密码并提交。登录成功后，会话只开放该账号角色已获授权的模块与操作；登录失败时应先核对账号、密码和输入法，不要连续尝试未知凭据。手册和截图不记录任何明文密码。</p><p>完成工作后，应使用界面中的退出登录入口结束当前会话，再关闭桌面窗口。关闭窗口不会删除业务数据库；再次启动仍需使用有效本地账号登录。</p>'
+    $commonCaptures=@($verified|Where-Object{[string]::IsNullOrWhiteSpace([string]$_.capture.moduleId)})
+    foreach($item in $commonCaptures){Add-ManualFigure $body $item.capture $presentations[[string]$item.capture.fileName]}
+
+    Add-Html $body '<h2>三、角色与权限</h2><p>权限由登录身份和后台角色共同决定。界面是否显示按钮只是操作提示，真正的授权判断在主进程中执行；因此用户不能通过修改界面参数扩大权限。各岗位经验证的职责如下：</p><table><thead><tr><th>岗位</th><th>可执行操作</th><th>使用要求</th></tr></thead><tbody>'
+    foreach($role in @($Facts.roles)){$labels=@($role.visibleOperations|ForEach-Object{Get-CommandLabel $commands ([string]$_)}|Where-Object{$_});$operations=if($labels.Count){$labels-join '、'}else{'查看授权范围内的信息并承担复核职责'};Add-Html $body ('<tr><td>'+(ConvertTo-StandardHtmlText $role.name)+'</td><td>'+(ConvertTo-StandardHtmlText $operations)+'</td><td>仅在本人职责和当前记录状态允许时操作；无权操作由系统拒绝并保持原数据不变。</td></tr>')}
+    Add-Html $body '</tbody></table><p>多人轮流使用同一终端时，前一位用户必须先退出登录。涉及复核、关闭或恢复数据的操作，应由对应岗位在核对业务记录后执行，不应借用其他账号代办。</p>'
+
+    Add-Html $body '<h2>四、导航与共用操作</h2><p>登录后的主界面由模块导航、列表区域、详情区域和业务操作区组成。先从导航中选择业务模块，再通过列表定位记录；选中记录后可查看详情，并在当前状态和岗位权限允许时打开操作表单。列表与详情来自同一持久化数据，完成操作后应刷新或重新选择记录，核对状态、版本和结果字段是否已经更新。</p><h3>4.1 查询与查看</h3><ol><li>进入目标模块，等待列表加载完成。</li><li>使用界面提供的关键词或筛选条件缩小范围。</li><li>选择目标记录并核对编号、名称、状态及关联对象。</li><li>需要继续处理时，在详情区域选择已授权操作；只需查看时不要提交表单。</li></ol><h3>4.2 表单与结果反馈</h3><p>带必填标记的字段应完整填写，日期、数量、选项和关联记录必须符合界面要求。提交后以系统返回的成功结果和持久化状态为准。若出现必填、格式、权限、状态或版本错误，系统不会把未完成的变更当作成功结果；用户应按提示修正输入，或重新加载最新记录后再决定是否操作。</p>'
+
+    Add-Html $body '<section class="page-break-before"><h2>五、核心业务模块</h2><p>以下内容按已交付模块逐一说明业务对象、字段和操作方法。每项领域操作均给出前置条件、编号步骤、预期结果和失败行为，不能用通用新增、修改按钮替代明确的状态转换。</p>'
+    $moduleIndex=0
+    foreach($module in @($Facts.modules)){
+        $moduleIndex++;$entity=$entities[[string]$module.entityId]
+        $fieldNames=@($entity.fields|ForEach-Object{[string]$_.name})-join '、'
+        Add-Html $body ('<h3>5.'+$moduleIndex+' '+(ConvertTo-StandardHtmlText $module.name)+'</h3><p><strong>模块职责：</strong>'+(ConvertTo-StandardHtmlText $module.purpose)+'。该模块以'+(ConvertTo-StandardHtmlText $entity.name)+'为主要业务对象，界面呈现'+(ConvertTo-StandardHtmlText $fieldNames)+'等信息。记录采用'+(ConvertTo-StandardHtmlText (Get-RetentionLabel ([string]$entity.retention)))+'策略；'+$(if($entity.history){'关键处理保留历史或事件信息。'}else{'当前有效内容由审计事件补充追踪。'})+'</p>')
+        $moduleCommands=@($module.operations|ForEach-Object{$commands[[string]$_]}|Where-Object{$null-ne$_})
+        if($moduleCommands.Count-eq0){Add-Html $body ('<p><strong>查看方法：</strong>进入'+(ConvertTo-StandardHtmlText $module.name)+'，通过列表选择'+(ConvertTo-StandardHtmlText $entity.name)+'，再核对详情字段。若没有查看权限或记录不存在，系统不展示受保护内容。</p>')}
+        foreach($command in $moduleCommands){
+            $inputs=@($command.inputLabels);$inputText=if($inputs.Count){$inputs-join '、'}else{'当前记录及登录岗位信息'}
+            Add-Html $body ('<div class="keep-together"><p><strong>'+(ConvertTo-StandardHtmlText $command.label)+'</strong></p><p><strong>前置条件：</strong>'+(ConvertTo-StandardHtmlText $command.precondition)+'。执行岗位：'+(ConvertTo-StandardHtmlText (Get-RoleNamesForCommand $Facts ([string]$command.id)))+'。</p><ol><li>进入'+(ConvertTo-StandardHtmlText $module.name)+'并定位需要处理的'+(ConvertTo-StandardHtmlText $entity.name)+'。</li><li>核对当前状态、版本和关联信息，打开“'+(ConvertTo-StandardHtmlText $command.label)+'”操作。</li><li>按界面要求确认或填写'+(ConvertTo-StandardHtmlText $inputText)+'，检查无误后提交。</li><li>返回列表或详情，重新核对状态和处理结果。</li></ol><p><strong>预期结果：</strong>'+(ConvertTo-StandardHtmlText $command.result)+'。</p><p><strong>失败行为：</strong>'+(ConvertTo-StandardHtmlText $command.failure)+'。发生失败时不要把按钮点击视为完成，应保持原记录并根据提示修正。</p></div>')
+        }
+        foreach($item in @($verified|Where-Object{[string]$_.capture.moduleId-eq[string]$module.id})){Add-ManualFigure $body $item.capture $presentations[[string]$item.capture.fileName]}
+    }
+    Add-Html $body '</section>'
+
+    Add-Html $body '<section class="page-break-before"><h2>六、完整业务流程</h2><p>下列编号流程是本版本经验证的主业务链路。应从第一步开始按实际状态推进；若某一步失败，先处理该步原因，不要跳过状态或直接修改数据库。流程截图在前述模块章节中按其所属环节展示。</p><ol class="workflow-steps">'
+    $stepIndex=0
+    foreach($step in $workflowSteps){
+        $stepIndex++;$stepActionId=if($null-ne$step.PSObject.Properties['actionId']){[string]$step.actionId}else{''};$actionLabel=if(-not[string]::IsNullOrWhiteSpace($stepActionId)){Get-CommandLabel $commands $stepActionId}else{[string]$step.label}
+        $related=@($verified|Where-Object{[string]$_.capture.workflowStepId-eq[string]$step.id}|ForEach-Object{[string]$presentations[[string]$_.capture.fileName].caption}|Sort-Object -Unique)
+        $evidence=if($related.Count){'对应截图：'+($related-join '、')+'。'}else{'该环节通过相邻业务记录和状态结果进行核对。'}
+        Add-Html $body ('<li><h3>步骤 '+$stepIndex+'：'+(ConvertTo-StandardHtmlText $step.label)+'</h3><p><strong>前置条件：</strong>'+(ConvertTo-StandardHtmlText $step.prerequisite)+'。</p><ol><li>进入承担该环节的业务模块，定位当前待处理记录。</li><li>核对记录状态、关联对象及当前岗位权限。</li><li>执行“'+(ConvertTo-StandardHtmlText $actionLabel)+'”，按界面要求填写或确认信息后提交。</li><li>重新加载记录，并与预期结果逐项核对。</li></ol><p><strong>预期结果：</strong>'+(ConvertTo-StandardHtmlText $step.result)+'。</p><p><strong>失败行为：</strong>'+(ConvertTo-StandardHtmlText $step.failure)+'。若失败，应保留原状态，检查输入、权限、业务状态和记录版本后再处理。</p><p>'+(ConvertTo-StandardHtmlText $evidence)+'</p></li>')
+    }
+    Add-Html $body '</ol></section>'
+
+    Add-Html $body ('<h2>七、备份与恢复</h2><p>'+(ConvertTo-StandardHtmlText $Facts.runtime.backupPolicy)+'。执行前应由系统管理员确认当前业务操作已经结束，并记录备份用途。创建备份后，应在维护界面核对快照时间、数据库结构版本和摘要信息；不得把正在写入的数据库文件当作已验证备份。</p><h3>7.1 创建备份</h3><ol><li>使用系统管理员账号登录，进入数据与备份相关维护模块。</li><li>确认没有正在提交的业务表单，选择创建备份。</li><li>等待系统生成数据库快照及清单，并核对成功反馈。</li><li>按单位制度将备份保存到受控介质，记录保管位置。</li></ol><h3>7.2 恢复数据</h3><ol><li>确认待恢复快照属于本软件，并核对应用标识、结构版本和文件摘要。</li><li>在维护入口选择恢复并阅读确认信息。</li><li>明确确认后执行恢复，等待数据库重新打开。</li><li>重新登录，抽查核心模块、流程状态和审计信息。</li></ol><p>快照校验不通过、结构版本不兼容或数据库不能重新打开时，恢复必须停止并保留原数据库。软件不会自动把备份上传到网络，也不应使用来源不明的数据库文件替换当前数据。</p>')
+
+    Add-Html $body '<h2>八、常见问题与处理</h2><table><thead><tr><th>现象</th><th>核对内容</th><th>处理方法</th></tr></thead><tbody><tr><td>无法启动或停在资源检查</td><td>安装包完整性、当前用户目录权限、资源与版本锁</td><td>保留现场并重新使用已验证安装包；不要修改锁文件绕过校验。</td></tr><tr><td>无法登录</td><td>本地账号、密码输入、账号当前状态</td><td>核对交付账号和输入法；未知凭据不要反复尝试，由系统管理员按既定账号管理流程处理。</td></tr><tr><td>看不到模块或操作</td><td>当前登录岗位、模块权限、记录状态</td><td>先确认是否登录了正确账号；无权操作应由对应岗位完成，不借用账号。</td></tr><tr><td>表单无法提交</td><td>必填字段、日期和数量格式、关联记录、当前状态</td><td>按界面提示修正输入；提交失败时原数据保持不变。</td></tr><tr><td>提示状态或版本冲突</td><td>记录是否已被其他步骤更新</td><td>重新加载最新记录，核对当前状态后重新决定操作，不使用旧页面重复提交。</td></tr><tr><td>备份或恢复失败</td><td>快照摘要、应用标识、结构版本、文件权限</td><td>停止恢复并保留原数据库，改用经校验且与当前软件匹配的快照。</td></tr></tbody></table><p>若问题无法按上述方法处理，应记录发生时间、登录岗位、模块、操作名称和界面提示。诊断信息不得包含明文密码；也不要通过直接编辑 SQLite 数据库来伪造成功状态。</p>'
+
+    Add-Html $body ('<h2>九、卸载与数据保留</h2><p>'+(ConvertTo-StandardHtmlText $Facts.runtime.dataPolicy)+'。卸载程序前，应由系统管理员创建并验证最新备份，确认单位的数据留存要求和后续恢复安排。卸载操作以移除程序文件为目的，不能据此推定业务数据已经销毁；当前用户应用数据目录中的数据库和备份应由有权限人员按制度单独处理。</p><p>需要继续保留历史业务时，应妥善保存已验证快照及其摘要。重新安装同一软件后，如需恢复数据，应从软件内的恢复入口执行并通过应用标识、数据库结构版本和摘要校验。需要彻底清理时，必须先确认备份可用、留存期限已经满足，再由授权人员处理本地数据，避免误删不可恢复的业务记录。</p><h3>9.1 数据留存原则</h3><ul>')
+    foreach($entity in @($Facts.entities)){Add-Html $body ('<li><strong>'+(ConvertTo-StandardHtmlText $entity.name)+'：</strong>'+(ConvertTo-StandardHtmlText (Get-RetentionLabel ([string]$entity.retention)))+'；'+$(if($entity.history){'相关历史或事件信息应随业务数据一并备份和留存。'}else{'当前有效记录应按申请人制度确定留存期限。'})+'</li>')}
+    Add-Html $body '</ul><p class="footer-note">本手册不声明事实清单之外的联网、导出或密码变更能力。申请人应结合本单位账号、终端和介质管理制度使用软件。</p>'
+
+    if(-not(Test-Path -LiteralPath $parent)){New-Item -ItemType Directory -Path $parent -Force|Out-Null}
+    $stage=Join-Path $parent ('.manual-staging-'+[guid]::NewGuid().ToString('N'));$stageImages=Join-Path $stage 'screenshots';$stageHtml=Join-Path $stage ([IO.Path]::GetFileName($target));$imagesPublished=$false
+    try{
+        New-Item -ItemType Directory -Path $stageImages -Force|Out-Null
+        foreach($item in $verified){
+            $stagedImage=Join-Path $stageImages ([string]$item.capture.fileName)
+            Copy-Item -LiteralPath $item.source -Destination $stagedImage
+            $stagedHash=(Get-FileHash -LiteralPath $stagedImage -Algorithm SHA256).Hash.ToLowerInvariant()
+            if($stagedHash-ne[string]$item.expectedHash){throw 'Screenshot evidence hash mismatch.'}
+        }
+        $html=Complete-DocumentHtml $Facts 'manual' '操作手册' $body $stageHtml
+        Move-Item -LiteralPath $stageImages -Destination $imageTarget;$imagesPublished=$true
+        Move-Item -LiteralPath $stageHtml -Destination $target
+        return $html
+    }
+    catch{
+        if($imagesPublished-and(Test-Path -LiteralPath $imageTarget)){Remove-Item -LiteralPath $imageTarget -Recurse -Force}
+        if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target -Force}
+        throw
+    }
+    finally{if(Test-Path -LiteralPath $stage){Remove-Item -LiteralPath $stage -Recurse -Force}}
+}
+
+Export-ModuleMember -Function Render-StandardIntroductionHtml,Render-StandardFeatureTableHtml,Render-StandardRuntimeHtml,Render-StandardManualHtml
