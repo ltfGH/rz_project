@@ -158,23 +158,23 @@ git commit -m "feat: add standard material descriptor catalog"
 - CLI arguments: `--resources`, `--source-manifest`, `--screenshots`, `--acceptance`, `--template`, `--output`; every path is absolute and regular.
 - `MaterialFacts.factVersion` is `1.0`.
 
-- [ ] **Step 1: Write failing fact-schema and truthfulness tests**
+- [x] **Step 1: Write failing fact-schema and truthfulness tests**
 
 For all eight templates assert selected modules/entities/actions/roles are present, unselected template modules are absent, internal IDs have separate Chinese display labels, and project domain-command workflow steps are nonempty despite `blueprint.workflows=[]`. Add hostile fixtures containing unknown keys, absolute paths, credentials, executable-looking descriptor content, unsupported claims, and receipts whose hashes do not match; each must fail with a redacted issue code.
 
-- [ ] **Step 2: Write failing real SQLite introspection tests**
+- [x] **Step 2: Write failing real SQLite introspection tests**
 
 Apply compiled migrations to an in-memory `DatabaseSync`, then use `PRAGMA table_info`, `foreign_key_list`, `index_list`, and `index_info`. Assert every fact table/column/index/foreign key exists and no schema fact is inferred from prose.
 
-- [ ] **Step 3: Implement canonical fact assembly**
+- [x] **Step 3: Implement canonical fact assembly**
 
 Verify project/resource locks before reading. Merge the descriptor only after exact ID checks. Store display labels separately from stable IDs. Store source/screenshot/evidence hashes without absolute paths.
 
-- [ ] **Step 4: Implement strict CLI publication**
+- [x] **Step 4: Implement strict CLI publication**
 
 Write through sibling staging, reject existing output, cap each input at its contract size, and print only `{ "ok": true }` plus a relative output name.
 
-- [ ] **Step 5: Run all fact tests for eight templates and commit**
+- [x] **Step 5: Run all fact tests for eight templates and commit**
 
 ```powershell
 npm --prefix engine/desktop-runtime run typecheck
