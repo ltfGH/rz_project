@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { DomainActionDto, EntityRecordDto } from '../../shared/dto';
 import { selectPresentableActions } from '../domain/action-presentation';
+import { buildApplicationActionInput, getApplicationActionForm, getApplicationActionInitialValues } from '../domain/application-action-forms';
+import { buildInventoryActionInput, getInventoryActionForm, getInventoryActionInitialValues } from '../domain/inventory-action-forms';
 import {
   buildProjectActionInput, getProjectActionForm, getProjectActionInitialValues,
   type ActionFormValue, type ActionScope
@@ -25,6 +27,17 @@ const LEGACY_FIELDS:Readonly<Record<string,readonly LegacyField[]>>={
   'work_order.add_processing_record':[{id:'content',label:'处理记录'}],'work_order.submit_resolution':[{id:'resolution',label:'解决说明'}],
   'work_order.reject_review':[{id:'reason',label:'驳回原因'}],'work_order.approve_close':[{id:'comment',label:'复核说明'}]
 };
+function fixedForm(id:string){return getProjectActionForm(id)??getApplicationActionForm(id)??getInventoryActionForm(id);}
+function fixedInitial(id:string,record?:EntityRecordDto):Readonly<Record<string,ActionFormValue>>|undefined{
+  const project=getProjectActionForm(id);if(project)return getProjectActionInitialValues(project,record);
+  const application=getApplicationActionForm(id);if(application)return getApplicationActionInitialValues(application,record);
+  const inventory=getInventoryActionForm(id);if(inventory)return getInventoryActionInitialValues(inventory,record);
+}
+function fixedInput(id:string,values:Readonly<Record<string,unknown>>,record?:EntityRecordDto):Readonly<Record<string,unknown>>|undefined{
+  const project=getProjectActionForm(id);if(project)return buildProjectActionInput(project,values,record);
+  const application=getApplicationActionForm(id);if(application)return buildApplicationActionInput(application,values,record);
+  const inventory=getInventoryActionForm(id);if(inventory)return buildInventoryActionInput(inventory,values,record);
+}
 
 function legacyBase(id:string,record:EntityRecordDto):Record<string,unknown>{
   if(id.startsWith('work_order.'))return{workOrderId:record.id,expectedVersion:record.version};
@@ -53,24 +66,22 @@ export function DomainActions({token,entityId,record,scope,actions,onComplete}:{
   const[error,setError]=useState('');
   if(available.length===0)return null;
   function choose(action:DomainActionDto){
-    const project=getProjectActionForm(action.id);
-    const initial=project?getProjectActionInitialValues(project,record):Object.fromEntries((LEGACY_FIELDS[action.id]??[]).map(field=>[field.id,field.initial??'']));
+    const initial=fixedInitial(action.id,record)??Object.fromEntries((LEGACY_FIELDS[action.id]??[]).map(field=>[field.id,field.initial??'']));
     setSelected(action);setValues({...initial});setError('');
   }
   async function run(){
     if(!selected)return;
     try{
-      const project=getProjectActionForm(selected.id);
-      const input=project?buildProjectActionInput(project,values,record):legacyInput(selected.id,values,record);
+      const input=fixedInput(selected.id,values,record)??legacyInput(selected.id,values,record);
       unwrap(await window.businessApi.domain.execute(token,selected.id,input));
       setSelected(null);setValues({});onComplete();
     }catch{setError('操作未完成，请检查输入和当前状态');}
   }
-  const projectDefinition=selected?getProjectActionForm(selected.id):undefined;
-  const renderedFields=projectDefinition?.fields??(selected?LEGACY_FIELDS[selected.id]??[]:[]);
-  const title=projectDefinition?.label??(selected?LABELS[selected.id]??selected.label:'');
+  const definition=selected?fixedForm(selected.id):undefined;
+  const renderedFields=definition?.fields??(selected?LEGACY_FIELDS[selected.id]??[]:[]);
+  const title=definition?.label??(selected?LABELS[selected.id]??selected.label:'');
   return <section className="domain-actions" aria-label={scope==='module'?'模块操作':'领域操作'}>
-    <div className="action-row">{available.map(action=><button key={action.id} className="secondary-button" onClick={()=>choose(action)}>{getProjectActionForm(action.id)?.label??LABELS[action.id]??action.label}</button>)}</div>
+    <div className="action-row">{available.map(action=><button key={action.id} className="secondary-button" onClick={()=>choose(action)}>{fixedForm(action.id)?.label??LABELS[action.id]??action.label}</button>)}</div>
     {selected&&<form onSubmit={event=>{event.preventDefault();void run();}}>
       <h4>{title}</h4>
       {renderedFields.map(field=><label key={field.id}>{field.label}

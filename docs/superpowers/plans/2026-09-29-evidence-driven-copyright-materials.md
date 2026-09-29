@@ -47,32 +47,32 @@
 - Inventory module actions: material create, warehouse create, batch receive new.
 - Inventory record actions: material/warehouse update, receive existing, issue, return, adjust.
 
-- [ ] **Step 1: Write failing exact-descriptor and request-builder tests**
+- [x] **Step 1: Write failing exact-descriptor and request-builder tests**
 
 Assert module/record scope, exact IDs, request field conversion, record ID/version injection, and exclusion of read-only summary/delete-guard actions. For example:
 
 ```ts
 assert.equal(getApplicationActionForm('application.create')?.scope, 'module');
 assert.deepEqual(buildInventoryActionInput(getInventoryActionForm('inventory.batch.issue')!, {
-  quantity:'3', requesterId:'operator', purpose:'Approved use'
-}, batch), { batchId:batch.id, expectedVersion:batch.version, quantity:3, requesterId:'operator', purpose:'Approved use' });
+  quantity:'3', reason:'Approved use'
+}, batch), { batchId:batch.id, expectedVersion:batch.version, quantity:3, reason:'Approved use' });
 ```
 
-- [ ] **Step 2: Run focused tests and verify missing-form failures**
+- [x] **Step 2: Run focused tests and verify missing-form failures**
 
 Run: `cd engine/desktop-runtime; node --import tsx --test tests/unit/application-action-forms.test.ts tests/unit/inventory-action-forms.test.ts`
 
 Expected: FAIL with module-not-found.
 
-- [ ] **Step 3: Add scoped UI contributions**
+- [x] **Step 3: Add scoped UI contributions**
 
 Add `entity.module.actions` to application/inventory catalogs. Module contributions expose only create/receive-new commands; record contributions contain the fixed mutation commands listed above. Existing main-process permission filtering remains authoritative.
 
-- [ ] **Step 4: Implement immutable action form registries and presentation selection**
+- [x] **Step 4: Implement immutable action form registries and presentation selection**
 
 Use exact request types from each pack's `runtime/types.ts`. Reject unknown fields and invalid number/date/boolean/select values with redacted errors. Extend `DomainActions` by registry lookup rather than adding another command switch.
 
-- [ ] **Step 5: Run focused, domain, desktop type, unit, and integration tests**
+- [x] **Step 5: Run focused, domain, desktop type, unit, and integration tests**
 
 Run:
 
@@ -86,7 +86,7 @@ npm --prefix engine/desktop-runtime run test:integration
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add engine/domain-packs engine/desktop-runtime/src/renderer engine/desktop-runtime/tests/unit

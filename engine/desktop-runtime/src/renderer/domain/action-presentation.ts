@@ -1,4 +1,6 @@
 import type { DomainActionDto, EntityRecordDto } from '../../shared/dto';
+import { getApplicationActionForm } from './application-action-forms';
+import { getInventoryActionForm } from './inventory-action-forms';
 import { getProjectActionForm, type ActionScope } from './project-action-forms';
 
 export const legacyDomainActionIds = Object.freeze([
@@ -19,8 +21,8 @@ export function selectPresentableActions(
   if(scope==='record'&&!record)return Object.freeze([]);
   return Object.freeze(actions.filter((action)=>{
     if(action.entityId!==entityId||action.scope!==scope)return false;
-    const project=getProjectActionForm(action.id);
-    if(project)return project.scope===scope;
+    const form=getProjectActionForm(action.id)??getApplicationActionForm(action.id)??getInventoryActionForm(action.id);
+    if(form)return form.scope===scope;
     return scope==='record'&&legacyIds.has(action.id);
   }));
 }
