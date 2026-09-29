@@ -137,7 +137,8 @@ function Invoke-StandardDefaultAction {
             if($null-eq $State.CredentialSecrets){throw 'Secure credentials are required for packaged workflow verification.'}
             Import-Module (Join-Path $PSScriptRoot 'StandardBusinessCredentials.psm1') -Force -DisableNameChecking
             $receiptPath=Join-Path $State.Context.WorkspacePath 'acceptance-report.json'
-            $names=@('RZ_E2E_EXECUTABLE_PATH','RZ_E2E_RECEIPT_PATH','RZ_E2E_TEMPLATE_ID');$previous=@{}
+            $workflowCaptureRoot=Join-Path $State.Context.WorkspacePath 'workflow-screenshots'
+            $names=@('RZ_E2E_EXECUTABLE_PATH','RZ_E2E_RECEIPT_PATH','RZ_E2E_TEMPLATE_ID','RZ_E2E_WORKFLOW_CAPTURE_DIR');$previous=@{}
             $specialized=@{
                 asset_inspection_rectification=@('tests/e2e/reference-acceptance.spec.ts')
                 inventory_application_approval=@('tests/e2e/inventory-application-acceptance.spec.ts')
@@ -146,7 +147,7 @@ function Invoke-StandardDefaultAction {
             }
             foreach($name in $names){$previous[$name]=[Environment]::GetEnvironmentVariable($name)}
             try{
-                $env:RZ_E2E_EXECUTABLE_PATH=$executable.FullName;$env:RZ_E2E_RECEIPT_PATH=$receiptPath;$env:RZ_E2E_TEMPLATE_ID=[string]$State.Template.id
+                $env:RZ_E2E_EXECUTABLE_PATH=$executable.FullName;$env:RZ_E2E_RECEIPT_PATH=$receiptPath;$env:RZ_E2E_TEMPLATE_ID=[string]$State.Template.id;$env:RZ_E2E_WORKFLOW_CAPTURE_DIR=$workflowCaptureRoot
                 Use-StandardBusinessCredentialEnvironment -CredentialSecrets $State.CredentialSecrets -Action {
                     Invoke-CheckedNative -WorkingDirectory $desktopRoot -Command 'npx.cmd' -Arguments @('playwright','test','tests/e2e/standard-template-smoke.spec.ts') -FailureMessage 'Packaged standard workflow verification failed.'
                     if($specialized.ContainsKey([string]$State.Template.id)){
@@ -169,7 +170,10 @@ function Invoke-StandardDefaultAction {
             if($null-eq $State.CredentialSecrets){throw 'Secure credentials are required for screenshot capture.'}
             Import-Module (Join-Path $PSScriptRoot 'StandardBusinessCredentials.psm1') -Force -DisableNameChecking
             Use-StandardBusinessCredentialEnvironment -CredentialSecrets $State.CredentialSecrets -Action {
-                & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $desktopRoot 'tools\capture-standard-screenshots.ps1') -ExecutablePath $executable.FullName -BlueprintPath (Join-Path $State.Resources.resourcesPath 'blueprint.json') -OutputDirectory $output | Out-Host
+                $captureParameters=@{ExecutablePath=$executable.FullName;BlueprintPath=(Join-Path $State.Resources.resourcesPath 'blueprint.json');TemplateId=[string]$State.Template.id;OutputDirectory=$output}
+                $workflowCaptureRoot=Join-Path $State.Context.WorkspacePath 'workflow-screenshots'
+                if(Test-Path -LiteralPath $workflowCaptureRoot -PathType Container){$captureParameters.WorkflowCaptureDirectory=$workflowCaptureRoot}
+                & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $desktopRoot 'tools\capture-standard-screenshots.ps1') @captureParameters | Out-Host
                 if($LASTEXITCODE-ne 0){throw 'Standard desktop screenshot capture failed.'}
             }
             return Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $output 'screenshot-manifest.json')|ConvertFrom-Json

@@ -1,6 +1,7 @@
 {
   "contractVersion": "1.0",
-  "captureLimit": 5,
+  "minimumCaptureCount": 12,
+  "captureLimit": 18,
   "requiredCaptureKinds": ["dashboard", "list", "detail", "action"],
   "documents": [
     { "id": "manual", "docx": true, "pdf": true },

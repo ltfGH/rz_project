@@ -150,14 +150,22 @@ function Build-StandardBusinessMaterials {
     $modules = @($Blueprint.modules)
     $moduleIds = @($modules | ForEach-Object id)
     $captures = @($ScreenshotManifest.captures)
-    foreach ($kind in @($contract.requiredCaptureKinds)) {
-        if (@($captures | Where-Object kind -eq $kind).Count -eq 0) { throw "Screenshot manifest is missing '$kind'." }
+    $isV2 = $null -ne $ScreenshotManifest.PSObject.Properties['manifestVersion'] -and [string]$ScreenshotManifest.manifestVersion -eq '2.0'
+    if ($isV2) {
+        if ($captures.Count -lt [int]$contract.minimumCaptureCount -or $captures.Count -gt [int]$contract.captureLimit) { throw 'Screenshot manifest count is outside the version 2 contract.' }
+    }
+    else {
+        foreach ($kind in @($contract.requiredCaptureKinds)) {
+            if (@($captures | Where-Object kind -eq $kind).Count -eq 0) { throw "Screenshot manifest is missing '$kind'." }
+        }
     }
     if ($captures.Count -gt [int]$contract.captureLimit) { throw 'Screenshot manifest exceeds the capture limit.' }
     foreach ($capture in $captures) {
-        if ($null -ne $capture.moduleId -and $moduleIds -cnotcontains [string]$capture.moduleId) { throw "Screenshot references unknown module '$($capture.moduleId)'." }
-        if ([string]$capture.sha256 -notmatch '^[0-9a-f]{64}$') { throw 'Screenshot hash is invalid.' }
-        if([string]$capture.kind -eq 'action' -and ($capture.controlVerified -ne $true -or [string]::IsNullOrWhiteSpace([string]$capture.actionId))){throw 'Action screenshot did not verify its planned control.'}
+        if ($null -ne $capture.moduleId -and -not [string]::IsNullOrWhiteSpace([string]$capture.moduleId) -and $moduleIds -cnotcontains [string]$capture.moduleId) { throw "Screenshot references unknown module '$($capture.moduleId)'." }
+        $captureHash = if ($isV2) { [string]$capture.imageSha256 } else { [string]$capture.sha256 }
+        if ($captureHash -notmatch '^[0-9a-f]{64}$') { throw 'Screenshot hash is invalid.' }
+        $requiresControl = if ($isV2) { -not [string]::IsNullOrWhiteSpace([string]$capture.actionId) } else { [string]$capture.kind -eq 'action' }
+        if($requiresControl -and $capture.controlVerified -ne $true){throw 'Action screenshot did not verify its planned control.'}
     }
     foreach ($pair in @(
         @('softwareName',[string]$Profile.softwareName), @('purpose',[string]$Profile.purpose), @('industry',[string]$Profile.industry),
@@ -182,17 +190,20 @@ function Build-StandardBusinessMaterials {
             New-Item -ItemType Directory -Path $screenshotOutput -Force | Out-Null
             $captureRoot = [IO.Path]::GetFullPath($ScreenshotRoot).TrimEnd('\')
             foreach ($capture in $captures) {
-                $sourcePath = [IO.Path]::GetFullPath((Join-Path $captureRoot ([string]$capture.path)))
+                $captureName = if ($isV2) { [string]$capture.fileName } else { [string]$capture.path }
+                $captureHash = if ($isV2) { [string]$capture.imageSha256 } else { [string]$capture.sha256 }
+                $captureId = if ($isV2) { [string]$capture.scenarioId } else { [string]$capture.id }
+                $sourcePath = [IO.Path]::GetFullPath((Join-Path $captureRoot $captureName))
                 if (-not $sourcePath.StartsWith($captureRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw 'Screenshot manifest contains an invalid path.' }
-                if ((Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$capture.sha256) { throw "Screenshot changed after capture: $($capture.id)" }
+                if ((Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $captureHash) { throw "Screenshot changed after capture: $captureId" }
                 $name = [IO.Path]::GetFileName($sourcePath)
                 Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $screenshotOutput $name)
-                $caption = ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $capture.id,$capture.moduleId,$capture.actionId)
+                $caption = ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $captureId,$capture.moduleId,$capture.actionId)
                 $captureItems.Add(('<figure><img src="screenshots/{0}" style="max-width:100%"><figcaption>{1}</figcaption></figure>' -f (ConvertTo-MaterialHtmlText $name),$caption))
             }
         }
         else {
-            foreach ($capture in $captures) { $captureItems.Add((ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $capture.id,$capture.moduleId,$capture.actionId))) }
+            foreach ($capture in $captures) { $captureId=if($isV2){[string]$capture.scenarioId}else{[string]$capture.id};$captureItems.Add((ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $captureId,$capture.moduleId,$capture.actionId))) }
         }
         $captureHtml = if ($SkipDocumentExport) { '<ul>' + (($captureItems | ForEach-Object { '<li>' + $_ + '</li>' }) -join '') + '</ul>' } else { $captureItems -join '' }
         $runtimeVersion = if($null-ne $ProjectLock.PSObject.Properties['runtime']){[string]$ProjectLock.runtime.desktop}else{[string]$ProjectLock.desktopRuntimeVersion}

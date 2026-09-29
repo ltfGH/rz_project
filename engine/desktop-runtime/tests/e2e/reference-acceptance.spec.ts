@@ -1,4 +1,5 @@
 import { test, expect, _electron as electron } from '@playwright/test';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,6 +18,9 @@ test('reference workflow', async () => {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-runtime-e2e-'));
   fs.mkdirSync(path.join(root, 'test-results'), { recursive: true });
   fs.appendFileSync(path.join(root, 'test-results', 'e2e-temp-paths.txt'), `${userData}\n`, 'utf8');
+  const captureRoot=process.env.RZ_E2E_WORKFLOW_CAPTURE_DIR?path.resolve(process.env.RZ_E2E_WORKFLOW_CAPTURE_DIR):undefined,captureEntries:Record<string,unknown>[]=[];
+  const packagedExecutable=process.env.RZ_E2E_EXECUTABLE_PATH?path.resolve(process.env.RZ_E2E_EXECUTABLE_PATH):undefined,captureEvidence=captureRoot&&packagedExecutable?{executableSha256:crypto.createHash('sha256').update(fs.readFileSync(packagedExecutable)).digest('hex'),blueprintSha256:crypto.createHash('sha256').update(fs.readFileSync(path.join(path.dirname(packagedExecutable),'resources','runtime-resources','blueprint.json'))).digest('hex')}:undefined;
+  const capture=async(page:import('@playwright/test').Page,entry:Record<string,unknown>)=>{if(!captureRoot)return;if(!captureEvidence)throw new Error('Workflow screenshot evidence paths are unavailable.');const scenarioId=String(entry.scenarioId??'');if(!/^[a-z][a-z0-9_]{1,63}$/.test(scenarioId))throw new Error('Workflow screenshot scenario is invalid.');const{controlLabel,...metadata}=entry,actionId=metadata.actionId??null;let controlVerified=false;if(actionId!==null){if(typeof controlLabel!=='string'||!controlLabel)throw new Error('Workflow action capture requires a control label.');const control=page.getByRole('button',{name:controlLabel,exact:true});controlVerified=await control.count()>0&&await control.first().isVisible();if(!controlVerified)throw new Error(`Workflow action control '${controlLabel}' is not visible.`);}fs.mkdirSync(captureRoot,{recursive:true});const fileName=`asset-remediation-${scenarioId}.png`;await page.screenshot({path:path.join(captureRoot,fileName),fullPage:true});captureEntries.push({...metadata,...captureEvidence,scenarioId,fileName,controlVerified});const indexPath=path.join(captureRoot,'asset-remediation.captures.json'),staging=`${indexPath}.tmp`;fs.writeFileSync(staging,JSON.stringify(captureEntries,null,2),'utf8');fs.renameSync(staging,indexPath);};
   const executablePath = process.env.RZ_E2E_EXECUTABLE_PATH;
   const app = await electron.launch(executablePath
     ? { executablePath: path.resolve(executablePath), env: { ...process.env, RZ_RUNTIME_USER_DATA: userData } }
@@ -26,7 +30,7 @@ test('reference workflow', async () => {
     await expect(page.getByLabel('账号')).toBeVisible();
     const source = fs.readFileSync(path.join(root, 'tools', 'reference-e2e-flow.source.js'), 'utf8');
     const run = new Function(source)() as () => Promise<void>;
-    (globalThis as any).__referenceE2eContext = { electron, executablePath, initialApp: app, initialPage: page, userData, root, fs, path };
+    (globalThis as any).__referenceE2eContext = { electron, executablePath, initialApp: app, initialPage: page, userData, root, fs, path, capture };
     await run();
     delete (globalThis as any).__referenceE2eContext;
   } finally {

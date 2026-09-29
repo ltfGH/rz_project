@@ -19,7 +19,7 @@ test('declares the exact fixed mutating project action forms', () => {
     'project.task.reject','project.task.approve','project.task.cancel',
     'project.task.restore','project.risk.create','project.risk.mitigate',
     'project.risk.close','project.risk.reopen','project.deliverable.submit',
-    'project.deliverable.review'
+    'project.deliverable.review','project.delivery.archive'
   ]);
   assert.equal(getProjectActionForm('project.create')?.scope, 'module');
   assert.equal(getProjectActionForm('project.create')?.entityId, 'project');
@@ -46,6 +46,9 @@ test('builds typed module and selected-project child requests', () => {
   assert.deepEqual(buildProjectActionInput(getProjectActionForm('project.deliverable.review')!, {
     decision: 'accepted', comment: 'Verified'
   }, record(31, 6)), { deliverableId: 31, expectedVersion: 6, decision: 'accepted', comment: 'Verified' });
+  assert.deepEqual(buildProjectActionInput(getProjectActionForm('project.delivery.archive')!, {
+    deliverableId:'31',fileVersionCode:'FILE-001'
+  },record(17,4)),{projectId:17,deliverableId:31,fileVersionCode:'FILE-001'});
 });
 
 test('injects fixed record ids and versions for no-input and comment actions', () => {

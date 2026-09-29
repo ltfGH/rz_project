@@ -1,5 +1,5 @@
 return async function runReferenceFlow() {
-  const { electron, executablePath, initialApp, initialPage, userData, root, fs, path } = globalThis.__referenceE2eContext;
+  const { electron, executablePath, initialApp, initialPage, userData, root, fs, path, capture } = globalThis.__referenceE2eContext;
   const { spawnSync } = process.getBuiltinModule('node:child_process');
   const crypto = process.getBuiltinModule('node:crypto');
   const sha256 = (filename) => crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
@@ -21,6 +21,9 @@ return async function runReferenceFlow() {
   }, [method, args]);
   const login = async (page, user, password) => unwrap(await invoke(page, 'login', [user, password]));
   const command = async (page, token, id, payload) => unwrap(await invoke(page, 'domain', [token, id, payload]));
+  const uiLogout=async(page)=>{const button=page.getByRole('button',{name:'退出登录'});if(await button.count())await button.click();await page.getByLabel('账号').waitFor();};
+  const uiLogin=async(page,user,password)=>{await page.getByLabel('账号').fill(user);await page.getByLabel('密码').fill(password);await page.getByRole('button',{name:'登录'}).click();await page.getByRole('navigation',{name:'主导航'}).waitFor();};
+  const moduleName=async(page,token,id)=>{const metadata=unwrap(await invoke(page,'metadata',[token]));const module=metadata.modules.find((entry)=>entry.id===id);if(!module)throw new Error(`Module '${id}' is unavailable.`);return module.name;};
   const showInactiveAsset = async (page) => {
     await page.getByLabel('账号').fill('administrator');
     await page.getByLabel('密码').fill(passwords.administrator);
@@ -86,6 +89,9 @@ return async function runReferenceFlow() {
     }]);
     if (blockedAsset.ok || blockedAsset.error.code !== 'INVALID_TRANSITION') throw new Error('Open inspection did not block asset deactivation.');
     const started = await command(page, operator.token, 'inspection.start', { taskId: task.taskId, expectedTaskVersion: task.version });
+    await uiLogin(page,'operator',passwords.operator);await page.getByRole('button',{name:await moduleName(page,operator.token,'inspection_tasks'),exact:true}).click();await page.getByPlaceholder('搜索记录').fill('E2E 巡检任务');await page.getByRole('row').filter({hasText:'E2E 巡检任务'}).getByRole('button',{name:/^查看 /}).click();
+    const inspectionActions=page.getByRole('complementary',{name:'记录详情'}).getByRole('region',{name:'领域操作'});await inspectionActions.getByRole('button',{name:'记录检查结果',exact:true}).click();await inspectionActions.getByLabel('检查项 ID').fill(String(task.itemIds[0]));await inspectionActions.getByLabel('检查结果').selectOption('abnormal');await inspectionActions.getByLabel('异常描述').fill('运行温度超过阈值');await inspectionActions.getByLabel('处置说明').fill('自动创建整改工单');
+    await capture(page,{scenarioId:'inspection_abnormal_form',workflowStepId:'abnormal',roleId:'operations_operator',moduleId:'inspection_tasks',actionId:'inspection.record',controlLabel:'记录检查结果',stateBefore:'巡检任务执行中且尚未登记异常',stateAfter:'异常结果表单已完整填写'});await inspectionActions.getByRole('button',{name:'取消',exact:true}).click();
     const recordPayload = {
       taskId: task.taskId, itemId: task.itemIds[0], expectedTaskVersion: started.version, expectedItemVersion: 1,
       result: 'abnormal', finding: '运行温度超过阈值', disposition: '自动创建整改工单'
@@ -105,6 +111,10 @@ return async function runReferenceFlow() {
     if (early.ok || early.error.code !== 'INVALID_TRANSITION') throw new Error('Open work order did not block inspection archive.');
     await command(page, reviewer.token, 'work_order.approve_close', { workOrderId: work.id, expectedVersion: resolved.version, comment: '整改验证通过' });
     await command(page, reviewer.token, 'inspection.archive', { taskId: task.taskId, expectedTaskVersion: submitted.version, comment: '整改已关闭' });
+    await uiLogout(page);await uiLogin(page,'reviewer',passwords.reviewer);await page.getByRole('button',{name:await moduleName(page,reviewer.token,'work_orders'),exact:true}).click();await page.getByPlaceholder('搜索记录').fill(String(work.values.code));await page.getByRole('row').filter({hasText:String(work.values.code)}).getByRole('button',{name:/^查看 /}).click();
+    await capture(page,{scenarioId:'work_order_close',workflowStepId:'close',roleId:'operations_reviewer',moduleId:'work_orders',actionId:null,stateBefore:'整改工单待复核',stateAfter:'整改工单详情显示已关闭',controlVerified:false});await page.getByRole('button',{name:'关闭详情',exact:true}).click();
+    await page.getByRole('button',{name:await moduleName(page,reviewer.token,'inspection_tasks'),exact:true}).click();await page.getByPlaceholder('搜索记录').fill('E2E 巡检任务');await page.getByRole('row').filter({hasText:'E2E 巡检任务'}).getByRole('button',{name:/^查看 /}).click();
+    await capture(page,{scenarioId:'inspection_archive',workflowStepId:'archive',roleId:'operations_reviewer',moduleId:'inspection_tasks',actionId:null,stateBefore:'整改关闭后巡检待归档',stateAfter:'巡检任务详情显示已归档',controlVerified:false});await uiLogout(page);
     await deactivateAssetInUi(page);
     fs.mkdirSync(path.join(root, 'test-results'), { recursive: true });
     await page.screenshot({ path: path.join(root, 'test-results', 'reference-closed.png'), fullPage: true });

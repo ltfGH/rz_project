@@ -11,6 +11,7 @@ import { verifyProjectResources } from '../core/project-lock';
 import { compileSchema } from '../core/schema-compiler';
 import type { RuntimeBlueprint, RuntimeEntity } from '../shared/blueprint';
 import { getMaterialDescriptor } from './material-descriptors';
+import { moduleForMaterialAction } from './screenshot-evidence';
 import { loadStandardTemplateCatalog } from './standard-project';
 
 const sha=z.string().regex(/^[a-f0-9]{64}$/),id=z.string().regex(/^[a-z][a-z0-9_]{1,63}$/),text=z.string().trim().min(1).max(500);
@@ -20,7 +21,7 @@ const sourceManifestSchema=z.object({
   files:z.array(z.object({path:relativePath,lines:z.number().int().nonnegative(),bytes:z.number().int().nonnegative(),sha256:sha}).strict()).min(1).max(50_000)
 }).strict();
 const captureSchema=z.object({
-  scenarioId:id,stepId:id,roleId:id,moduleId:id,actionId:z.string().nullable(),stateBefore:text,stateAfter:text,
+  scenarioId:id,stepId:id,workflowStepId:id.nullable(),roleId:id,moduleId:id.nullable(),actionId:z.string().nullable(),stateBefore:text,stateAfter:text,
   executableSha256:sha,blueprintSha256:sha,imageSha256:sha,fileName:z.string().regex(/^[a-z0-9][a-z0-9_-]*\.png$/),
   width:z.number().int().min(320).max(10_000),height:z.number().int().min(240).max(10_000),
   perceptualDigest:z.string().regex(/^[a-f0-9]{16,128}$/),controlVerified:z.boolean()
@@ -102,7 +103,15 @@ export function buildMaterialFacts(input:MaterialFactsInput){
   const entityFacts=descriptor.coreEntityIds.map((entityId)=>{const entity=entities.get(entityId);if(!entity)return fail('ENTITY_REFERENCE_INVALID');return entityFact(entity);});
   const roleFacts=descriptor.roleProfileIds.map((roleId)=>{const role=roles.get(roleId);if(!role)return fail('ROLE_REFERENCE_INVALID');return Object.freeze({id:role.id,name:role.name,visibleOperations:Object.freeze(commands.filter((command)=>role.permissions.includes(command.permission)).map((command)=>command.id))});});
   const stepsById=new Map(descriptor.workflowSteps.map((item)=>[item.id,item]));
-  for(const capture of screenshots.captures){const step=stepsById.get(capture.stepId);if(capture.blueprintSha256!==verified.blueprintSha256||capture.executableSha256!==acceptance.executableSha256||!step||capture.moduleId!==step.moduleId||capture.actionId!==(step.actionId??null)||!modules.has(capture.moduleId)||!roles.has(capture.roleId)||(capture.actionId!==null&&!permissionByAction.has(capture.actionId)))return fail('SCREENSHOT_REFERENCE_INVALID');}
+  if(new Set(screenshots.captures.map((capture)=>capture.stepId)).size!==screenshots.captures.length)return fail('SCREENSHOT_REFERENCE_INVALID');
+  for(const capture of screenshots.captures){
+    const workflowStep=capture.workflowStepId===null?undefined:stepsById.get(capture.workflowStepId);
+    const captureRole=roles.get(capture.roleId),capturePermission=capture.actionId===null?undefined:permissionByAction.get(capture.actionId);
+    const expectedModule=workflowStep?(workflowStep.actionId?moduleForMaterialAction(workflowStep.actionId,workflowStep.moduleId):workflowStep.moduleId):undefined;
+    const invalidWorkflow=capture.workflowStepId!==null&&(!workflowStep||capture.moduleId!==expectedModule||(capture.actionId!==null&&capture.actionId!==(workflowStep.actionId??null)));
+    const invalidAction=capture.actionId!==null&&(typeof capturePermission!=='string'||!captureRole?.permissions.includes(capturePermission));
+    if(capture.blueprintSha256!==verified.blueprintSha256||capture.executableSha256!==acceptance.executableSha256||invalidWorkflow||(capture.moduleId!==null&&!modules.has(capture.moduleId))||!captureRole||invalidAction)return fail('SCREENSHOT_REFERENCE_INVALID');
+  }
   const facts={
     factVersion:'1.0' as const,templateId:input.templateId,
     software:Object.freeze({id:blueprint.software.id,name:blueprint.software.name??'',version:blueprint.software.version??'',purpose:blueprint.software.purpose??'',targetUsers:Object.freeze([...(blueprint.software.targetUsers??[])]),boundaries:Object.freeze([...(blueprint.software.boundaries??[])])}),

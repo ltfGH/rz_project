@@ -89,6 +89,13 @@ try {
     Assert-Equal ($allHtml -match [regex]::Escape($fixtureRoot)) $false
     Assert-Equal ($allHtml -match 'ghp_[A-Za-z0-9]+') $false
     Assert-Equal ($allHtml -match 'StrongPass123!') $false
+    $v2Captures=@(0..11|ForEach-Object{[pscustomobject]@{scenarioId=('scene_'+$_);stepId=('capture_'+$_);workflowStepId=$null;roleId='operations_admin';moduleId=if($_-lt 2){$null}else{'assets'};actionId=$null;stateBefore='页面展示前';stateAfter='页面展示后';executableSha256=('1'*64);blueprintSha256=('2'*64);imageSha256=('{0:x64}'-f ($_+1));fileName=('scene-'+$_+'.png');width=1440;height=960;perceptualDigest=('a'*64);controlVerified=$false}})
+    $v2Result=Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'materials-v2-output') -Blueprint $blueprint `
+        -Template $template -Profile ([pscustomobject]@{softwareName='园区资产工单软件';purpose='管理园区资产与工单闭环';industry='园区运维'}) `
+        -ProjectLock ([pscustomobject]@{runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'};databaseSchemaVersion=1}) `
+        -ScreenshotManifest ([pscustomobject]@{manifestVersion='2.0';templateId='asset_work_order_operations';executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$v2Captures}) `
+        -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -SkipDocumentExport
+    Assert-Equal $v2Result.html.Count 4
     $mismatchedManifest=[pscustomobject]@{executableSha256=('9'*64);blueprintSha256=('2'*64);captures=$screenshots}
     Assert-Throws {
         Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'mismatch-output') -Blueprint $blueprint -Template $template `

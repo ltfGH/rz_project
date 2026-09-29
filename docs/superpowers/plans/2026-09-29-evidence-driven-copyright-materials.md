@@ -202,23 +202,23 @@ git commit -m "feat: build verified material facts"
 - Screenshot manifest `2.0` contains 12–18 captures with `scenarioId`, `stepId`, role, module, action, stateBefore, stateAfter, executable/blueprint/image hashes, dimensions, and perceptual digest.
 - Produces `assertScreenshotEvidence(manifest, facts)`.
 
-- [ ] **Step 1: Write failing count, hash, pixel, and duplicate tests**
+- [x] **Step 1: Write failing count, hash, pixel, and duplicate tests**
 
 Reject fewer than twelve or more than eighteen images, blank images, wrong executable/blueprint hash, missing target control, repeated scenario/step IDs, and perceptual digests below the configured difference threshold.
 
-- [ ] **Step 2: Extend the three representative packaged flows with capture checkpoints**
+- [x] **Step 2: Extend the three representative packaged flows with capture checkpoints**
 
 Asset remediation, inventory approval, and project task flows write screenshots before form submission, with the form open, and after persisted state change. Use themed module names from metadata and named accessible controls.
 
-- [ ] **Step 3: Add generic module, login, dashboard, backup, and minimum-width captures**
+- [x] **Step 3: Add generic module, login, dashboard, backup, and minimum-width captures**
 
 Fill remaining slots from the descriptor's selected modules without duplicating the representative flow images. Do not capture passwords or show plaintext credential fields.
 
-- [ ] **Step 4: Calculate image evidence and write manifest 2.0**
+- [x] **Step 4: Calculate image evidence and write manifest 2.0**
 
 Use decoded RGBA sampling for blank/near-duplicate checks; do not compare compressed PNG bytes. Fail capture atomically and remove its output on any mismatch.
 
-- [ ] **Step 5: Run unit, syntax, and representative packaged screenshot tests**
+- [x] **Step 5: Run unit, syntax, and representative packaged screenshot tests**
 
 Run:
 
@@ -228,7 +228,7 @@ node --check engine/desktop-runtime/tools/capture-standard-screenshots.cjs
 npm --prefix engine/desktop-runtime run typecheck
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add engine/desktop-runtime/standard-materials engine/desktop-runtime/src/generator/screenshot-evidence.ts engine/desktop-runtime/tools engine/desktop-runtime/tests

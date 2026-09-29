@@ -14,7 +14,7 @@ export interface ActionFieldDefinition {
   readonly sourceField?: string;
 }
 
-type BaseKind = 'none' | 'project' | 'project-child' | 'milestone' | 'task' | 'risk' | 'deliverable';
+type BaseKind = 'none' | 'project' | 'project-child' | 'project-archive' | 'milestone' | 'task' | 'risk' | 'deliverable';
 export interface ActionFormDefinition {
   readonly id: string;
   readonly label: string;
@@ -68,7 +68,8 @@ const definitions = Object.freeze([
     text('milestoneCode','里程碑编码',{required:false}),text('deliverableKey','交付物键'),text('name','交付物名称'),
     text('businessVersion','业务版本'),boolean('required','关闭必需'),text('fileName','文件名称'),text('fileDigest','文件摘要')
   )),
-  definition('project.deliverable.review','复核交付成果','deliverable','record','deliverable',fields(select('decision','复核结论',['accepted','rejected']),text('comment','复核意见')))
+  definition('project.deliverable.review','复核交付成果','deliverable','record','deliverable',fields(select('decision','复核结论',['accepted','rejected']),text('comment','复核意见'))),
+  definition('project.delivery.archive','归档交付物','project','record','project-archive',fields(number('deliverableId','交付版本 ID'),text('fileVersionCode','文件版本编码')))
 ]);
 
 const byId = new Map(definitions.map((item) => [item.id,item]));
@@ -90,6 +91,7 @@ function parseField(field:ActionFieldDefinition,value:unknown):unknown{
 function recordBase(kind:BaseKind,record?:EntityRecordDto):Record<string,unknown>{
   if(kind==='none')return{};if(!record)return missingRecord();
   if(kind==='project-child')return{projectId:record.id};
+  if(kind==='project-archive')return{projectId:record.id};
   const names={project:'projectId',milestone:'milestoneId',task:'taskId',risk:'riskId',deliverable:'deliverableId'} as const;
   return{[names[kind as keyof typeof names]]:record.id,expectedVersion:record.version};
 }

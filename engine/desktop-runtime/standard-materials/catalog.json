@@ -15,7 +15,7 @@
         {"id":"archive","label":"归档申请","moduleId":"file_versions","entityId":"file_version","actionId":"application.archive","prerequisite":"申请已批准且归档文件为就绪版本","result":"申请和文件版本建立归档关系","failure":"文件缺失、归属错误或摘要不符时停止归档"}
       ],
       "unsupportedClaims": ["不包含互联网在线审批或移动端推送","不包含自动识别申请人身份或法定资质"],
-      "screenshotScenarioIds": ["login","dashboard","application_list","application_create_form","application_draft","application_submit","application_review","application_reject","application_revise","application_approve","application_archive","certificate_list","reminder_list","backup"],
+      "screenshotScenarioIds": ["login","dashboard","application_list","application_detail","application_create_form","certificate_list","certificate_detail","reminder_list","reminder_detail","file_version_list","file_version_detail","backup","minimum_width"],
       "coreEntityIds": ["application","approval_node","file_version","certificate"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -33,7 +33,7 @@
         {"id":"archive","label":"复核归档","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.archive","prerequisite":"任务复核通过且不存在未关闭阻断项","result":"巡检任务完成归档并保留流转记录","failure":"角色、状态或版本不符时拒绝归档"}
       ],
       "unsupportedClaims": ["不包含传感器自动采集或远程控制资产","不包含在线地图定位和外部消息推送"],
-      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","inspection_plan_form","inspection_plan_list","inspection_task_form","inspection_task_list","inspection_start","inspection_record","inspection_submit","inspection_archive","backup","minimum_width"],
+      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","inspection_plan_form","inspection_plan_list","inspection_plan_detail","inspection_task_form","inspection_task_list","inspection_task_detail","inspection_item_list","inspection_item_detail","backup","minimum_width"],
       "coreEntityIds": ["asset","inspection_plan","inspection_task","inspection_item"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -45,13 +45,13 @@
       "workflowSteps": [
         {"id":"asset","label":"建立资产台账","moduleId":"assets","entityId":"asset","prerequisite":"资产基础资料完整","result":"资产可被巡检计划引用","failure":"无效或重复资产信息不会写入"},
         {"id":"inspection","label":"执行资产巡检","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"asset.inspection.plan.create","prerequisite":"已选择有效资产并具备计划权限","result":"形成并执行关联资产的巡检任务","failure":"资产或计划条件不满足时停止创建"},
-        {"id":"abnormal","label":"登记异常结果","moduleId":"inspection_items","entityId":"inspection_item","actionId":"inspection.record","prerequisite":"巡检任务处于执行中","result":"异常检查项保存发现和处置说明","failure":"异常说明不完整时拒绝记录"},
+        {"id":"abnormal","label":"登记异常结果","moduleId":"inspection_tasks","entityId":"inspection_item","actionId":"inspection.record","prerequisite":"巡检任务处于执行中","result":"异常检查项保存发现和处置说明","failure":"异常说明不完整时拒绝记录"},
         {"id":"work_order","label":"分派整改工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.dispatch","prerequisite":"异常已联动形成待分派工单","result":"工单分派至处理人员并记录响应要求","failure":"处理人或工单版本无效时拒绝分派"},
         {"id":"close","label":"复核关闭整改","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.approve_close","prerequisite":"处理人员已提交解决说明且复核人独立","result":"整改工单关闭并固化处理记录","failure":"自审或处理记录不完整时不能关闭"},
         {"id":"archive","label":"归档巡检","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.archive","prerequisite":"关联整改工单全部关闭","result":"巡检任务归档并保留异常整改链路","failure":"仍有未关闭工单时归档被阻断"}
       ],
       "unsupportedClaims": ["不包含物联网设备自动告警或控制","不包含外部工单平台和网络同步"],
-      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","inspection_plan","inspection_task","inspection_start","inspection_abnormal_form","inspection_abnormal_saved","work_order_created","work_order_dispatch","work_order_accept","work_order_process","work_order_resolve","work_order_close","inspection_archive","backup","minimum_width"],
+      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","inspection_plan_form","inspection_task_form","inspection_task_list","inspection_task_detail","inspection_abnormal_form","work_order_list","work_order_detail","work_order_close","inspection_archive","backup","minimum_width"],
       "coreEntityIds": ["asset","inspection_task","inspection_item","work_order"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -70,7 +70,7 @@
         {"id":"close","label":"复核关闭工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.approve_close","prerequisite":"复核人与处理人不同且解决说明完整","result":"工单关闭并固化完成时间","failure":"自审、状态或版本不符时拒绝关闭"}
       ],
       "unsupportedClaims": ["不包含远程设备诊断或自动维修","不包含短信、电话或互联网派单"],
-      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","work_order_create_form","work_order_created","work_order_dispatch_form","work_order_dispatched","work_order_accept","work_order_processing_form","work_order_processing_saved","work_order_resolution","work_order_review","work_order_closed","backup","minimum_width"],
+      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","work_order_create_form","work_order_list","work_order_detail","work_order_dispatch_form","work_order_processing_form","work_order_event_list","work_order_event_detail","backup","minimum_width"],
       "coreEntityIds": ["asset","work_order","work_order_event"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -81,13 +81,13 @@
       "validationNotes": ["异常检查项必须提供发现内容和处置说明","巡检归档前关联整改工单必须全部关闭"],
       "workflowSteps": [
         {"id":"inspection","label":"执行巡检任务","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.start","prerequisite":"任务已分派给当前执行人员","result":"任务进入执行中并允许记录检查项","failure":"执行人或状态不符时拒绝开始"},
-        {"id":"abnormal","label":"发现巡检异常","moduleId":"inspection_items","entityId":"inspection_item","actionId":"inspection.record","prerequisite":"检查项属于当前执行中的任务","result":"保存异常发现并触发整改上下文","failure":"异常说明缺失时不保存结果"},
+        {"id":"abnormal","label":"发现巡检异常","moduleId":"inspection_tasks","entityId":"inspection_item","actionId":"inspection.record","prerequisite":"检查项属于当前执行中的任务","result":"保存异常发现并触发整改上下文","failure":"异常说明缺失时不保存结果"},
         {"id":"work_order","label":"处理整改工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.dispatch","prerequisite":"异常已形成待分派整改工单","result":"工单进入分派、受理和处理流程","failure":"分派条件不完整时保持待分派"},
         {"id":"close","label":"复核关闭整改","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.approve_close","prerequisite":"整改处理和解决说明已经提交","result":"独立复核后关闭整改工单","failure":"自审或处理证据不足时拒绝关闭"},
         {"id":"archive","label":"归档巡检结果","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.archive","prerequisite":"所有异常整改工单均已关闭","result":"巡检任务归档并保留完整链路","failure":"存在未关闭整改时阻止归档"}
       ],
       "unsupportedClaims": ["不包含在线监控或传感器自动判定","不包含第三方工单系统接口"],
-      "screenshotScenarioIds": ["login","dashboard","inspection_task_list","inspection_task_detail","inspection_start","inspection_record_form","inspection_abnormal_saved","work_order_list","work_order_dispatch","work_order_accept","work_order_process","work_order_resolve","work_order_review","work_order_closed","inspection_archive","backup"],
+      "screenshotScenarioIds": ["login","dashboard","inspection_task_list","inspection_task_detail","inspection_record_form","inspection_item_list","inspection_item_detail","work_order_list","work_order_detail","work_order_dispatch_form","work_order_processing_form","work_order_event_list","work_order_event_detail","backup","minimum_width"],
       "coreEntityIds": ["inspection_task","inspection_item","work_order","work_order_event"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -105,7 +105,7 @@
         {"id":"ledger","label":"追溯库存流水","moduleId":"inventory_transactions","entityId":"inventory_transaction","prerequisite":"库存扣减事务已成功提交","result":"流水关联批次、申请轮次和操作人员","failure":"未提交的事务不会产生孤立流水"}
       ],
       "unsupportedClaims": ["不包含联网采购、供应商或财务结算功能","不包含条码设备自动采集或外部仓储接口"],
-      "screenshotScenarioIds": ["login","dashboard","material_list","material_create_form","warehouse_list","batch_receive_form","batch_received","application_create_form","application_draft","application_submit","application_review","application_approved","batch_deducted","inventory_ledger","backup","minimum_width"],
+      "screenshotScenarioIds": ["login","dashboard","material_list","material_create_form","warehouse_list","warehouse_detail","batch_receive_form","inventory_batch_list","inventory_batch_detail","application_create_form","application_draft","application_review","batch_deducted","inventory_ledger","backup","minimum_width"],
       "coreEntityIds": ["material","inventory_batch","application","inventory_transaction"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -122,7 +122,7 @@
         {"id":"close","label":"申请项目关闭","moduleId":"projects","entityId":"project","actionId":"project.request_close","prerequisite":"任务、最新必需交付和文件归档均完成","result":"项目进入关闭复核流程","failure":"任一关闭条件未满足时列出阻断原因"}
       ],
       "unsupportedClaims": ["不包含云端文件存储或网络协作","不包含电子签章和法定档案认证"],
-      "screenshotScenarioIds": ["login","dashboard","project_create_form","project_created","project_activate","task_create_form","task_progress","deliverable_submit_form","deliverable_submitted","deliverable_review","file_archive_form","file_archived","project_close_request","project_close_review","backup","minimum_width"],
+      "screenshotScenarioIds": ["login","dashboard","project_list","project_detail","project_create_form","project_activate","task_create_form","deliverable_submit_form","deliverable_list","deliverable_detail","file_archive_form","project_delivery_archive_list","project_delivery_archive_detail","backup","minimum_width"],
       "coreEntityIds": ["project","project_task","deliverable","project_delivery_archive"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     },
@@ -140,7 +140,7 @@
         {"id":"close","label":"申请关闭复核","moduleId":"projects","entityId":"project","actionId":"project.request_close","prerequisite":"必需任务、里程碑、风险和交付条件满足","result":"项目进入独立关闭复核","failure":"存在未完成条件时阻止关闭并保留项目状态"}
       ],
       "unsupportedClaims": ["不包含多人在线实时协同或云同步","不包含外部代码仓库和持续集成接口"],
-      "screenshotScenarioIds": ["login","dashboard","project_create_form","project_created","project_activate","milestone_create_form","task_create_form","task_start","task_progress","task_submit","task_review","risk_create_form","risk_process","deliverable_submit","deliverable_review","project_close_request","project_close_review","backup"],
+      "screenshotScenarioIds": ["login","dashboard","project_create_form","project_activate","milestone_create_form","task_create_form","task_start","task_progress","task_submit","task_review","risk_create_form","risk_process","deliverable_submit","deliverable_review","project_close_request","project_close_review","backup","minimum_width"],
       "coreEntityIds": ["project","milestone","project_task","project_risk"],
       "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
     }

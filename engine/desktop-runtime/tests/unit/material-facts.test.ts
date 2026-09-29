@@ -39,7 +39,7 @@ test('rejects mismatched evidence unsafe paths credentials and unknown receipt d
     ['acceptance hash mismatch',(value)=>{value.acceptanceReceipt.executableSha256='8'.repeat(64);}],
     ['absolute source path',(value)=>{value.sourceManifest.files[0].path='C:/secret/source.ts';}],
     ['duplicate source path',(value)=>{value.sourceManifest.files[1].path=value.sourceManifest.files[0].path;const canonical=value.sourceManifest.files.map((file:any)=>`${file.path}|${file.lines}|${file.bytes}|${file.sha256}`).join('\n');value.sourceManifest.sha256=crypto.createHash('sha256').update(canonical).digest('hex');}],
-    ['wrong step action',(value)=>{value.screenshotManifest.captures[0].actionId='project.activate';}],
+    ['wrong step action',(value)=>{const target=value.screenshotManifest.captures.find((capture:any)=>capture.workflowStepId);target.actionId='project.activate';}],
     ['credential field',(value)=>{value.acceptanceReceipt.password='StrongPass123!';}],
     ['failed receipt',(value)=>{value.acceptanceReceipt.status='failed';}],
     ['wrong template',(value)=>{value.sourceManifest.templateId='asset_inspection_management';}]

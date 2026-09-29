@@ -1,0 +1,9 @@
+{
+  "qualityVersion": "1.0",
+  "minimumLuminanceVariance": 8,
+  "minimumDistinctSampleColors": 8,
+  "maximumPerceptualHammingDistance": 4,
+  "minimumChangedPixelRatio": 0.0005,
+  "maximumPngBytes": 33554432,
+  "maximumPixels": 25000000
+}
