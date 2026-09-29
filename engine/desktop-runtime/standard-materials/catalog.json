@@ -1,0 +1,148 @@
+{
+  "catalogVersion": "1.0",
+  "templates": [
+    {
+      "id": "application_approval_archive",
+      "modulePurposes": {"applications":"登记、提交并跟踪业务申请","file_versions":"保管申请归档文件的不可变版本","certificates":"维护证照版本和续期记录","expiry_reminders":"处理证照到期提醒"},
+      "operationLabels": {"application.create":"创建申请","application.submit":"提交审批","application.reject":"驳回申请","application.revise":"修订申请","application.approve":"批准申请","application.archive":"归档申请"},
+      "validationNotes": ["仅申请人可提交、撤回或修订本人申请","审批节点按既定顺序处理且每次写入校验版本"],
+      "workflowSteps": [
+        {"id":"create","label":"创建申请","moduleId":"applications","entityId":"application","actionId":"application.create","prerequisite":"申请人员已登录并具备创建权限","result":"系统形成草稿申请和唯一申请编码","failure":"必填内容为空时不写入申请"},
+        {"id":"submit","label":"提交审批","moduleId":"applications","entityId":"application","actionId":"application.submit","prerequisite":"申请处于草稿状态且归属当前申请人","result":"系统建立审批节点并进入审批中状态","failure":"版本过期或状态不符时拒绝提交"},
+        {"id":"decide","label":"审批处理","moduleId":"applications","entityId":"application","actionId":"application.reject","prerequisite":"当前审批节点与审批角色匹配","result":"审批人可驳回并留下审批记录","failure":"越级或重复审批不会改变数据"},
+        {"id":"revise","label":"修订申请","moduleId":"applications","entityId":"application","actionId":"application.revise","prerequisite":"申请已被驳回或撤回","result":"申请回到草稿并可重新编辑","failure":"非本人申请或状态不符时拒绝修订"},
+        {"id":"approve","label":"批准申请","moduleId":"applications","entityId":"application","actionId":"application.approve","prerequisite":"当前节点有效且审批意见完整","result":"最终节点通过后申请进入已批准状态","failure":"节点版本冲突时整次审批回滚"},
+        {"id":"archive","label":"归档申请","moduleId":"file_versions","entityId":"file_version","actionId":"application.archive","prerequisite":"申请已批准且归档文件为就绪版本","result":"申请和文件版本建立归档关系","failure":"文件缺失、归属错误或摘要不符时停止归档"}
+      ],
+      "unsupportedClaims": ["不包含互联网在线审批或移动端推送","不包含自动识别申请人身份或法定资质"],
+      "screenshotScenarioIds": ["login","dashboard","application_list","application_create_form","application_draft","application_submit","application_review","application_reject","application_revise","application_approve","application_archive","certificate_list","reminder_list","backup"],
+      "coreEntityIds": ["application","approval_node","file_version","certificate"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "asset_inspection_management",
+      "modulePurposes": {"assets":"维护资产台账和责任状态","inspection_plans":"制定关联资产的巡检计划","inspection_tasks":"执行、提交和归档巡检任务","inspection_items":"记录逐项检查结果"},
+      "operationLabels": {"asset.inspection.plan.create":"创建巡检计划","asset.inspection.task.create":"创建巡检任务","inspection.start":"开始巡检","inspection.record":"记录检查结果","inspection.submit":"提交复核","inspection.archive":"归档巡检"},
+      "validationNotes": ["巡检计划必须关联有效资产并设置执行周期","巡检任务按状态和版本控制执行、提交及归档"],
+      "workflowSteps": [
+        {"id":"asset","label":"建立资产台账","moduleId":"assets","entityId":"asset","prerequisite":"资产分类和责任信息已准备","result":"资产进入可巡检的有效台账","failure":"编码重复或必填字段缺失时拒绝保存"},
+        {"id":"plan","label":"创建巡检计划","moduleId":"inspection_plans","entityId":"inspection_plan","actionId":"asset.inspection.plan.create","prerequisite":"已选择有效资产","result":"形成带周期和执行说明的巡检计划","failure":"资产无效或周期不合法时不创建计划"},
+        {"id":"task","label":"生成巡检任务","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"asset.inspection.task.create","prerequisite":"巡检计划处于启用状态","result":"形成指定执行人的巡检任务和检查项","failure":"计划或执行人无效时拒绝生成"},
+        {"id":"execute","label":"执行巡检","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.start","prerequisite":"任务已分派给当前执行人员","result":"任务进入执行中并允许填写检查结果","failure":"其他人员或错误状态不能开始任务"},
+        {"id":"submit","label":"提交复核","moduleId":"inspection_items","entityId":"inspection_item","actionId":"inspection.submit","prerequisite":"所有检查项均已记录结果","result":"任务进入待复核状态","failure":"存在未完成检查项时阻止提交"},
+        {"id":"archive","label":"复核归档","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.archive","prerequisite":"任务复核通过且不存在未关闭阻断项","result":"巡检任务完成归档并保留流转记录","failure":"角色、状态或版本不符时拒绝归档"}
+      ],
+      "unsupportedClaims": ["不包含传感器自动采集或远程控制资产","不包含在线地图定位和外部消息推送"],
+      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","inspection_plan_form","inspection_plan_list","inspection_task_form","inspection_task_list","inspection_start","inspection_record","inspection_submit","inspection_archive","backup","minimum_width"],
+      "coreEntityIds": ["asset","inspection_plan","inspection_task","inspection_item"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "asset_inspection_rectification",
+      "modulePurposes": {"assets":"维护待巡检资产台账","inspection_tasks":"执行巡检并识别异常","inspection_items":"记录异常发现及处置说明","work_orders":"跟踪异常整改和复核关闭"},
+      "operationLabels": {"asset.inspection.plan.create":"创建巡检计划","inspection.record":"记录异常结果","work_order.dispatch":"分派整改工单","work_order.approve_close":"复核关闭工单","inspection.archive":"归档巡检"},
+      "validationNotes": ["异常检查结果必须填写发现内容和处置说明","存在未关闭整改工单时巡检任务不能归档"],
+      "workflowSteps": [
+        {"id":"asset","label":"建立资产台账","moduleId":"assets","entityId":"asset","prerequisite":"资产基础资料完整","result":"资产可被巡检计划引用","failure":"无效或重复资产信息不会写入"},
+        {"id":"inspection","label":"执行资产巡检","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"asset.inspection.plan.create","prerequisite":"已选择有效资产并具备计划权限","result":"形成并执行关联资产的巡检任务","failure":"资产或计划条件不满足时停止创建"},
+        {"id":"abnormal","label":"登记异常结果","moduleId":"inspection_items","entityId":"inspection_item","actionId":"inspection.record","prerequisite":"巡检任务处于执行中","result":"异常检查项保存发现和处置说明","failure":"异常说明不完整时拒绝记录"},
+        {"id":"work_order","label":"分派整改工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.dispatch","prerequisite":"异常已联动形成待分派工单","result":"工单分派至处理人员并记录响应要求","failure":"处理人或工单版本无效时拒绝分派"},
+        {"id":"close","label":"复核关闭整改","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.approve_close","prerequisite":"处理人员已提交解决说明且复核人独立","result":"整改工单关闭并固化处理记录","failure":"自审或处理记录不完整时不能关闭"},
+        {"id":"archive","label":"归档巡检","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.archive","prerequisite":"关联整改工单全部关闭","result":"巡检任务归档并保留异常整改链路","failure":"仍有未关闭工单时归档被阻断"}
+      ],
+      "unsupportedClaims": ["不包含物联网设备自动告警或控制","不包含外部工单平台和网络同步"],
+      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","inspection_plan","inspection_task","inspection_start","inspection_abnormal_form","inspection_abnormal_saved","work_order_created","work_order_dispatch","work_order_accept","work_order_process","work_order_resolve","work_order_close","inspection_archive","backup","minimum_width"],
+      "coreEntityIds": ["asset","inspection_task","inspection_item","work_order"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "asset_work_order_operations",
+      "modulePurposes": {"assets":"维护可报修资产及责任信息","work_orders":"承载报修、分派、处理和复核关闭","work_order_events":"追溯工单全生命周期事件"},
+      "operationLabels": {"asset.work_order.create":"创建报修工单","work_order.dispatch":"分派工单","work_order.accept":"受理工单","work_order.add_processing_record":"填写处理记录","work_order.submit_resolution":"提交解决说明","work_order.approve_close":"复核关闭"},
+      "validationNotes": ["报修工单必须关联有效资产和服务项目","处理人与复核人分离且所有写操作校验版本"],
+      "workflowSteps": [
+        {"id":"asset","label":"选择报修资产","moduleId":"assets","entityId":"asset","prerequisite":"资产台账处于有效或维护状态","result":"确定报修对象和责任上下文","failure":"停用或不存在的资产不能发起报修"},
+        {"id":"create_order","label":"创建报修工单","moduleId":"work_orders","entityId":"work_order","actionId":"asset.work_order.create","prerequisite":"已选择资产并填写问题说明","result":"形成待分派工单和响应时限","failure":"服务项目无效或内容为空时拒绝创建"},
+        {"id":"dispatch","label":"分派工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.dispatch","prerequisite":"工单处于待分派状态","result":"工单分派给指定处理人员","failure":"处理人无效或版本冲突时拒绝分派"},
+        {"id":"accept","label":"受理工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.accept","prerequisite":"当前用户是被分派处理人","result":"记录受理时间并进入处理中","failure":"非当前处理人不能受理"},
+        {"id":"process","label":"记录处理过程","moduleId":"work_order_events","entityId":"work_order_event","actionId":"work_order.add_processing_record","prerequisite":"工单正在处理且处理说明完整","result":"追加不可覆盖的处理记录","failure":"空处理记录不会写入"},
+        {"id":"resolve","label":"提交解决结果","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.submit_resolution","prerequisite":"至少存在一条处理记录","result":"工单进入待复核状态","failure":"缺少处理记录时阻止提交"},
+        {"id":"close","label":"复核关闭工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.approve_close","prerequisite":"复核人与处理人不同且解决说明完整","result":"工单关闭并固化完成时间","failure":"自审、状态或版本不符时拒绝关闭"}
+      ],
+      "unsupportedClaims": ["不包含远程设备诊断或自动维修","不包含短信、电话或互联网派单"],
+      "screenshotScenarioIds": ["login","dashboard","asset_list","asset_detail","work_order_create_form","work_order_created","work_order_dispatch_form","work_order_dispatched","work_order_accept","work_order_processing_form","work_order_processing_saved","work_order_resolution","work_order_review","work_order_closed","backup","minimum_width"],
+      "coreEntityIds": ["asset","work_order","work_order_event"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "inspection_rectification_orders",
+      "modulePurposes": {"inspection_tasks":"执行巡检并提交复核","inspection_items":"记录正常或异常检查结果","work_orders":"处理异常联动整改工单","work_order_events":"保留整改处理轨迹"},
+      "operationLabels": {"inspection.start":"开始巡检","inspection.record":"记录异常结果","work_order.dispatch":"分派整改工单","work_order.approve_close":"复核关闭整改","inspection.archive":"归档巡检"},
+      "validationNotes": ["异常检查项必须提供发现内容和处置说明","巡检归档前关联整改工单必须全部关闭"],
+      "workflowSteps": [
+        {"id":"inspection","label":"执行巡检任务","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.start","prerequisite":"任务已分派给当前执行人员","result":"任务进入执行中并允许记录检查项","failure":"执行人或状态不符时拒绝开始"},
+        {"id":"abnormal","label":"发现巡检异常","moduleId":"inspection_items","entityId":"inspection_item","actionId":"inspection.record","prerequisite":"检查项属于当前执行中的任务","result":"保存异常发现并触发整改上下文","failure":"异常说明缺失时不保存结果"},
+        {"id":"work_order","label":"处理整改工单","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.dispatch","prerequisite":"异常已形成待分派整改工单","result":"工单进入分派、受理和处理流程","failure":"分派条件不完整时保持待分派"},
+        {"id":"close","label":"复核关闭整改","moduleId":"work_orders","entityId":"work_order","actionId":"work_order.approve_close","prerequisite":"整改处理和解决说明已经提交","result":"独立复核后关闭整改工单","failure":"自审或处理证据不足时拒绝关闭"},
+        {"id":"archive","label":"归档巡检结果","moduleId":"inspection_tasks","entityId":"inspection_task","actionId":"inspection.archive","prerequisite":"所有异常整改工单均已关闭","result":"巡检任务归档并保留完整链路","failure":"存在未关闭整改时阻止归档"}
+      ],
+      "unsupportedClaims": ["不包含在线监控或传感器自动判定","不包含第三方工单系统接口"],
+      "screenshotScenarioIds": ["login","dashboard","inspection_task_list","inspection_task_detail","inspection_start","inspection_record_form","inspection_abnormal_saved","work_order_list","work_order_dispatch","work_order_accept","work_order_process","work_order_resolve","work_order_review","work_order_closed","inspection_archive","backup"],
+      "coreEntityIds": ["inspection_task","inspection_item","work_order","work_order_event"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "inventory_application_approval",
+      "modulePurposes": {"materials":"维护物料基础资料和效期规则","inventory_batches":"管理批次余额并发起库存申领","applications":"提交和审批库存申领","inventory_transactions":"追溯入库、领用和退库流水"},
+      "operationLabels": {"inventory.batch.receive_new":"新批次入库","inventory.application.create":"发起库存申领","application.submit":"提交申领审批","application.approve":"批准库存申领"},
+      "validationNotes": ["库存数量按配置精度校验且不得形成负库存","最终审批和库存扣减在同一事务内完成"],
+      "workflowSteps": [
+        {"id":"material_batch","label":"建立物料批次","moduleId":"inventory_batches","entityId":"inventory_batch","actionId":"inventory.batch.receive_new","prerequisite":"物料和仓库均为启用状态","result":"建立批次余额并写入入库流水","failure":"日期、数量或唯一批次冲突时整体拒绝"},
+        {"id":"application","label":"发起库存申领","moduleId":"inventory_batches","entityId":"inventory_batch","actionId":"inventory.application.create","prerequisite":"选择有效且未过期的库存批次","result":"形成带批次和数量的申领草稿","failure":"批次停用或数量无效时不创建申请"},
+        {"id":"submit","label":"提交申领审批","moduleId":"applications","entityId":"application","actionId":"application.submit","prerequisite":"申领内容完整且申请属于当前人员","result":"申请进入顺序审批流程","failure":"草稿版本过期时拒绝提交"},
+        {"id":"approve","label":"审批库存申领","moduleId":"applications","entityId":"application","actionId":"application.approve","prerequisite":"审批角色、节点和版本均匹配","result":"最终节点批准申领","failure":"越级、自审或版本冲突时回滚审批"},
+        {"id":"deduct","label":"事务扣减库存","moduleId":"inventory_batches","entityId":"inventory_batch","prerequisite":"申领最终审批通过且库存充足","result":"审批完成处理器原子扣减批次余额","failure":"余额不足时审批和扣减同时回滚"},
+        {"id":"ledger","label":"追溯库存流水","moduleId":"inventory_transactions","entityId":"inventory_transaction","prerequisite":"库存扣减事务已成功提交","result":"流水关联批次、申请轮次和操作人员","failure":"未提交的事务不会产生孤立流水"}
+      ],
+      "unsupportedClaims": ["不包含联网采购、供应商或财务结算功能","不包含条码设备自动采集或外部仓储接口"],
+      "screenshotScenarioIds": ["login","dashboard","material_list","material_create_form","warehouse_list","batch_receive_form","batch_received","application_create_form","application_draft","application_submit","application_review","application_approved","batch_deducted","inventory_ledger","backup","minimum_width"],
+      "coreEntityIds": ["material","inventory_batch","application","inventory_transaction"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "project_delivery_archive",
+      "modulePurposes": {"projects":"管理项目状态和关闭复核","project_tasks":"推进项目任务及验收","deliverables":"提交并复核交付版本","project_delivery_archives":"关联已验收交付物和就绪归档文件"},
+      "operationLabels": {"project.create":"创建项目","project.deliverable.submit":"提交交付成果","project.deliverable.review":"复核交付成果","project.delivery.archive":"归档交付物","project.request_close":"申请关闭项目"},
+      "validationNotes": ["同一交付物版本不可重复且最新必需版本必须验收","项目关闭前所有必需任务、交付物和归档文件均须完成"],
+      "workflowSteps": [
+        {"id":"project_task","label":"建立项目并推进任务","moduleId":"projects","entityId":"project","actionId":"project.create","prerequisite":"项目计划日期和负责人完整","result":"建立项目并进入任务推进阶段","failure":"计划日期倒置或负责人无效时拒绝创建"},
+        {"id":"deliverable","label":"提交交付成果","moduleId":"deliverables","entityId":"deliverable","actionId":"project.deliverable.submit","prerequisite":"项目已激活且交付元数据完整","result":"形成待复核的不可变交付版本","failure":"版本重复或项目关闭时拒绝提交"},
+        {"id":"accept","label":"验收交付成果","moduleId":"deliverables","entityId":"deliverable","actionId":"project.deliverable.review","prerequisite":"复核人与提交人独立","result":"交付版本被接受并计入关闭条件","failure":"自审、状态或版本不符时拒绝验收"},
+        {"id":"file_archive","label":"归档交付文件","moduleId":"project_delivery_archives","entityId":"project_delivery_archive","actionId":"project.delivery.archive","prerequisite":"交付已验收且文件版本处于就绪状态","result":"交付版本与文件摘要建立不可变关联","failure":"文件归属或摘要不符时不建立归档"},
+        {"id":"close","label":"申请项目关闭","moduleId":"projects","entityId":"project","actionId":"project.request_close","prerequisite":"任务、最新必需交付和文件归档均完成","result":"项目进入关闭复核流程","failure":"任一关闭条件未满足时列出阻断原因"}
+      ],
+      "unsupportedClaims": ["不包含云端文件存储或网络协作","不包含电子签章和法定档案认证"],
+      "screenshotScenarioIds": ["login","dashboard","project_create_form","project_created","project_activate","task_create_form","task_progress","deliverable_submit_form","deliverable_submitted","deliverable_review","file_archive_form","file_archived","project_close_request","project_close_review","backup","minimum_width"],
+      "coreEntityIds": ["project","project_task","deliverable","project_delivery_archive"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    },
+    {
+      "id": "project_task_management",
+      "modulePurposes": {"projects":"管理项目立项、激活和关闭复核","milestones":"维护项目阶段和完成条件","project_tasks":"执行加权任务并提交验收","project_risks":"登记和处置项目风险","deliverables":"提交与复核交付版本"},
+      "operationLabels": {"project.create":"创建项目","project.activate":"激活项目","project.task.create":"创建项目任务","project.risk.create":"登记项目风险","project.deliverable.submit":"提交交付成果","project.request_close":"申请关闭项目"},
+      "validationNotes": ["任务进度由有效任务权重和完成状态确定","项目关闭要求独立复核且所有必需任务和交付版本完成"],
+      "workflowSteps": [
+        {"id":"project","label":"项目立项","moduleId":"projects","entityId":"project","actionId":"project.create","prerequisite":"项目名称、负责人和计划日期完整","result":"形成草稿项目和唯一项目编码","failure":"日期或负责人无效时拒绝立项"},
+        {"id":"activate","label":"激活项目","moduleId":"projects","entityId":"project","actionId":"project.activate","prerequisite":"项目处于草稿且计划信息完整","result":"项目进入进行中并允许创建执行对象","failure":"状态或版本不符时拒绝激活"},
+        {"id":"milestone_task","label":"推进里程碑与任务","moduleId":"project_tasks","entityId":"project_task","actionId":"project.task.create","prerequisite":"项目已激活且任务责任人有效","result":"任务按权重推进并形成进展事件","failure":"权重、责任人或项目状态无效时拒绝创建"},
+        {"id":"risk","label":"登记处置风险","moduleId":"project_risks","entityId":"project_risk","actionId":"project.risk.create","prerequisite":"项目处于进行中且风险说明完整","result":"风险进入登记、缓解和关闭链路","failure":"项目关闭后不能新增风险"},
+        {"id":"deliverable","label":"提交交付成果","moduleId":"deliverables","entityId":"deliverable","actionId":"project.deliverable.submit","prerequisite":"项目进行中且交付版本信息完整","result":"形成待复核交付版本","failure":"版本重复或元数据变化异常时拒绝提交"},
+        {"id":"close","label":"申请关闭复核","moduleId":"projects","entityId":"project","actionId":"project.request_close","prerequisite":"必需任务、里程碑、风险和交付条件满足","result":"项目进入独立关闭复核","failure":"存在未完成条件时阻止关闭并保留项目状态"}
+      ],
+      "unsupportedClaims": ["不包含多人在线实时协同或云同步","不包含外部代码仓库和持续集成接口"],
+      "screenshotScenarioIds": ["login","dashboard","project_create_form","project_created","project_activate","milestone_create_form","task_create_form","task_start","task_progress","task_submit","task_review","risk_create_form","risk_process","deliverable_submit","deliverable_review","project_close_request","project_close_review","backup"],
+      "coreEntityIds": ["project","milestone","project_task","project_risk"],
+      "roleProfileIds": ["operations_dispatcher","operations_operator","operations_reviewer","operations_admin"]
+    }
+  ]
+}

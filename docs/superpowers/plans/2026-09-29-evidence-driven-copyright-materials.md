@@ -106,11 +106,11 @@ git commit -m "feat: expose application and inventory actions in desktop UI"
 - Produces `loadMaterialDescriptorCatalog()` and `getMaterialDescriptor(templateId)`.
 - Each descriptor contains exact `modulePurposes`, `operationLabels`, `validationNotes`, `workflowSteps`, `unsupportedClaims`, `screenshotScenarioIds`, and `coreEntityIds`.
 
-- [ ] **Step 1: Write failing strict catalog tests**
+- [x] **Step 1: Write failing strict catalog tests**
 
 Assert eight exact template IDs, no unknown properties, every referenced module/entity/action exists in the runtime template descriptor, and no displayed label equals a stable action ID.
 
-- [ ] **Step 2: Define the exact primary workflow for each template**
+- [x] **Step 2: Define the exact primary workflow for each template**
 
 Use these ordered flow summaries and fixed step IDs:
 
@@ -125,15 +125,15 @@ project_delivery_archive: project/task -> deliverable -> accept -> file archive 
 project_task_management: project -> activate -> milestone/task -> risk -> deliverable -> close
 ```
 
-- [ ] **Step 3: Run and verify missing-catalog failure**
+- [x] **Step 3: Run and verify missing-catalog failure**
 
 Run: `cd engine/desktop-runtime; node --import tsx --test tests/unit/material-descriptors.test.ts`
 
-- [ ] **Step 4: Implement strict Zod parsing, referential checks, deep freeze, and deterministic ordering**
+- [x] **Step 4: Implement strict Zod parsing, referential checks, deep freeze, and deterministic ordering**
 
 Reject executable-looking keys, raw SQL/script content, duplicate step IDs, unknown role profiles, and flows without at least four steps.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 ```powershell
 npm --prefix engine/desktop-runtime run typecheck
