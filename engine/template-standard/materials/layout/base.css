@@ -1,0 +1,44 @@
+@page {
+  size: A4;
+  margin: 22mm 18mm 20mm;
+}
+
+html, body {
+  color: #1d2730;
+  background: #fff;
+  font-family: "SimSun", "Microsoft YaHei", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.72;
+  letter-spacing: 0;
+}
+
+body { margin: 0; }
+h1, h2, h3 { font-family: "Microsoft YaHei", "SimSun", sans-serif; page-break-after: avoid; }
+h1 { margin: 0 0 16pt; font-size: 20pt; text-align: center; }
+h2 { margin: 18pt 0 8pt; font-size: 15pt; border-bottom: 1px solid #7d8b94; padding-bottom: 5pt; }
+h3 { margin: 13pt 0 6pt; font-size: 12pt; }
+p { margin: 0 0 8pt; text-align: justify; }
+ul, ol { margin: 5pt 0 10pt; padding-left: 22pt; }
+li { margin: 3pt 0; }
+
+.cover { min-height: 230mm; display: flex; flex-direction: column; justify-content: center; text-align: center; page-break-after: always; }
+.cover .document-type { font-size: 14pt; color: #435762; margin-bottom: 22pt; }
+.cover h1 { font-size: 25pt; line-height: 1.45; }
+.cover h2 { border: 0; font-size: 18pt; margin: 8pt 0 36pt; }
+.cover table { width: 72%; margin: 0 auto; text-align: left; }
+.document-note { padding: 9pt 11pt; border: 1px solid #aab5bc; background: #f6f8f9; }
+.page-break-before { page-break-before: always; }
+.keep-together { page-break-inside: avoid; }
+
+table { width: 100%; border-collapse: collapse; margin: 8pt 0 14pt; font-size: 9.5pt; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th, td { border: 1px solid #7f8c94; padding: 5pt 6pt; vertical-align: top; }
+th { background: #e9eef1; font-family: "Microsoft YaHei", "SimSun", sans-serif; font-weight: 700; }
+.compact th, .compact td { padding: 4pt 5pt; }
+.number { width: 34pt; text-align: center; }
+.label { width: 92pt; font-weight: 700; }
+figure { margin: 12pt 0; page-break-inside: avoid; text-align: center; }
+figure img { max-width: 100%; height: auto; }
+figcaption { margin-top: 5pt; color: #52636d; font-size: 9pt; }
+.footer-note { margin-top: 18pt; padding-top: 7pt; border-top: 1px solid #aeb8be; color: #5d6971; font-size: 9pt; }

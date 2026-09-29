@@ -23,14 +23,14 @@ const domainLock = {
 const domainText = JSON.stringify(domainLock, null, 2);
 fs.writeFileSync(path.join(output, 'domain-lock.json'), domainText, 'utf8');
 
-const { createProjectLock, canonicalProjectLock } = require('../dist/runtime/core/project-lock.js');
+const { createProjectLock, canonicalProjectLock, WINDOWS_OFFLINE_RUNTIME_POLICY } = require('../dist/runtime/core/project-lock.js');
 const packageJson = require('../package.json');
 const electronVersion = require('../node_modules/electron/package.json').version;
 const projectLock = createProjectLock({
   generatorVersion: '1.0.0', blueprintSchemaVersion: '1.0', domainLock,
   databaseSchemaVersion: 1, desktopRuntimeVersion: packageJson.version,
   electronVersion, nodeVersion: process.versions.node,
-  sqliteVersion: process.versions.sqlite ?? 'unknown',
+  sqliteVersion: process.versions.sqlite ?? 'unknown', runtimePolicy: WINDOWS_OFFLINE_RUNTIME_POLICY,
   projectConfig: JSON.parse(blueprint.toString('utf8')),
   buildTarget: 'win-nsis-x64'
 });

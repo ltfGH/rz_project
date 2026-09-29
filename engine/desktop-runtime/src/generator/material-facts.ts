@@ -10,7 +10,7 @@ import { loadProductionPluginCatalog } from '../core/production-plugin-loader';
 import { verifyProjectResources } from '../core/project-lock';
 import { compileSchema } from '../core/schema-compiler';
 import type { RuntimeBlueprint, RuntimeEntity } from '../shared/blueprint';
-import { getMaterialDescriptor } from './material-descriptors';
+import { getMaterialActionFallbackBehavior, getMaterialActionInputLabels, getMaterialDescriptor } from './material-descriptors';
 import { moduleForMaterialAction } from './screenshot-evidence';
 import { loadStandardTemplateCatalog } from './standard-project';
 
@@ -30,10 +30,11 @@ const screenshotManifestSchema=z.object({
   manifestVersion:z.literal('2.0'),templateId:id,executableSha256:sha,blueprintSha256:sha,captures:z.array(captureSchema).min(12).max(18)
 }).strict();
 const acceptanceSchema=z.object({
-  receiptVersion:z.literal('1.0'),status:z.literal('passed'),templateId:id,businessRows:z.literal(1000),
+  receiptVersion:z.literal('1.0'),status:z.literal('passed'),generatedAt:z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/),templateId:id,businessRows:z.literal(1000),
   executableSha256:sha,blueprintSha256:sha,resourceManifestSha256:sha,
   checks:z.object({package:z.literal('passed'),workflow:z.literal('passed'),persistence:z.literal('passed')}).strict()
 }).strict();
+const runtimePolicySchema=z.object({platform:z.literal('Windows 10/11 x64'),installationMode:z.literal('当前用户安装'),dataPolicy:z.literal('业务数据存放在当前 Windows 用户的应用数据目录'),backupPolicy:z.literal('系统管理员通过数据与备份模块创建和恢复校验后的数据库快照'),offline:z.literal(true)}).strict();
 
 export interface MaterialFactsInput{
   readonly resourcesDirectory:string;readonly templateId:string;
@@ -73,8 +74,8 @@ function databaseFacts(blueprint:RuntimeBlueprint){
   }finally{database.close();}
 }
 
-function entityFact(entity:RuntimeEntity){return Object.freeze({
-  id:entity.id,name:entity.name,retention:entity.retention,history:entity.history,
+function entityFact(entity:RuntimeEntity,isCore:boolean){return Object.freeze({
+  id:entity.id,name:entity.name,isCore,retention:entity.retention,history:entity.history,
   fields:Object.freeze(entity.fields.map((field)=>Object.freeze({id:field.id,name:field.name,type:field.type,required:field.required,unique:field.unique})))
 });}
 
@@ -83,10 +84,12 @@ export function buildMaterialFacts(input:MaterialFactsInput){
   let verified;try{verified=verifyProjectResources(input.resourcesDirectory);}catch{return fail('RESOURCE_INVALID');}
   const registry=new PluginRegistry();try{for(const plugin of loadProductionPluginCatalog(verified.productionCatalogPath))registry.register(plugin);}catch{return fail('PLUGIN_CATALOG_INVALID');}
   let blueprint:RuntimeBlueprint;try{blueprint=loadRuntimeBlueprint(verified.blueprintText,verified.blueprintSha256,registry);registry.assertLocked(verified.domainLock);}catch{return fail('BLUEPRINT_INVALID');}
+  let seedBaseline:string;try{const seed=JSON.parse(verified.seedText)as{baseline?:unknown};if(typeof seed.baseline!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(seed.baseline))return fail('SEED_INVALID');seedBaseline=seed.baseline;}catch{return fail('SEED_INVALID');}
   const standard=loadStandardTemplateCatalog().templates.find((entry)=>entry.id===input.templateId);if(!standard)return fail('TEMPLATE_INVALID');
   if(blueprint.plugins.map((item)=>item.id).sort().join()!==standard.packs.map((item)=>item.id).sort().join())return fail('TEMPLATE_PACK_MISMATCH');
   const descriptor=getMaterialDescriptor(input.templateId),source=parse(sourceManifestSchema,input.sourceManifest,'SOURCE_INVALID');
   const screenshots=parse(screenshotManifestSchema,input.screenshotManifest,'SCREENSHOTS_INVALID'),acceptance=parse(acceptanceSchema,input.acceptanceReceipt,'ACCEPTANCE_INVALID');
+  const runtimePolicy=parse(runtimePolicySchema,verified.projectLock.runtimePolicy,'RUNTIME_POLICY_INVALID');
   if(source.templateId!==input.templateId||screenshots.templateId!==input.templateId||acceptance.templateId!==input.templateId)return fail('TEMPLATE_EVIDENCE_MISMATCH');
   if(new Set(source.files.map((file)=>file.path)).size!==source.files.length||source.files.length!==source.totalFiles||source.files.reduce((sum,file)=>sum+file.lines,0)!==source.totalLines||sourceDigest(source.files)!==source.sha256)return fail('SOURCE_DIGEST_MISMATCH');
   const manifestHash=hash(fs.readFileSync(`${input.resourcesDirectory}/resource-manifest.json`));
@@ -97,10 +100,13 @@ export function buildMaterialFacts(input:MaterialFactsInput){
   const permissionByAction=new Map(Object.entries(activated.domainActions).map(([action,entry])=>[action,(entry.value as{permission?:unknown}).permission]));
   const commands=Object.entries(descriptor.operationLabels).map(([commandId,label])=>{
     const permission=permissionByAction.get(commandId);if(typeof permission!=='string')return fail('COMMAND_REFERENCE_INVALID');
-    const step=descriptor.workflowSteps.find((item)=>item.actionId===commandId);return Object.freeze({id:commandId,label,permission,moduleId:step?.moduleId??null,entityId:step?.entityId??null});
+    const step=descriptor.workflowSteps.find((item)=>item.actionId===commandId),fallback=getMaterialActionFallbackBehavior(commandId);if(!step&&!fallback)return fail('COMMAND_BEHAVIOR_INVALID');
+    const moduleId=moduleForMaterialAction(commandId,step?.moduleId??'');const ownerModule=(blueprint.modules??[]).find((module)=>module.id===moduleId);if(!ownerModule||!descriptor.modulePurposes[moduleId])return fail('COMMAND_MODULE_INVALID');
+    return Object.freeze({id:commandId,label,permission,moduleId,entityId:ownerModule.entity,inputLabels:Object.freeze([...getMaterialActionInputLabels(commandId)]),precondition:step?.prerequisite??fallback!.precondition,result:step?.result??fallback!.result,failure:step?.failure??fallback!.failure});
   });
   const moduleFacts=Object.entries(descriptor.modulePurposes).map(([moduleId,purpose])=>{const module=modules.get(moduleId);if(!module)return fail('MODULE_REFERENCE_INVALID');return Object.freeze({id:module.id,name:module.name,entityId:module.entity,purpose,operations:Object.freeze(commands.filter((item)=>item.moduleId===module.id).map((item)=>item.id))});});
-  const entityFacts=descriptor.coreEntityIds.map((entityId)=>{const entity=entities.get(entityId);if(!entity)return fail('ENTITY_REFERENCE_INVALID');return entityFact(entity);});
+  const materialEntityIds=[...new Set([...descriptor.coreEntityIds,...moduleFacts.map((module)=>module.entityId)])];
+  const entityFacts=materialEntityIds.map((entityId)=>{const entity=entities.get(entityId);if(!entity)return fail('ENTITY_REFERENCE_INVALID');return entityFact(entity,descriptor.coreEntityIds.includes(entityId));});
   const roleFacts=descriptor.roleProfileIds.map((roleId)=>{const role=roles.get(roleId);if(!role)return fail('ROLE_REFERENCE_INVALID');return Object.freeze({id:role.id,name:role.name,visibleOperations:Object.freeze(commands.filter((command)=>role.permissions.includes(command.permission)).map((command)=>command.id))});});
   const stepsById=new Map(descriptor.workflowSteps.map((item)=>[item.id,item]));
   if(new Set(screenshots.captures.map((capture)=>capture.stepId)).size!==screenshots.captures.length)return fail('SCREENSHOT_REFERENCE_INVALID');
@@ -114,13 +120,14 @@ export function buildMaterialFacts(input:MaterialFactsInput){
   }
   const facts={
     factVersion:'1.0' as const,templateId:input.templateId,
-    software:Object.freeze({id:blueprint.software.id,name:blueprint.software.name??'',version:blueprint.software.version??'',purpose:blueprint.software.purpose??'',targetUsers:Object.freeze([...(blueprint.software.targetUsers??[])]),boundaries:Object.freeze([...(blueprint.software.boundaries??[])])}),
+    software:Object.freeze({id:blueprint.software.id,name:blueprint.software.name??'',version:blueprint.software.version??'',buildDate:seedBaseline.slice(0,10),materialGeneratedOn:acceptance.generatedAt.slice(0,10),purpose:blueprint.software.purpose??'',targetUsers:Object.freeze([...(blueprint.software.targetUsers??[])]),boundaries:Object.freeze([...(blueprint.software.boundaries??[])])}),
     modules:Object.freeze(moduleFacts),entities:Object.freeze(entityFacts),roles:Object.freeze(roleFacts),commands:Object.freeze(commands),
     workflows:Object.freeze([Object.freeze({id:`${input.templateId}_primary`,name:'核心业务流程',steps:Object.freeze(descriptor.workflowSteps.map((step)=>Object.freeze({...step})))})]),
-    database:databaseFacts(blueprint),runtime:Object.freeze({...verified.projectLock.runtime,databaseSchemaVersion:verified.projectLock.databaseSchemaVersion,buildTarget:verified.projectLock.buildTarget}),
+    database:databaseFacts(blueprint),runtime:Object.freeze({...verified.projectLock.runtime,databaseSchemaVersion:verified.projectLock.databaseSchemaVersion,buildTarget:verified.projectLock.buildTarget,...runtimePolicy}),
     screenshots:Object.freeze({manifestVersion:screenshots.manifestVersion,executableSha256:screenshots.executableSha256,blueprintSha256:screenshots.blueprintSha256,captures:Object.freeze(screenshots.captures.map(({fileName,...capture})=>Object.freeze({...capture,fileName})))}),
     source:Object.freeze({...source,files:Object.freeze(source.files.map((file)=>Object.freeze({...file})))}),
-    evidence:Object.freeze({status:acceptance.status,businessRows:acceptance.businessRows,resourceManifestSha256:acceptance.resourceManifestSha256,blueprintSha256:acceptance.blueprintSha256,executableSha256:acceptance.executableSha256,sourceSha256:source.sha256,screenshotManifestSha256:hash(canonical(screenshots)),checks:Object.freeze({...acceptance.checks})})
+    evidence:Object.freeze({status:acceptance.status,businessRows:acceptance.businessRows,resourceManifestSha256:acceptance.resourceManifestSha256,blueprintSha256:acceptance.blueprintSha256,executableSha256:acceptance.executableSha256,sourceSha256:source.sha256,screenshotManifestSha256:hash(canonical(screenshots)),checks:Object.freeze({...acceptance.checks})}),
+    constraints:Object.freeze({validationNotes:Object.freeze([...descriptor.validationNotes]),unsupportedClaims:Object.freeze([...descriptor.unsupportedClaims])})
   };
   return deepFreeze(facts);
 }

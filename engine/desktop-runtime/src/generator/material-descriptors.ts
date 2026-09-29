@@ -24,6 +24,34 @@ export type MaterialWorkflowStep=z.infer<typeof stepSchema>;
 export type MaterialDescriptor=z.infer<typeof descriptorSchema>;
 export type MaterialDescriptorCatalog=z.infer<typeof catalogSchema>;
 
+const ACTION_INPUT_LABELS:Readonly<Record<string,readonly string[]>>=Object.freeze({
+  'application.create':Object.freeze(['申请类型','申请标题','申请正文']),
+  'application.submit':Object.freeze(['提交说明']),
+  'application.approve':Object.freeze(['审批节点 ID','节点版本','审批意见']),
+  'application.reject':Object.freeze(['审批节点 ID','节点版本','驳回原因']),
+  'application.revise':Object.freeze(['修订说明']),
+  'application.archive':Object.freeze(['归档文件版本编码','归档说明']),
+  'asset.inspection.plan.create':Object.freeze(['计划名称','周期天数','执行说明']),
+  'asset.inspection.task.create':Object.freeze(['任务标题','执行账号','计划时间','检查项','检查标准']),
+  'asset.work_order.create':Object.freeze(['工单标题','问题描述','服务编码','优先级']),
+  'inspection.start':Object.freeze([]),'inspection.record':Object.freeze(['检查项 ID','检查结果','异常描述','处置说明']),'inspection.submit':Object.freeze([]),'inspection.archive':Object.freeze(['归档说明']),
+  'work_order.dispatch':Object.freeze(['处理账号','分派说明']),'work_order.accept':Object.freeze([]),'work_order.add_processing_record':Object.freeze(['处理记录']),'work_order.submit_resolution':Object.freeze(['解决说明']),'work_order.approve_close':Object.freeze(['复核说明']),
+  'inventory.batch.receive_new':Object.freeze(['物料编码','仓库编码','批次号','入库数量','生产日期','入库日期','到期日期','入库说明']),
+  'inventory.application.create':Object.freeze(['申领数量','申领用途','申请标题','申请正文']),
+  'project.create':Object.freeze(['项目名称','项目经理账号','计划开始日期','计划结束日期']),'project.activate':Object.freeze([]),
+  'project.task.create':Object.freeze(['里程碑编码','任务标题','任务说明','负责人账号','任务权重','关闭必需']),
+  'project.risk.create':Object.freeze(['风险标题','风险说明','风险等级']),
+  'project.deliverable.submit':Object.freeze(['里程碑编码','交付物键','交付物名称','业务版本','关闭必需','文件名称','文件摘要']),
+  'project.deliverable.review':Object.freeze(['复核结论','复核意见']),
+  'project.delivery.archive':Object.freeze(['交付版本 ID','文件版本编码']),
+  'project.request_close':Object.freeze(['申请说明'])
+});
+const ACTION_FALLBACK_BEHAVIOR:Readonly<Record<string,Readonly<{precondition:string;result:string;failure:string}>>>=Object.freeze({
+  'inspection.record':Object.freeze({precondition:'巡检任务处于执行中且检查项属于当前任务',result:'检查结果、异常发现和处置说明写入对应检查项',failure:'检查项、任务版本或异常说明不符合要求时拒绝记录'})
+});
+export function getMaterialActionInputLabels(actionIdValue:string):readonly string[]{const found=ACTION_INPUT_LABELS[actionIdValue];if(!found)throw new Error(`Material action '${actionIdValue}' has no fixed input labels.`);return found;}
+export function getMaterialActionFallbackBehavior(actionIdValue:string){return ACTION_FALLBACK_BEHAVIOR[actionIdValue];}
+
 function defaultCatalogPath():string{
   const candidates=[
     path.resolve(__dirname,'..','..','standard-materials','catalog.json'),
@@ -59,6 +87,7 @@ export function loadMaterialDescriptorCatalog(filename=defaultCatalogPath()):Mat
     for(const moduleId of Object.keys(descriptor.modulePurposes))if(!modules.has(moduleId))throw new Error(`Template '${descriptor.id}' references unknown module '${moduleId}'.`);
     for(const role of descriptor.roleProfileIds)if(!(role in template.roleProfiles))throw new Error(`Template '${descriptor.id}' references unknown role '${role}'.`);
     for(const[action,label]of Object.entries(descriptor.operationLabels))if(action===label||/^[a-z][a-z0-9_.]+$/.test(label))throw new Error(`Template '${descriptor.id}' exposes an internal action id.`);
+    for(const action of Object.keys(descriptor.operationLabels))getMaterialActionInputLabels(action);
     for(const step of descriptor.workflowSteps){
       if(!modules.has(step.moduleId)||!descriptor.modulePurposes[step.moduleId])throw new Error(`Template '${descriptor.id}' workflow references unknown module '${step.moduleId}'.`);
       if(!entities.has(step.entityId))throw new Error(`Template '${descriptor.id}' workflow references unknown entity '${step.entityId}'.`);

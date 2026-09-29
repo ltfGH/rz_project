@@ -17,10 +17,13 @@ test('builds deeply frozen evidence-bound facts for every standard template',t=>
     const fixture=createMaterialFactsFixture(path.join(root,template.id),template.id),facts=buildMaterialFacts(fixture);
     const descriptor=getMaterialDescriptor(template.id),serialized=JSON.stringify(facts);
     assert.equal(facts.factVersion,'1.0');assert.equal(facts.templateId,template.id);
+    assert.equal(facts.software.buildDate,'2026-09-21');assert.equal(facts.software.materialGeneratedOn,'2026-09-29');assert.ok(facts.constraints.validationNotes.length>=2);assert.ok(facts.constraints.unsupportedClaims.length>=2);
     assert.deepEqual(facts.modules.map((item)=>item.id),Object.keys(descriptor.modulePurposes));
-    assert.deepEqual(facts.entities.map((item)=>item.id),descriptor.coreEntityIds);
+    for(const entityId of descriptor.coreEntityIds)assert.equal(facts.entities.some((item)=>item.id===entityId&&item.isCore),true,`${template.id}:${entityId}`);
+    for(const module of facts.modules)assert.equal(facts.entities.some((item)=>item.id===module.entityId),true,`${template.id}:${module.id}`);
     assert.deepEqual(facts.roles.map((item)=>item.id),descriptor.roleProfileIds);
     assert.deepEqual(facts.commands.map((item)=>item.id),Object.keys(descriptor.operationLabels));
+    for(const command of facts.commands){assert.ok(command.moduleId,`${template.id}:${command.id}:module`);assert.ok(Array.isArray(command.inputLabels),`${template.id}:${command.id}:inputs`);assert.ok(command.precondition&&command.result&&command.failure,`${template.id}:${command.id}:behavior`);assert.equal(facts.modules.find((module)=>module.id===command.moduleId)?.operations.includes(command.id),true,`${template.id}:${command.id}:ownership`);}
     assert.deepEqual(facts.workflows[0]?.steps.map((item)=>item.id),descriptor.workflowSteps.map((item)=>item.id));
     assert.ok(facts.workflows[0]!.steps.length>=4,template.id);
     assert.equal(facts.screenshots.captures.length,descriptor.screenshotScenarioIds.length);

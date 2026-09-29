@@ -101,14 +101,14 @@ try {
   if (catalogBuild.status !== 0) fail(catalogBuild.stderr || catalogBuild.stdout || 'Production runtime catalog build failed.');
   const catalog = fs.readFileSync(catalogPath);
   const { compileSchema } = require('../src/core/schema-compiler.ts');
-  const { createProjectLock, canonicalProjectLock } = require('../src/core/project-lock.ts');
+  const { createProjectLock, canonicalProjectLock, WINDOWS_OFFLINE_RUNTIME_POLICY } = require('../src/core/project-lock.ts');
   const packageJson = require('../package.json');
   const lock = createProjectLock({
     generatorVersion: '1.0.0', blueprintSchemaVersion: '1.0', domainLock,
     databaseSchemaVersion: compileSchema(blueprint).version,
     desktopRuntimeVersion: packageJson.version,
     electronVersion: require('../node_modules/electron/package.json').version,
-    nodeVersion: process.versions.node, sqliteVersion: process.versions.sqlite ?? 'unknown',
+    nodeVersion: process.versions.node, sqliteVersion: process.versions.sqlite ?? 'unknown', runtimePolicy: WINDOWS_OFFLINE_RUNTIME_POLICY,
     projectConfig: project, buildTarget: 'win-nsis-x64'
   });
   const projectText = canonicalProjectLock(lock);

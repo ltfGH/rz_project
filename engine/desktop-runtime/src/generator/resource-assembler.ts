@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { compileSchema } from '../core/schema-compiler';
-import { canonicalProjectLock, createProjectLock } from '../core/project-lock';
+import { canonicalProjectLock, createProjectLock, WINDOWS_OFFLINE_RUNTIME_POLICY } from '../core/project-lock';
 import { createStandardProject, loadStandardTemplateCatalog, type StandardProjectRequest } from './standard-project';
 import { generateStandardSeed } from './standard-seed';
 
@@ -69,7 +69,7 @@ export function assembleStandardResources(rawRequest: StandardProjectRequest, ou
       databaseSchemaVersion: compileSchema(built.blueprint).version,
       desktopRuntimeVersion: packageJson.version, electronVersion: electronPackage.version,
       nodeVersion: process.versions.node, sqliteVersion: process.versions.sqlite ?? 'unknown',
-      projectConfig, buildTarget: 'win-nsis-x64'
+      runtimePolicy:WINDOWS_OFFLINE_RUNTIME_POLICY,projectConfig, buildTarget: 'win-nsis-x64'
     });
     const resources: Record<string, Buffer> = {
       'blueprint.json': Buffer.from(blueprintText),

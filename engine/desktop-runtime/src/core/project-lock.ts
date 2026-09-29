@@ -12,6 +12,7 @@ export interface ProjectLock {
   readonly packs: readonly Readonly<{ id: string; version: string }>[];
   readonly databaseSchemaVersion: number;
   readonly runtime: Readonly<{ desktop: string; electron: string; node: string; sqlite: string }>;
+  readonly runtimePolicy: RuntimePolicy;
   readonly projectConfigSha256: string;
   readonly buildTarget: 'win-nsis-x64';
 }
@@ -28,9 +29,18 @@ export interface ProjectLockInput {
   readonly electronVersion: string;
   readonly nodeVersion: string;
   readonly sqliteVersion: string;
+  readonly runtimePolicy: RuntimePolicy;
   readonly projectConfig: Readonly<Record<string, unknown>>;
   readonly buildTarget: 'win-nsis-x64';
 }
+export interface RuntimePolicy {
+  readonly platform: 'Windows 10/11 x64';
+  readonly installationMode: '当前用户安装';
+  readonly dataPolicy: '业务数据存放在当前 Windows 用户的应用数据目录';
+  readonly backupPolicy: '系统管理员通过数据与备份模块创建和恢复校验后的数据库快照';
+  readonly offline: true;
+}
+export const WINDOWS_OFFLINE_RUNTIME_POLICY:RuntimePolicy=Object.freeze({platform:'Windows 10/11 x64',installationMode:'当前用户安装',dataPolicy:'业务数据存放在当前 Windows 用户的应用数据目录',backupPolicy:'系统管理员通过数据与备份模块创建和恢复校验后的数据库快照',offline:true});
 
 export interface ProjectUpgradeReport {
   readonly addedPacks: readonly Readonly<{ id: string; version: string }>[];
@@ -92,6 +102,7 @@ export function createProjectLock(input: ProjectLockInput): ProjectLock {
       node: input.nodeVersion,
       sqlite: input.sqliteVersion
     }),
+    runtimePolicy:Object.freeze({...input.runtimePolicy}),
     projectConfigSha256: sha256(canonical(input.projectConfig)),
     buildTarget: input.buildTarget
   });
@@ -109,7 +120,9 @@ export function compareProjectLocks(previous: ProjectLock, next: ProjectLock): P
   const changedPacks = [...after].filter(([id, version]) => before.has(id) && before.get(id) !== version)
     .map(([id, to]) => Object.freeze({ id, from: before.get(id)!, to }));
   const schemaChanged = previous.databaseSchemaVersion !== next.databaseSchemaVersion;
-  const runtimeChanged = canonical(previous.runtime) !== canonical(next.runtime);
+  const previousPolicy=(previous as ProjectLock&{runtimePolicy?:RuntimePolicy}).runtimePolicy??null;
+  const nextPolicy=(next as ProjectLock&{runtimePolicy?:RuntimePolicy}).runtimePolicy??null;
+  const runtimeChanged = canonical({runtime:previous.runtime,runtimePolicy:previousPolicy,buildTarget:previous.buildTarget}) !== canonical({runtime:next.runtime,runtimePolicy:nextPolicy,buildTarget:next.buildTarget});
   const checks = new Set<string>();
   if (schemaChanged || addedPacks.length || removedPacks.length || changedPacks.length) checks.add('migration');
   for (const pack of [...addedPacks, ...removedPacks, ...changedPacks]) checks.add(pack.id);

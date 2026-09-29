@@ -251,19 +251,19 @@ git commit -m "feat: capture complete workflow screenshot evidence"
 - Produces `Render-StandardIntroductionHtml`, `Render-StandardFeatureTableHtml`, and `Render-StandardRuntimeHtml` from `MaterialFacts` only.
 - Shared cover uses software name, `【申请人填写】`, version, and generation date.
 
-- [ ] **Step 1: Write failing required-section and no-internal-ID tests**
+- [x] **Step 1: Write failing required-section and no-internal-ID tests**
 
 Assert introduction has purpose/users/scope/workflow/data/architecture/boundary sections; feature table has one table section per core module; runtime has installation/runtime/data/backup/offline/build/uninstall sections and two tables. Assert rendered user text contains no stable action IDs or bare field IDs.
 
-- [ ] **Step 2: Add shared A4 styles**
+- [x] **Step 2: Add shared A4 styles**
 
 Define Song/YaHei fonts, cover, H1/H2/H3 hierarchy, table header repetition, controlled page breaks, figure captions, header/footer space, and no negative spacing.
 
-- [ ] **Step 3: Implement deterministic Chinese renderers**
+- [x] **Step 3: Implement deterministic Chinese renderers**
 
 Generate at least 1,200/2,500/800 non-whitespace characters respectively using fact-backed module purposes, operation labels, roles, validation notes, runtime versions, and boundaries. No filler repetition is allowed to satisfy counts.
 
-- [ ] **Step 4: Run focused rendering tests and commit**
+- [x] **Step 4: Run focused rendering tests and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardMaterialRendering.Tests.ps1

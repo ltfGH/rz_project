@@ -219,7 +219,8 @@ function Build-StandardBusinessMaterials {
         $html = [Collections.Generic.List[string]]::new()
         foreach ($name in @('manual','application-info','runtime','prototype')) {
             $path = Join-Path $renderRoot ($name + '.html')
-            [void]$html.Add((New-RenderedMaterialHtml -TemplatePath (Join-Path $script:TemplateRoot ($name + '.html')) -Values $values -OutputPath $path))
+            $templateName = if ($name -eq 'runtime') { 'runtime-legacy' } else { $name }
+            [void]$html.Add((New-RenderedMaterialHtml -TemplatePath (Join-Path $script:TemplateRoot ($templateName + '.html')) -Values $values -OutputPath $path))
         }
         $sourceHtml = Join-Path $renderRoot 'source.html'
         if (-not $SkipDocumentExport -and [string]::IsNullOrWhiteSpace($RepositoryRoot)) { throw 'RepositoryRoot is required for source document export.' }

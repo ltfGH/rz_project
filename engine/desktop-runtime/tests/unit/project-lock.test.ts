@@ -9,6 +9,7 @@ import {
   canonicalProjectLock,
   compareProjectLocks,
   createProjectLock,
+  WINDOWS_OFFLINE_RUNTIME_POLICY,
   verifyProjectResources,
   type ProjectLock
 } from '../../src/core/project-lock';
@@ -24,7 +25,7 @@ function input(projectConfig: Readonly<Record<string, unknown>> = { name: 'test'
   return {
     generatorVersion: '1.0.0', blueprintSchemaVersion: '1.0' as const, domainLock,
     databaseSchemaVersion: 1, desktopRuntimeVersion: '1.0.0', electronVersion: '44.4.1',
-    nodeVersion: '22.21.0', sqliteVersion: '3.50.4', projectConfig,
+    nodeVersion: '22.21.0', sqliteVersion: '3.50.4', runtimePolicy: WINDOWS_OFFLINE_RUNTIME_POLICY, projectConfig,
     buildTarget: 'win-nsis-x64' as const
   };
 }
@@ -51,6 +52,12 @@ test('reports pack and runtime changes and requires migration evidence', () => {
   assert.deepEqual(report.requiredChecks, ['migration', 'asset_registry', 'combinations', 'desktop-runtime']);
   assert.equal(report.runtimeChanged, true);
   assert.equal(report.allowed, false);
+});
+
+test('treats a legacy 1.0 lock without runtime policy as a runtime change',()=>{
+  const current=createProjectLock(input()),legacy={...current}as Record<string,unknown>;delete legacy.runtimePolicy;
+  const report=compareProjectLocks(legacy as unknown as ProjectLock,current);
+  assert.equal(report.runtimeChanged,true);assert.deepEqual(report.requiredChecks,['desktop-runtime']);
 });
 
 test('verifies every locked resource and rejects one-byte tampering', (t) => {

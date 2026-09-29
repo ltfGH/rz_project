@@ -33,7 +33,7 @@ export function createMaterialFactsFixture(root:string,templateId:string){
   const screenshotManifest={manifestVersion:'2.0',templateId,executableSha256:fixtureExecutableSha256,blueprintSha256,captures};
   screenshotManifest.captures[0]!.moduleId=null as any;screenshotManifest.captures[0]!.workflowStepId=null;screenshotManifest.captures[0]!.actionId=null;
   const acceptanceReceipt={
-    receiptVersion:'1.0',status:'passed',templateId,businessRows:1000,executableSha256:fixtureExecutableSha256,
+    receiptVersion:'1.0',status:'passed',generatedAt:'2026-09-29T08:00:00.000Z',templateId,businessRows:1000,executableSha256:fixtureExecutableSha256,
     blueprintSha256,resourceManifestSha256,checks:{package:'passed',workflow:'passed',persistence:'passed'}
   };
   return {resourcesDirectory:resources,templateId,sourceManifest,screenshotManifest,acceptanceReceipt};
