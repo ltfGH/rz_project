@@ -1,5 +1,6 @@
 ﻿Set-StrictMode -Version Latest
 
+Import-Module (Join-Path $PSScriptRoot 'StandardSourceMaterial.psm1') -Force -DisableNameChecking
 $script:ContractPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config\standard-material-contract.json'
 $script:TemplateRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'template-standard\materials\content'
 $script:DomainScreenshotActions = [ordered]@{
@@ -223,9 +224,13 @@ function Build-StandardBusinessMaterials {
             [void]$html.Add((New-RenderedMaterialHtml -TemplatePath (Join-Path $script:TemplateRoot ($templateName + '.html')) -Values $values -OutputPath $path))
         }
         $sourceHtml = Join-Path $renderRoot 'source.html'
-        if (-not $SkipDocumentExport -and [string]::IsNullOrWhiteSpace($RepositoryRoot)) { throw 'RepositoryRoot is required for source document export.' }
-        New-SourceMaterialHtml -SourceManifest $SourceManifest -Title ([string]$Blueprint.software.name) -OutputPath $sourceHtml -RepositoryRoot $RepositoryRoot
-        if ($SkipDocumentExport) { return [pscustomobject]@{ html=$html.ToArray(); documents=@(); sourceHtml=$sourceHtml } }
+        if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) { throw 'RepositoryRoot is required for source material planning.' }
+        $sourcePlan = Get-StandardSourcePrintPlan -RepositoryRoot $RepositoryRoot -SourceManifest $SourceManifest
+        $sourcePlanPath = Join-Path $renderRoot 'source-plan.json'
+        [IO.File]::WriteAllText($sourcePlanPath, ($sourcePlan | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+        [void](Write-StandardSourceHtml -Plan $sourcePlan -SoftwareName ([string]$Blueprint.software.name) -Version ([string]$Blueprint.software.version) -OutputPath $sourceHtml)
+        $sourceHtmlSha256 = (Get-FileHash -LiteralPath $sourceHtml -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($SkipDocumentExport) { return [pscustomobject]@{ html=$html.ToArray(); documents=@(); sourceHtml=$sourceHtml; sourcePlan=$sourcePlan } }
 
         if (-not (Test-Path -LiteralPath $WordWorkerPath -PathType Leaf)) { throw 'Word material worker was not found.' }
         $definitions = @(
@@ -241,8 +246,8 @@ function Build-StandardBusinessMaterials {
         foreach ($definition in $definitions) {
             $docx = Join-Path $documentRoot ($definition.id + '.docx')
             $pdf = if ($definition.pdf) { Join-Path $documentRoot ($definition.id + '.pdf') } else { $null }
-            $isApplication = $definition.id -eq 'application-info'
-            $workItem = [pscustomobject]@{ HtmlPath=$definition.html; DocxPath=$docx; PdfPath=$pdf; SourceDocument=$definition.source; PrototypeDocument=$false; ApplicationDocument=$isApplication; ApplicationTemplatePath=if($isApplication){$applicationTemplatePath}else{$null}; SoftwareName=[string]$Blueprint.software.name; Version=[string]$Blueprint.software.version }
+            $isApplication = $definition.id -eq 'application-info'; $isSource = [bool]$definition.source
+            $workItem = [pscustomobject]@{ HtmlPath=$definition.html; DocxPath=$docx; PdfPath=$pdf; SourceDocument=$isSource; ExplicitSourceDocument=$isSource; SourcePlanPath=if($isSource){$sourcePlanPath}else{$null}; ExpectedSourcePages=if($isSource){[int]$sourcePlan.expectedPageCount}else{0}; SourceManifestSha256=if($isSource){[string]$sourcePlan.sourceManifestSha256}else{$null}; SelectionSha256=if($isSource){[string]$sourcePlan.selectionSha256}else{$null}; SourceHtmlSha256=if($isSource){$sourceHtmlSha256}else{$null}; SourceTotalFiles=if($isSource){[int]$sourcePlan.totalFiles}else{0}; SourceTotalLogicalLines=if($isSource){[int]$sourcePlan.totalLogicalLines}else{0}; SourceTotalPrintLines=if($isSource){[int]$sourcePlan.totalPrintLines}else{0}; PrototypeDocument=$false; ApplicationDocument=$isApplication; ApplicationTemplatePath=if($isApplication){$applicationTemplatePath}else{$null}; SoftwareName=[string]$Blueprint.software.name; Version=[string]$Blueprint.software.version }
             $workPath = Join-Path $renderRoot ($definition.id + '.work.json')
             [IO.File]::WriteAllText($workPath, ($workItem | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
             $workerOutput = (& powershell -NoProfile -ExecutionPolicy Bypass -File $WordWorkerPath -ProjectRoot $output -WorkItemsPath $workPath 2>&1 | Out-String)

@@ -392,19 +392,19 @@ git commit -m "fix: generate the standard two-page applicant form"
 - Produces `Get-StandardSourcePrintPlan` with selected files/lines, canonical digest, expected pages, first/last ranges.
 - Produces source HTML with explicit fifty-line page containers.
 
-- [ ] **Step 1: Write failing short and long source-plan tests**
+- [x] **Step 1: Write failing short and long source-plan tests**
 
 For 20 pages, select all. For 100 pages, select pages 1–30 and 71–100. Assert each full page contains 45–55 lines, selection is deterministic, and document/ZIP use the same manifest digest.
 
-- [ ] **Step 2: Render explicit source pages instead of relying on Word repagination**
+- [x] **Step 2: Render explicit source pages instead of relying on Word repagination**
 
 Each page is one fixed page-break container with line numbers, escaped code, header metadata, and page number. Do not delete a middle Word range after import.
 
-- [ ] **Step 3: Verify final saved DOCX and PDF page counts**
+- [x] **Step 3: Verify final saved DOCX and PDF page counts**
 
 Reopen DOCX after saving and count final pages. Count PDF page objects with a structured PDF reader or Word fixed-format verification. Fail if long material is not exactly sixty pages.
 
-- [ ] **Step 4: Run tests and commit**
+- [x] **Step 4: Run tests and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardSourceMaterial.Tests.ps1

@@ -14,4 +14,10 @@ if (-not (Test-Path -LiteralPath $resolvedWorkItems -PathType Leaf)) { throw 'Ma
 if ((Get-Item -LiteralPath $resolvedWorkItems).Length -gt 64KB) { throw 'Material work item file is too large.' }
 
 . (Join-Path $PSScriptRoot 'build-materials.ps1') -ProjectRoot $resolvedProjectRoot -NoBuild
-Invoke-MaterialsWordWorker -WorkItemsPath $resolvedWorkItems
+try { Invoke-MaterialsWordWorker -WorkItemsPath $resolvedWorkItems }
+catch {
+    $message = [string]$_.Exception.Message
+    if ($message -match '(?i)gh[pousr]_|github_pat_|password|token|[A-Z]:\\') { $message = 'Material Word export failed with a redacted error.' }
+    [Console]::Error.WriteLine('MATERIAL_WORD_EXPORT_FAILED: ' + $message)
+    exit 1
+}

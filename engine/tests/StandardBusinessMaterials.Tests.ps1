@@ -77,7 +77,7 @@ try {
         -Template $template -Profile ([pscustomobject]@{ softwareName='园区资产工单软件'; purpose='管理园区资产与工单闭环'; industry='园区运维' }) `
         -ProjectLock ([pscustomobject]@{ runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'}; databaseSchemaVersion=1 }) `
         -ScreenshotManifest ([pscustomobject]@{ executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$screenshots }) -SourceManifest $manifest -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) `
-        -VerificationReceipt ([pscustomobject]@{ status='passed'; businessRows=1000 }) -SkipDocumentExport
+        -VerificationReceipt ([pscustomobject]@{ status='passed'; businessRows=1000 }) -RepositoryRoot $fixtureRoot -SkipDocumentExport
 
     Assert-Equal $result.html.Count 4
     $allHtml = ($result.html | ForEach-Object { Get-Content -Raw -Encoding utf8 -LiteralPath $_ }) -join "`n"
@@ -94,7 +94,7 @@ try {
         -Template $template -Profile ([pscustomobject]@{softwareName='园区资产工单软件';purpose='管理园区资产与工单闭环';industry='园区运维'}) `
         -ProjectLock ([pscustomobject]@{runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'};databaseSchemaVersion=1}) `
         -ScreenshotManifest ([pscustomobject]@{manifestVersion='2.0';templateId='asset_work_order_operations';executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$v2Captures}) `
-        -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -SkipDocumentExport
+        -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -RepositoryRoot $fixtureRoot -SkipDocumentExport
     Assert-Equal $v2Result.html.Count 4
     $mismatchedManifest=[pscustomobject]@{executableSha256=('9'*64);blueprintSha256=('2'*64);captures=$screenshots}
     Assert-Throws {
@@ -102,7 +102,7 @@ try {
             -Profile ([pscustomobject]@{softwareName='园区资产工单软件';purpose='管理园区资产与工单闭环';industry='园区运维'}) `
             -ProjectLock ([pscustomobject]@{runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'};databaseSchemaVersion=1}) `
             -ScreenshotManifest $mismatchedManifest -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) `
-            -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -SkipDocumentExport
+            -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -RepositoryRoot $fixtureRoot -SkipDocumentExport
     } 'hash mismatch'
 
     $screenshotRoot = Join-Path $fixtureRoot 'screenshots'
@@ -125,6 +125,12 @@ if($id-eq'application-info.work'){
     $applicationFields=@([regex]::Matches($applicationHtml,'(?is)<td\b(?=[^>]*\bdata-field\s*=\s*["''](?<name>[a-z0-9_]+)["''])'))
     if($applicationFields.Count-ne19-or@($applicationFields|ForEach-Object{$_.Groups['name'].Value}|Sort-Object -Unique).Count-ne19){throw 'application-info must provide 19 unique data fields'}
 }elseif([bool]$item.ApplicationDocument){throw 'only application-info may use the application document exporter'}
+if($id-eq'source.work'){
+    if(-not[bool]$item.ExplicitSourceDocument-or-not(Test-Path -LiteralPath ([string]$item.SourcePlanPath) -PathType Leaf)){throw 'source must use the explicit source print plan'}
+    foreach($name in @('SourceManifestSha256','SelectionSha256','SourceHtmlSha256')){if([string]$item.$name-notmatch'^[0-9a-f]{64}$'){throw "source work item has invalid $name"}}
+    if([int]$item.SourceTotalFiles-lt1-or[int]$item.SourceTotalLogicalLines-lt1-or[int]$item.SourceTotalPrintLines-lt1){throw 'source work item is missing manifest totals'}
+    if((Get-FileHash -LiteralPath ([string]$item.HtmlPath) -Algorithm SHA256).Hash.ToLowerInvariant()-cne[string]$item.SourceHtmlSha256){throw 'source HTML hash mismatch'}
+}
 [IO.File]::WriteAllText([string]$item.DocxPath,'fixture-docx',[Text.UTF8Encoding]::new($false))
 if(-not [string]::IsNullOrWhiteSpace([string]$item.PdfPath)){[IO.File]::WriteAllText([string]$item.PdfPath,'fixture-pdf',[Text.UTF8Encoding]::new($false))}
 '@, [Text.UTF8Encoding]::new($true))

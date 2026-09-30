@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ProjectRoot,
     [switch]$NoBuild
@@ -520,6 +520,85 @@ function Export-MaterialsApplicationForm {
     if (-not [string]::IsNullOrWhiteSpace($PdfPath)) { $document.ExportAsFixedFormat($PdfPath, 17) }
 }
 
+function Get-ExplicitSourcePlan {
+    param(
+        [Parameter(Mandatory)][string]$PlanPath,
+        [Parameter(Mandatory)][string]$HtmlPath,
+        [Parameter(Mandatory)][int]$ExpectedPages,
+        [Parameter(Mandatory)][string]$ManifestSha256,
+        [Parameter(Mandatory)][string]$SelectionSha256,
+        [Parameter(Mandatory)][string]$HtmlSha256,
+        [Parameter(Mandatory)][int]$ExpectedTotalFiles,
+        [Parameter(Mandatory)][int]$ExpectedLogicalLines,
+        [Parameter(Mandatory)][int]$ExpectedPrintLines
+    )
+    if (-not (Test-Path -LiteralPath $PlanPath -PathType Leaf) -or (Get-Item -LiteralPath $PlanPath).Length -gt 32MB) { throw 'Explicit source print plan is missing or too large.' }
+    $plan = Get-Content -Raw -Encoding UTF8 -LiteralPath $PlanPath | ConvertFrom-Json
+    $pages = @($plan.pages)
+    if ([string]$plan.planVersion -ne '1.0' -or [int]$plan.linesPerPage -ne 50 -or [int]$plan.displayWidth -ne 55 -or [int]$plan.expectedPageCount -ne $ExpectedPages -or $pages.Count -ne $ExpectedPages -or [int]$plan.totalFiles -ne $ExpectedTotalFiles -or [int]$plan.totalLogicalLines -ne $ExpectedLogicalLines -or [int]$plan.totalPrintLines -ne $ExpectedPrintLines -or
+        [string]$plan.sourceManifestSha256 -cne $ManifestSha256 -or [string]$plan.selectionSha256 -cne $SelectionSha256) { throw 'Explicit source print plan metadata does not match the work item.' }
+    $expectedSourcePages = if ([int]$plan.totalSourcePages -le 60) { @(1..([int]$plan.totalSourcePages)) } else { @(1..30) + @(([int]$plan.totalSourcePages - 29)..([int]$plan.totalSourcePages)) }
+    if (($expectedSourcePages -join ',') -cne (@($pages | ForEach-Object { [int]$_.sourcePage }) -join ',')) { throw 'Explicit source print plan page selection is invalid.' }
+    $canonical = [Collections.Generic.List[string]]::new(); $selectedLineCount = 0; $selectedFiles = [Collections.Generic.List[string]]::new()
+    for ($pageIndex = 0; $pageIndex -lt $pages.Count; $pageIndex++) {
+        $lines = @($pages[$pageIndex].lines);$mappings=@($pages[$pageIndex].mappings);$physicalCount=$lines.Count+$mappings.Count
+        if ([int]$pages[$pageIndex].outputPage -ne $pageIndex + 1 -or $physicalCount -lt $(if ($pageIndex -eq $pages.Count - 1) { 1 } else { 45 }) -or $physicalCount -gt 55) { throw 'Explicit source print plan contains an invalid page.' }
+        $expectedMappingPaths=@($lines|ForEach-Object{[string]$_.path}|Select-Object -Unique);$actualMappingPaths=@($mappings|ForEach-Object{[string]$_.path}|Select-Object -Unique);if(($expectedMappingPaths-join"`n")-cne($actualMappingPaths-join"`n")){throw 'Explicit source print plan file mappings are invalid.'};foreach($mappingPath in $expectedMappingPaths){$parts=@($mappings|Where-Object{[string]$_.path-ceq$mappingPath}|Sort-Object part);if(($parts|ForEach-Object{[int]$_.part})-join','-cne((0..($parts.Count-1))-join',')-or($parts|ForEach-Object{[string]$_.text})-join''-cne$mappingPath-or@($parts|Where-Object{[Globalization.StringInfo]::ParseCombiningCharacters([string]$_.text).Count-gt48}).Count){throw 'Explicit source print plan file mappings are invalid.'}}
+        foreach ($line in $lines) {
+            $path = [string]$line.path; $segments = @($path.Split('/'))
+            if ([string]::IsNullOrWhiteSpace($path) -or [IO.Path]::IsPathRooted($path) -or $path.Contains('\') -or $segments.Count -eq 0 -or @($segments | Where-Object { [string]::IsNullOrWhiteSpace($_) -or $_ -in @('.','..') }).Count -or [int]$line.lineNumber -lt 1 -or [int]$line.continuation -lt 0 -or [Globalization.StringInfo]::ParseCombiningCharacters([string]$line.text).Count -gt 55) { throw 'Explicit source print plan contains an invalid line.' }
+            if (-not $selectedFiles.Contains($path)) { $selectedFiles.Add($path) }
+            $textBytes = [Text.UTF8Encoding]::new($false).GetBytes([string]$line.text); $textHash = [BitConverter]::ToString(([Security.Cryptography.SHA256]::Create().ComputeHash($textBytes))).Replace('-','').ToLowerInvariant()
+            $canonical.Add(('{0}|{1}|{2}|{3}|{4}' -f $pages[$pageIndex].sourcePage,$path,$line.lineNumber,$line.continuation,$textHash)); $selectedLineCount++
+        }
+    }
+    $trimRequired=[int]$plan.totalSourcePages-gt60;$firstRange=if($trimRequired){'1-30'}else{'1-'+[int]$plan.totalSourcePages};$lastRange=if($trimRequired){([int]$plan.totalSourcePages-29).ToString()+'-'+[int]$plan.totalSourcePages}else{$null}
+    if([bool]$plan.trimRequired-ne$trimRequired-or[string]$plan.firstRange-cne$firstRange-or[string]$plan.lastRange-cne[string]$lastRange-or[int]$plan.totalLogicalLines-lt1-or[int]$plan.totalLogicalLines-gt[int]$plan.totalPrintLines){throw 'Explicit source print plan derived metadata is invalid.'}
+    $selectionMetadata=$ManifestSha256+'|50|55|'+[int]$plan.totalFiles+'|'+[int]$plan.totalLogicalLines+'|'+[int]$plan.totalPrintLines+'|'+[int]$plan.totalSourcePages+'|'+$trimRequired+'|'+$firstRange+'|'+[string]$lastRange+'|'+($expectedSourcePages-join',')
+    $selectionText = $selectionMetadata + "`n" + ($canonical -join "`n"); $selectionBytes = [Text.UTF8Encoding]::new($false).GetBytes($selectionText); $recomputedSelection = [BitConverter]::ToString(([Security.Cryptography.SHA256]::Create().ComputeHash($selectionBytes))).Replace('-','').ToLowerInvariant()
+    $serializedFiles=@($plan.selectedFiles);$filesMatch=$serializedFiles.Count-eq$selectedFiles.Count;if($filesMatch){for($fileIndex=0;$fileIndex-lt$selectedFiles.Count;$fileIndex++){if([string]$selectedFiles[$fileIndex]-cne[string]$serializedFiles[$fileIndex]){$filesMatch=$false;break}}}
+    if ($recomputedSelection -cne $SelectionSha256 -or $selectedLineCount -ne [int]$plan.selectedLineCount -or-not$filesMatch) { throw 'Explicit source print plan selection digest is invalid.' }
+    $html = Get-Content -Raw -Encoding UTF8 -LiteralPath $HtmlPath
+    $actualHtmlSha256 = (Get-FileHash -LiteralPath $HtmlPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($HtmlSha256 -notmatch '^[0-9a-f]{64}$' -or $actualHtmlSha256 -cne $HtmlSha256 -or $html -notmatch ('data-source-manifest-sha256="' + [regex]::Escape($ManifestSha256) + '"') -or $html -notmatch ('data-selection-sha256="' + [regex]::Escape($SelectionSha256) + '"') -or [regex]::Matches($html, '<section class="source-page"').Count -ne $ExpectedPages) { throw 'Explicit source HTML does not match its print plan.' }
+    return $plan
+}
+
+function Get-MaterialsPdfPageCount {
+    param([Parameter(Mandatory)][string]$Path)
+    Add-Type -AssemblyName System.Runtime.WindowsRuntime
+    [void][Windows.Data.Pdf.PdfDocument,Windows.Data.Pdf,ContentType=WindowsRuntime]
+    $asTask = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.IsGenericMethodDefinition -and $_.GetGenericArguments().Count -eq 1 -and $_.GetParameters().Count -eq 1 -and $_.ReturnType.IsGenericType -and $_.ReturnType.Name -eq 'Task`1' } | Select-Object -First 1
+    if ($null -eq $asTask) { throw 'Windows PDF page reader is unavailable.' }
+    $memory = [IO.MemoryStream]::new([IO.File]::ReadAllBytes([IO.Path]::GetFullPath($Path)), $false); $randomAccess = [System.IO.WindowsRuntimeStreamExtensions]::AsRandomAccessStream($memory)
+    $pdfOperation = [Windows.Data.Pdf.PdfDocument]::LoadFromStreamAsync($randomAccess)
+    if ($null -eq $pdfOperation) { throw 'Windows PDF reader could not create a PDF operation.' }; $pdfTask = $asTask.MakeGenericMethod([Windows.Data.Pdf.PdfDocument]).Invoke($null,@($pdfOperation))
+    if ($null -eq $pdfTask) { throw 'Windows PDF reader could not create a PDF task.' }; $pdfTask.Wait(); $pdf = [Windows.Data.Pdf.PdfDocument]$pdfTask.Result
+    if ($null -eq $pdf) { throw 'Windows PDF reader returned no document.' }
+    try { return [int]$pdf.PageCount }
+    finally {
+        try { $pdf.Dispose() } catch { }; if ([Runtime.InteropServices.Marshal]::IsComObject($pdf)) { try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($pdf) } catch { } }
+        try { $pdfTask.Dispose() } catch { }; try { $randomAccess.Dispose() } catch { }; $memory.Dispose()
+        [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+    }
+}
+
+function Add-ExplicitSourceContent {
+    param([Parameter(Mandatory)]$Document,[Parameter(Mandatory)]$Plan)
+    foreach ($page in @($Plan.pages)) {
+        if ([int]$page.outputPage -gt 1) { $breakRange = $Document.Range($Document.Content.End - 1, $Document.Content.End - 1); $breakRange.InsertBreak(7) }
+        $pageText = [Text.StringBuilder]::new()
+        [void]$pageText.Append('打印页 ').Append($page.outputPage).Append('/').Append($Plan.expectedPageCount).Append('　源码页 ').Append($page.sourcePage).Append('/').Append($Plan.totalSourcePages).Append("`r")
+        foreach($mapping in @($page.mappings)){$fileIndex=[Array]::IndexOf([object[]]@($Plan.selectedFiles),[object][string]$mapping.path)+1;$prefix=if([int]$mapping.part-eq0){'F{0:D3} = '-f$fileIndex}else{'       '};[void]$pageText.Append($prefix).Append([string]$mapping.text).Append("`r")}
+        foreach ($line in @($page.lines)) {
+            $fileIndex=[Array]::IndexOf([object[]]@($Plan.selectedFiles),[object][string]$line.path)+1;$location=('F{0:D3}:{1}'-f$fileIndex,[int]$line.lineNumber)+$(if([int]$line.continuation-gt0){'.'+[int]$line.continuation}else{''})
+            [void]$pageText.Append($location).Append("`t").Append([string]$line.text).Append("`r")
+        }
+        $range = $Document.Range($Document.Content.End - 1, $Document.Content.End - 1)
+        $range.InsertAfter($pageText.ToString())
+    }
+}
+
 function Export-MaterialsHtml {
     param(
         [Parameter(Mandatory)][object]$Word,
@@ -532,14 +611,28 @@ function Export-MaterialsHtml {
         [switch]$ApplicationDocument,
         [string]$ApplicationTemplatePath,
         [string]$SoftwareName,
-        [string]$Version
+        [string]$Version,
+        [switch]$ExplicitSourceDocument,
+        [int]$ExpectedSourcePages,
+        [string]$SourceManifestSha256,
+        [string]$SelectionSha256,
+        [string]$SourcePlanPath,
+        [string]$SourceHtmlSha256,
+        [int]$SourceTotalFiles,
+        [int]$SourceTotalLogicalLines,
+        [int]$SourceTotalPrintLines
     )
 
     if ($ApplicationDocument) {
         Export-MaterialsApplicationForm -Word $Word -OpenDocuments $OpenDocuments -HtmlPath $HtmlPath -TemplatePath $ApplicationTemplatePath -DocxPath $DocxPath -PdfPath $PdfPath
         return
     }
-    $document = $Word.Documents.Open((Resolve-Path -LiteralPath $HtmlPath).Path, $false, $true)
+    if ($SourceDocument -and $ExplicitSourceDocument) {
+        $explicitPlan = Get-ExplicitSourcePlan -PlanPath $SourcePlanPath -HtmlPath $HtmlPath -ExpectedPages $ExpectedSourcePages -ManifestSha256 $SourceManifestSha256 -SelectionSha256 $SelectionSha256 -HtmlSha256 $SourceHtmlSha256 -ExpectedTotalFiles $SourceTotalFiles -ExpectedLogicalLines $SourceTotalLogicalLines -ExpectedPrintLines $SourceTotalPrintLines
+        $document = $Word.Documents.Add()
+        Add-ExplicitSourceContent -Document $document -Plan $explicitPlan
+    }
+    else { $document = $Word.Documents.Open((Resolve-Path -LiteralPath $HtmlPath).Path, $false, $true) }
     $OpenDocuments.Add($document)
     if ($SourceDocument) {
         $eastAsianFont = -join @([char]0x5B8B, [char]0x4F53)
@@ -548,18 +641,19 @@ function Export-MaterialsHtml {
 
         $document.PageSetup.PageWidth = 595.3
         $document.PageSetup.PageHeight = 841.9
-        $document.PageSetup.TopMargin = 72
-        $document.PageSetup.BottomMargin = 72
-        $document.PageSetup.LeftMargin = 90
-        $document.PageSetup.RightMargin = 90
+        $document.PageSetup.TopMargin = if ($ExplicitSourceDocument) { 45.35 } else { 72 }
+        $document.PageSetup.BottomMargin = if ($ExplicitSourceDocument) { 39.7 } else { 72 }
+        $document.PageSetup.LeftMargin = if ($ExplicitSourceDocument) { 39.7 } else { 90 }
+        $document.PageSetup.RightMargin = if ($ExplicitSourceDocument) { 39.7 } else { 90 }
         $document.PageSetup.HeaderDistance = 42.55
         $document.PageSetup.FooterDistance = 49.6
         $document.Content.Font.Name = 'Times New Roman'
         $document.Content.Font.NameFarEast = $eastAsianFont
-        $document.Content.Font.Size = 9
+        $document.Content.Font.Size = if ($ExplicitSourceDocument) { 6.5 } else { 9 }
         $document.Content.ParagraphFormat.SpaceBefore = 0
         $document.Content.ParagraphFormat.SpaceAfter = 0
-        $document.Content.ParagraphFormat.LineSpacingRule = 0
+        $document.Content.ParagraphFormat.LineSpacingRule = if ($ExplicitSourceDocument) { 4 } else { 0 }
+        if ($ExplicitSourceDocument) { $document.Content.ParagraphFormat.LineSpacing = 8 }
         $document.Content.ParagraphFormat.WidowControl = 0
 
         $header = $document.Sections.Item(1).Headers.Item(1)
@@ -581,18 +675,28 @@ function Export-MaterialsHtml {
         [void]$headerParagraph.Format.TabStops.Add($usableWidth, 2, 0)
         $headerParagraph.Borders.Item(-3).LineStyle = 7
         $headerParagraph.Borders.Item(-3).LineWidth = 4
-        $document.Repaginate()
-        $pagePlan = Get-MaterialsSourcePagePlan -PageCount ([int]$document.ComputeStatistics(2))
-        if ($pagePlan.TrimRequired) {
-            $middleStart = $document.GoTo(1, 1, $pagePlan.MiddleStartPage)
-            $lastPartStart = $document.GoTo(1, 1, $pagePlan.LastPartStartPage)
-            $middleRange = $document.Range($middleStart.Start, $lastPartStart.Start)
-            $middleRange.Delete()
+        if ($ExplicitSourceDocument) {
+            if ($ExpectedSourcePages -lt 1 -or $ExpectedSourcePages -gt 60 -or $SourceManifestSha256 -notmatch '^[0-9a-f]{64}$' -or $SelectionSha256 -notmatch '^[0-9a-f]{64}$') { throw 'Explicit source document metadata is invalid.' }
+            try { $document.Variables.Item('SourceManifestSha256').Delete() } catch { }
+            try { $document.Variables.Item('SourceSelectionSha256').Delete() } catch { }
+            [void]$document.Variables.Add('SourceManifestSha256', $SourceManifestSha256)
+            [void]$document.Variables.Add('SourceSelectionSha256', $SelectionSha256)
             $document.Repaginate()
+            $actualPageCount = [int]$document.ComputeStatistics(2)
+            if ($actualPageCount -ne $ExpectedSourcePages) { throw "Explicit source document has $actualPageCount pages; expected $ExpectedSourcePages." }
         }
-        $actualPageCount = [int]$document.ComputeStatistics(2)
-        if ($actualPageCount -ne $pagePlan.ExpectedPageCount) {
-            throw "Source document has $actualPageCount pages after formatting; expected $($pagePlan.ExpectedPageCount)."
+        else {
+            $document.Repaginate()
+            $pagePlan = Get-MaterialsSourcePagePlan -PageCount ([int]$document.ComputeStatistics(2))
+            if ($pagePlan.TrimRequired) {
+                $middleStart = $document.GoTo(1, 1, $pagePlan.MiddleStartPage)
+                $lastPartStart = $document.GoTo(1, 1, $pagePlan.LastPartStartPage)
+                $middleRange = $document.Range($middleStart.Start, $lastPartStart.Start)
+                $middleRange.Delete()
+                $document.Repaginate()
+            }
+            $actualPageCount = [int]$document.ComputeStatistics(2)
+            if ($actualPageCount -ne $pagePlan.ExpectedPageCount) { throw "Source document has $actualPageCount pages after formatting; expected $($pagePlan.ExpectedPageCount)." }
         }
         foreach ($field in $header.Range.Fields) { [void]$field.Update() }
     }
@@ -640,6 +744,20 @@ function Export-MaterialsHtml {
     }
     $document.SaveAs2($DocxPath, 12)
     if (-not [string]::IsNullOrWhiteSpace($PdfPath)) { $document.ExportAsFixedFormat($PdfPath, 17) }
+    if ($SourceDocument -and $ExplicitSourceDocument) {
+        $validationWord = $null; $validationDocument = $null
+        try {
+            $validationWord = New-Object -ComObject Word.Application; $validationWord.Visible = $false; $validationWord.DisplayAlerts = 0
+            $validationDocument = $validationWord.Documents.Open([IO.Path]::GetFullPath($DocxPath), $false, $true); $validationDocument.Repaginate()
+            $savedPages = [int]$validationDocument.ComputeStatistics(2)
+            if ($savedPages -ne $ExpectedSourcePages) { throw "Saved source DOCX has $savedPages pages; expected $ExpectedSourcePages." }
+        }
+        finally {
+            if ($null -ne $validationDocument) { try { $validationDocument.Close($false) } catch { }; try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($validationDocument) } catch { } }
+            if ($null -ne $validationWord) { try { $validationWord.Quit() } catch { }; try { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($validationWord) } catch { } }
+        }
+        if (-not [string]::IsNullOrWhiteSpace($PdfPath) -and (Get-MaterialsPdfPageCount -Path $PdfPath) -ne $ExpectedSourcePages) { throw 'Saved source PDF page count is invalid.' }
+    }
 }
 
 function Get-MaterialsWorkItems {
@@ -670,6 +788,17 @@ function Invoke-MaterialsWordWorker {
                 PdfPath = if ($null -eq $item.PdfPath) { $null } else { [string]$item.PdfPath }
             }
             if ([bool]$item.SourceDocument) { $parameters.SourceDocument = $true }
+            if ($null -ne $item.PSObject.Properties['ExplicitSourceDocument'] -and [bool]$item.ExplicitSourceDocument) {
+                $parameters.ExplicitSourceDocument = $true
+                $parameters.ExpectedSourcePages = [int]$item.ExpectedSourcePages
+                $parameters.SourceManifestSha256 = [string]$item.SourceManifestSha256
+                $parameters.SelectionSha256 = [string]$item.SelectionSha256
+                $parameters.SourcePlanPath = [string]$item.SourcePlanPath
+                $parameters.SourceHtmlSha256 = [string]$item.SourceHtmlSha256
+                $parameters.SourceTotalFiles = [int]$item.SourceTotalFiles
+                $parameters.SourceTotalLogicalLines = [int]$item.SourceTotalLogicalLines
+                $parameters.SourceTotalPrintLines = [int]$item.SourceTotalPrintLines
+            }
             if ($null -ne $item.PSObject.Properties['PrototypeDocument'] -and [bool]$item.PrototypeDocument) { $parameters.PrototypeDocument = $true }
             if ($null -ne $item.PSObject.Properties['ApplicationDocument'] -and [bool]$item.ApplicationDocument) {
                 $parameters.ApplicationDocument = $true
