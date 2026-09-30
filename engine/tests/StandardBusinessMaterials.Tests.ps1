@@ -69,50 +69,35 @@ try {
     Assert-Equal $projectAction.actionScope 'module'
     Assert-Equal $projectAction.roleId 'operations_dispatcher'
 
-    $screenshots = @($plan | ForEach-Object {
-        [pscustomobject]@{ id = $_.id; kind = $_.kind; moduleId = $_.moduleId; actionId = $_.actionId; controlVerified=($_.kind -eq 'action'); path = ($_.id + '.png'); sha256 = ('a' * 64) }
-    })
-    $outputRoot = Join-Path $fixtureRoot 'materials-output'
-    $result = Build-StandardBusinessMaterials -OutputDirectory $outputRoot -Blueprint $blueprint `
-        -Template $template -Profile ([pscustomobject]@{ softwareName='园区资产工单软件'; purpose='管理园区资产与工单闭环'; industry='园区运维' }) `
-        -ProjectLock ([pscustomobject]@{ runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'}; databaseSchemaVersion=1 }) `
-        -ScreenshotManifest ([pscustomobject]@{ executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$screenshots }) -SourceManifest $manifest -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) `
-        -VerificationReceipt ([pscustomobject]@{ status='passed'; businessRows=1000 }) -RepositoryRoot $fixtureRoot -SkipDocumentExport
-
-    Assert-Equal $result.html.Count 4
-    $allHtml = ($result.html | ForEach-Object { Get-Content -Raw -Encoding utf8 -LiteralPath $_ }) -join "`n"
-    Assert-Match $allHtml '资产台账'
-    Assert-Match $allHtml '工单管理'
-    Assert-Equal ($allHtml -match '库存批次') $false
-    Assert-Match $allHtml '【申请人填写】'
-    Assert-Match $allHtml '【生成时按实际源码统计填写】'
-    Assert-Equal ($allHtml -match [regex]::Escape($fixtureRoot)) $false
-    Assert-Equal ($allHtml -match 'ghp_[A-Za-z0-9]+') $false
-    Assert-Equal ($allHtml -match 'StrongPass123!') $false
-    $v2Captures=@(0..11|ForEach-Object{[pscustomobject]@{scenarioId=('scene_'+$_);stepId=('capture_'+$_);workflowStepId=$null;roleId='operations_admin';moduleId=if($_-lt 2){$null}else{'assets'};actionId=$null;stateBefore='页面展示前';stateAfter='页面展示后';executableSha256=('1'*64);blueprintSha256=('2'*64);imageSha256=('{0:x64}'-f ($_+1));fileName=('scene-'+$_+'.png');width=1440;height=960;perceptualDigest=('a'*64);controlVerified=$false}})
-    $v2Result=Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'materials-v2-output') -Blueprint $blueprint `
-        -Template $template -Profile ([pscustomobject]@{softwareName='园区资产工单软件';purpose='管理园区资产与工单闭环';industry='园区运维'}) `
-        -ProjectLock ([pscustomobject]@{runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'};databaseSchemaVersion=1}) `
-        -ScreenshotManifest ([pscustomobject]@{manifestVersion='2.0';templateId='asset_work_order_operations';executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$v2Captures}) `
-        -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -RepositoryRoot $fixtureRoot -SkipDocumentExport
-    Assert-Equal $v2Result.html.Count 4
-    $mismatchedManifest=[pscustomobject]@{executableSha256=('9'*64);blueprintSha256=('2'*64);captures=$screenshots}
-    Assert-Throws {
-        Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'mismatch-output') -Blueprint $blueprint -Template $template `
-            -Profile ([pscustomobject]@{softwareName='园区资产工单软件';purpose='管理园区资产与工单闭环';industry='园区运维'}) `
-            -ProjectLock ([pscustomobject]@{runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'};databaseSchemaVersion=1}) `
-            -ScreenshotManifest $mismatchedManifest -SourceManifest $manifest -VerificationReceipt ([pscustomobject]@{status='passed';businessRows=1000}) `
-            -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) -RepositoryRoot $fixtureRoot -SkipDocumentExport
-    } 'hash mismatch'
-
+    $factsFixtureRoot = Join-Path $fixtureRoot 'facts-fixtures'
+    $factsHelper = Join-Path $PSScriptRoot '..\desktop-runtime\tests\helpers\write-material-rendering-fixtures.cjs'
+    $previousNodeWarnings = $env:NODE_NO_WARNINGS
+    try { $env:NODE_NO_WARNINGS='1'; $factsOutput = & node $factsHelper $factsFixtureRoot 2>&1 | Out-String }
+    finally { $env:NODE_NO_WARNINGS=$previousNodeWarnings }
+    if ($LASTEXITCODE -ne 0) { throw "Material facts fixture generation failed: $factsOutput" }
+    $factsInput = Join-Path $fixtureRoot 'facts-input.json'
+    $facts = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $factsFixtureRoot 'asset_work_order_operations.json') | ConvertFrom-Json
     $screenshotRoot = Join-Path $fixtureRoot 'screenshots'
     New-Item -ItemType Directory -Path $screenshotRoot | Out-Null
-    $verifiedCaptures = @($plan | ForEach-Object {
-        $fileName = $_.id + '.png'
-        $filePath = Join-Path $screenshotRoot $fileName
-        [IO.File]::WriteAllBytes($filePath, [Text.UTF8Encoding]::new($false).GetBytes('fixture-' + $_.id))
-        [pscustomobject]@{ id=$_.id; kind=$_.kind; moduleId=$_.moduleId; actionId=$_.actionId; controlVerified=($_.kind -eq 'action'); path=$fileName; sha256=(Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant() }
-    })
+    foreach ($capture in @($facts.screenshots.captures)) {
+        $filePath = Join-Path $screenshotRoot ([string]$capture.fileName)
+        [IO.File]::WriteAllBytes($filePath, [Text.UTF8Encoding]::new($false).GetBytes('verified-screenshot-' + [string]$capture.scenarioId))
+        $capture.imageSha256 = (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    [IO.File]::WriteAllText($factsInput, ($facts | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
+    $resources = Join-Path $factsFixtureRoot 'asset_work_order_operations-workspace\resources'
+    $screenshotManifestPath = Join-Path $fixtureRoot 'screenshot-manifest.json'
+    $acceptancePath = Join-Path $fixtureRoot 'acceptance-report.json'
+    [IO.File]::WriteAllText($screenshotManifestPath, ($facts.screenshots | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($acceptancePath, '{}', [Text.UTF8Encoding]::new($false))
+    $fakeFactsTool = Join-Path $fixtureRoot 'fake-material-facts.cjs'
+    [IO.File]::WriteAllText($fakeFactsTool, @'
+const fs=require('node:fs');const path=require('node:path');
+const args=Object.fromEntries(Array.from({length:(process.argv.length-2)/2},(_,i)=>[process.argv[2+i*2],process.argv[3+i*2]]));
+for(const name of ['--resources','--source-manifest','--screenshots','--acceptance','--template','--output'])if(!args[name])throw new Error('missing '+name);
+if(args['--template']!=='asset_work_order_operations'||fs.existsSync(args['--output']))throw new Error('invalid material facts request');
+fs.copyFileSync(path.join(__dirname,'facts-input.json'),args['--output']);process.stdout.write('{"ok":true,"output":"material-facts.json"}\n');
+'@, [Text.UTF8Encoding]::new($false))
     $fakeWorker = Join-Path $fixtureRoot 'fake-word-worker.ps1'
     [IO.File]::WriteAllText($fakeWorker, @'
 param([string]$ProjectRoot,[string]$WorkItemsPath)
@@ -134,14 +119,68 @@ if($id-eq'source.work'){
 [IO.File]::WriteAllText([string]$item.DocxPath,'fixture-docx',[Text.UTF8Encoding]::new($false))
 if(-not [string]::IsNullOrWhiteSpace([string]$item.PdfPath)){[IO.File]::WriteAllText([string]$item.PdfPath,'fixture-pdf',[Text.UTF8Encoding]::new($false))}
 '@, [Text.UTF8Encoding]::new($true))
-    $formal = Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'formal-materials') -Blueprint $blueprint `
-        -Template $template -Profile ([pscustomobject]@{ softwareName='园区资产工单软件'; purpose='管理园区资产与工单闭环'; industry='园区运维' }) `
-        -ProjectLock ([pscustomobject]@{ runtime=[pscustomobject]@{desktop='1.0.0';electron='44.4.1'}; databaseSchemaVersion=1 }) `
-        -ScreenshotManifest ([pscustomobject]@{ executableSha256=('1'*64);blueprintSha256=('2'*64);captures=$verifiedCaptures }) -SourceManifest $manifest -EvidenceHashes ([pscustomobject]@{executableSha256=('1'*64);blueprintSha256=('2'*64)}) `
-        -VerificationReceipt ([pscustomobject]@{ status='passed'; businessRows=1000 }) -RepositoryRoot $fixtureRoot `
-        -ScreenshotRoot $screenshotRoot -WordWorkerPath $fakeWorker
-    Assert-Equal $formal.documents.Count 8
-    Assert-Equal @($formal.documents | Where-Object { Test-Path -LiteralPath $_ }).Count 8
+    $fakeQualityModule = Join-Path $fixtureRoot 'fake-quality.psm1'
+    [IO.File]::WriteAllText($fakeQualityModule, @'
+function Test-StandardDocumentSet {
+    param($Facts,[string]$DocumentRoot,[string[]]$ExpectedScreenshots,$SourcePlan)
+    $definitions=@(
+        @{id='introduction';docx='introduction.docx';pdf=$null;pages=4;characters=1800;tables=0;media=0},@{id='feature-table';docx='feature-table.docx';pdf=$null;pages=8;characters=3200;tables=8;media=0},
+        @{id='manual';docx='manual.docx';pdf='manual.pdf';pages=20;characters=5000;tables=2;media=12},@{id='database-design';docx='database-design.docx';pdf=$null;pages=16;characters=4500;tables=12;media=1},
+        @{id='runtime';docx='runtime.docx';pdf=$null;pages=4;characters=1200;tables=2;media=0},@{id='prototype';docx='prototype.docx';pdf=$null;pages=8;characters=1200;tables=1;media=5},
+        @{id='application-info';docx='application-info.docx';pdf='application-info.pdf';pages=2;characters=900;tables=3;media=0},@{id='source';docx='source.docx';pdf='source.pdf';pages=[int]$SourcePlan.expectedPageCount;characters=30000;tables=0;media=0}
+    )
+    if($ExpectedScreenshots.Count-lt12-or$ExpectedScreenshots.Count-gt18){throw 'expected twelve to eighteen screenshots'}
+    $documents=@($definitions|ForEach-Object{$d=$_;$docx=Join-Path $DocumentRoot $d.docx;if(-not(Test-Path -LiteralPath $docx -PathType Leaf)){throw 'missing document'};$pdf=if($null-eq$d.pdf){$null}else{$path=Join-Path $DocumentRoot $d.pdf;if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw 'missing pdf'};[pscustomobject]@{fileName=$d.pdf;sha256=(Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant();pages=$d.pages;nonblank=$true}};[pscustomobject]@{id=$d.id;fileName=$d.docx;sha256=(Get-FileHash $docx -Algorithm SHA256).Hash.ToLowerInvariant();pages=$d.pages;characters=$d.characters;paragraphs=100;tables=$d.tables;mediaCount=$d.media;mediaSha256=@(1..$d.media|ForEach-Object{if($d.media-gt0){'{0:x64}'-f$_}});pdf=$pdf}})
+    [pscustomobject]@{receiptVersion='1.0';status='passed';factsSha256=('1'*64);executableSha256=$Facts.evidence.executableSha256;resourceManifestSha256=$Facts.evidence.resourceManifestSha256;blueprintSha256=$Facts.evidence.blueprintSha256;sourceManifestSha256=$Facts.source.sha256;sourceSelectionSha256=$SourcePlan.selectionSha256;screenshotManifestSha256=$Facts.evidence.screenshotManifestSha256;screenshotSha256=('2'*64);documents=$documents}
+}
+Export-ModuleMember -Function Test-StandardDocumentSet
+'@, [Text.UTF8Encoding]::new($true))
+    $outputRoot = Join-Path $fixtureRoot 'formal-materials'
+    $formal = Build-StandardBusinessMaterials -OutputDirectory $outputRoot -Template $template -ResourceDirectory $resources `
+        -SourceManifestPath $manifestPath -ScreenshotManifestPath $screenshotManifestPath -AcceptanceReceiptPath $acceptancePath `
+        -RepositoryRoot $fixtureRoot -ScreenshotRoot $screenshotRoot -MaterialFactsToolPath $fakeFactsTool `
+        -WordWorkerPath $fakeWorker -DocumentQualityModulePath $fakeQualityModule
+    Assert-Equal $formal.html.Count 8
+    Assert-Equal $formal.documents.Count 11
+    Assert-Equal @($formal.documents | Where-Object { Test-Path -LiteralPath $_ }).Count 11
+    Assert-Equal $formal.receipt.status 'passed'
+    Assert-Equal (Test-Path -LiteralPath $formal.factsPath -PathType Leaf) $true
+    Assert-Equal (Test-Path -LiteralPath $formal.receiptPath -PathType Leaf) $true
+    Assert-Equal @(Get-ChildItem -LiteralPath $fixtureRoot -Directory -Filter '.standard-materials.staging-*').Count 0
+
+    $failingWorker = Join-Path $fixtureRoot 'failing-word-worker.ps1'
+    [IO.File]::WriteAllText($failingWorker, "throw 'intentional worker failure'", [Text.UTF8Encoding]::new($true))
+    $failedOutput = Join-Path $fixtureRoot 'failed-materials'
+    Assert-Throws {
+        Build-StandardBusinessMaterials -OutputDirectory $failedOutput -Template $template -ResourceDirectory $resources `
+            -SourceManifestPath $manifestPath -ScreenshotManifestPath $screenshotManifestPath -AcceptanceReceiptPath $acceptancePath `
+            -RepositoryRoot $fixtureRoot -ScreenshotRoot $screenshotRoot -MaterialFactsToolPath $fakeFactsTool `
+            -WordWorkerPath $failingWorker -DocumentQualityModulePath $fakeQualityModule
+    } 'Word material export failed'
+    Assert-Equal (Test-Path -LiteralPath $failedOutput) $false
+    Assert-Equal @(Get-ChildItem -LiteralPath $fixtureRoot -Directory -Filter '.standard-materials.staging-*').Count 0
+
+    $directoryTarget = Join-Path $fixtureRoot 'directory-target'
+    $directoryChild = Join-Path $directoryTarget 'resources-child'
+    $directoryJunction = Join-Path $fixtureRoot 'directory-junction'
+    New-Item -ItemType Directory -Path $directoryChild -Force | Out-Null
+    New-Item -ItemType Junction -Path $directoryJunction -Target $directoryTarget | Out-Null
+    Assert-Throws {
+        Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'junction-directory-output') -Template $template -ResourceDirectory (Join-Path $directoryJunction 'resources-child') `
+            -SourceManifestPath $manifestPath -ScreenshotManifestPath $screenshotManifestPath -AcceptanceReceiptPath $acceptancePath `
+            -RepositoryRoot $fixtureRoot -ScreenshotRoot $screenshotRoot -MaterialFactsToolPath $fakeFactsTool -SkipDocumentExport
+    } 'reparse point'
+
+    $fileTarget = Join-Path $fixtureRoot 'file-target'
+    $fileJunction = Join-Path $fixtureRoot 'file-junction'
+    New-Item -ItemType Directory -Path $fileTarget | Out-Null
+    Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $fileTarget 'source-manifest.json')
+    New-Item -ItemType Junction -Path $fileJunction -Target $fileTarget | Out-Null
+    Assert-Throws {
+        Build-StandardBusinessMaterials -OutputDirectory (Join-Path $fixtureRoot 'junction-file-output') -Template $template -ResourceDirectory $resources `
+            -SourceManifestPath (Join-Path $fileJunction 'source-manifest.json') -ScreenshotManifestPath $screenshotManifestPath -AcceptanceReceiptPath $acceptancePath `
+            -RepositoryRoot $fixtureRoot -ScreenshotRoot $screenshotRoot -MaterialFactsToolPath $fakeFactsTool -SkipDocumentExport
+    } 'reparse point'
 }
 finally {
     if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }

@@ -184,11 +184,11 @@ function Invoke-StandardDefaultAction {
             $sourceManifestPath=Join-Path $State.Context.WorkspacePath 'source-manifest.json'
             $sourceManifest=Get-StandardSourceManifest -RepositoryRoot $generatorRoot -Template $State.Template -OutputPath $sourceManifestPath
             $materialOutput=Join-Path $State.Context.WorkspacePath 'materials'
-            $built=Build-StandardBusinessMaterials -OutputDirectory $materialOutput -Blueprint $State.Resources.blueprint -Template $State.Template -Profile $State.Profile.Profile `
-                -ProjectLock $State.Resources.projectLock -ScreenshotManifest $State.ScreenshotManifest -SourceManifest $sourceManifest -VerificationReceipt $State.AcceptanceReceipt `
-                -EvidenceHashes $State.DomainReceipt -RepositoryRoot $generatorRoot -ScreenshotRoot (Join-Path $State.Context.WorkspacePath 'screenshots')
+            $built=Build-StandardBusinessMaterials -OutputDirectory $materialOutput -Template $State.Template -ResourceDirectory $State.Resources.resourcesPath `
+                -SourceManifestPath $sourceManifestPath -ScreenshotManifestPath (Join-Path $State.Context.WorkspacePath 'screenshots\screenshot-manifest.json') `
+                -AcceptanceReceiptPath (Join-Path $State.Context.WorkspacePath 'acceptance-report.json') -RepositoryRoot $generatorRoot `
+                -ScreenshotRoot (Join-Path $State.Context.WorkspacePath 'screenshots')
             $State.SourceManifest=$sourceManifest
-            $State.MaterialReceipt=[pscustomobject]@{status='passed';executableSha256=$State.DomainReceipt.executableSha256;resourceManifestSha256=$State.DomainReceipt.resourceManifestSha256;sourceManifestSha256=$sourceManifest.sha256}
             return $built
         }
         'BuildWindowsInstaller' {
@@ -214,27 +214,36 @@ function Invoke-StandardDefaultAction {
             $artifactRoot=Join-Path $State.Context.WorkspacePath 'delivery-artifacts';New-Item -ItemType Directory -Path $artifactRoot|Out-Null
             $copyMap=[ordered]@{
                 $State.Installer.FullName="$($State.Context.SoftwareName) V$($State.Context.Version) 安装包.exe"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\manual.docx')="$($State.Context.SoftwareName)-操作手册.docx"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\manual.pdf')="$($State.Context.SoftwareName)-操作手册.pdf"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\source.docx')="$($State.Context.SoftwareName)-源码.docx"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\source.pdf')="$($State.Context.SoftwareName)-源码.pdf"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\application-info.docx')="$($State.Context.SoftwareName)-申请表.docx"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\application-info.pdf')="$($State.Context.SoftwareName)-申请表.pdf"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\runtime.docx')="$($State.Context.SoftwareName)-运行环境.docx"
-                (Join-Path $State.Context.WorkspacePath 'materials\documents\prototype.docx')="$($State.Context.SoftwareName)-原型设计图.docx"
+                (Join-Path $State.Materials.root 'documents\introduction.docx')="$($State.Context.SoftwareName)-软件介绍.docx"
+                (Join-Path $State.Materials.root 'documents\feature-table.docx')="$($State.Context.SoftwareName)-功能表.docx"
+                (Join-Path $State.Materials.root 'documents\manual.docx')="$($State.Context.SoftwareName)-操作手册.docx"
+                (Join-Path $State.Materials.root 'documents\manual.pdf')="$($State.Context.SoftwareName)-操作手册.pdf"
+                (Join-Path $State.Materials.root 'documents\database-design.docx')="$($State.Context.SoftwareName)-数据库设计.docx"
+                (Join-Path $State.Materials.root 'documents\source.docx')="$($State.Context.SoftwareName)-源码.docx"
+                (Join-Path $State.Materials.root 'documents\source.pdf')="$($State.Context.SoftwareName)-源码.pdf"
+                (Join-Path $State.Materials.root 'documents\application-info.docx')="$($State.Context.SoftwareName)-申请表.docx"
+                (Join-Path $State.Materials.root 'documents\application-info.pdf')="$($State.Context.SoftwareName)-申请表.pdf"
+                (Join-Path $State.Materials.root 'documents\runtime.docx')="$($State.Context.SoftwareName)-运行环境.docx"
+                (Join-Path $State.Materials.root 'documents\prototype.docx')="$($State.Context.SoftwareName)-原型设计图.docx"
                 (Join-Path $State.Resources.resourcesPath 'blueprint.json')='业务蓝图.json';(Join-Path $State.Resources.resourcesPath 'domain-lock.json')='领域版本锁.json'
                 (Join-Path $State.Context.WorkspacePath 'acceptance-report.json')='验收报告.json'
             }
             $artifacts=[Collections.Generic.List[IO.FileInfo]]::new()
             foreach($source in $copyMap.Keys){if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw "Delivery artifact is missing: $source"};$target=Join-Path $artifactRoot $copyMap[$source];Copy-Item -LiteralPath $source -Destination $target;$artifacts.Add((Get-Item $target))}
             $artifacts.Add($sourceArchive)
-            $receipts=[pscustomobject]@{Installer=$State.InstallerReceipt;Package=$State.DomainReceipt;E2E=$State.AcceptanceReceipt;Materials=$State.MaterialReceipt}
-            $staging=New-StandardDeliveryStaging -Context $State.Context -Artifacts $artifacts.ToArray() -Receipts $receipts -SourceManifest $State.SourceManifest
-            return [pscustomobject]@{StagingPath=$staging;SourceArchive=$sourceArchive}
+            $sourceArchiveReceipt=[pscustomobject]@{status='passed';sha256=(Get-FileHash $sourceArchive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
+            $receipts=[pscustomobject]@{Installer=$State.InstallerReceipt;Package=$State.DomainReceipt;E2E=$State.AcceptanceReceipt;Materials=$State.MaterialReceipt;SourceArchive=$sourceArchiveReceipt}
+            $staging=New-StandardDeliveryStaging -Context $State.Context -Artifacts $artifacts.ToArray() -Receipts $receipts -SourceManifest $State.SourceManifest `
+                -MaterialFactsPath $State.Materials.factsPath -SourcePlan $State.Materials.sourcePlan `
+                -ScreenshotManifestPath (Join-Path $State.Context.WorkspacePath 'screenshots\screenshot-manifest.json') -ScreenshotRoot (Join-Path $State.Context.WorkspacePath 'screenshots')
+            return [pscustomobject]@{StagingPath=$staging;SourceArchive=$sourceArchive;SourceArchiveReceipt=$sourceArchiveReceipt}
         }
         'Publish' {
             Import-Module (Join-Path $PSScriptRoot 'StandardBusinessPublisher.psm1') -Force -DisableNameChecking
-            return Publish-StandardDelivery -Context $State.Context -StagingPath $State.StagingPath
+            $receipts=[pscustomobject]@{Installer=$State.InstallerReceipt;Package=$State.DomainReceipt;E2E=$State.AcceptanceReceipt;Materials=$State.MaterialReceipt;SourceArchive=$State.SourceArchiveReceipt}
+            return Publish-StandardDelivery -Context $State.Context -StagingPath $State.StagingPath -Receipts $receipts -SourceManifest $State.SourceManifest `
+                -MaterialFactsPath $State.Materials.factsPath -SourcePlan $State.Materials.sourcePlan `
+                -ScreenshotManifestPath (Join-Path $State.Context.WorkspacePath 'screenshots\screenshot-manifest.json') -ScreenshotRoot (Join-Path $State.Context.WorkspacePath 'screenshots')
         }
         default { throw "Unknown standard stage '$Stage'." }
     }
@@ -250,7 +259,7 @@ function Invoke-StandardBusinessOrchestration {
         Context=$Context; Template=$Template; CredentialDigests=$CredentialDigests; CredentialSecrets=$CredentialSecrets
         Dependencies=$null; Recommendation=$null; CredentialReceipt=$null; Profile=$null; Composition=$null; Resources=$null; DesktopBuild=$null
         DomainReceipt=$null; AcceptanceReceipt=$null; ScreenshotManifest=$null; Materials=$null; MaterialReceipt=$null; Installer=$null; InstallerReceipt=$null
-        SourceManifest=$null; SourceArchive=$null; StagingPath=$null; DeliveryPath=$null
+        SourceManifest=$null; SourceArchive=$null; SourceArchiveReceipt=$null; StagingPath=$null; DeliveryPath=$null
     }
     Write-StandardGenerationLog -Context $Context -Message '标准业务生成任务已创建。' -Initialize
     $completed=$false
@@ -271,8 +280,8 @@ function Invoke-StandardBusinessOrchestration {
                 }
                 'ComposeDomain'{$state.Composition=$result};'AssembleResources'{$state.Resources=$result;$state.CredentialDigests=$null};'BuildDesktop'{$state.DesktopBuild=$result}
                 'VerifyDomain'{$state.DomainReceipt=$result};'VerifyPackagedWorkflow'{$state.AcceptanceReceipt=$result};'CaptureDesktopScreenshots'{$state.ScreenshotManifest=$result}
-                'BuildBusinessMaterials'{$state.Materials=$result};'BuildWindowsInstaller'{$state.Installer=$result};'VerifyInstaller'{$state.InstallerReceipt=$result}
-                'PackageBusinessDelivery'{$state.StagingPath=if($result-is[string]){$result}else{$result.StagingPath};$state.SourceArchive=if($result-isnot[string]){$result.SourceArchive}else{$null}}
+                'BuildBusinessMaterials'{$state.Materials=$result;$state.MaterialReceipt=$result.receipt};'BuildWindowsInstaller'{$state.Installer=$result};'VerifyInstaller'{$state.InstallerReceipt=$result}
+                'PackageBusinessDelivery'{$state.StagingPath=if($result-is[string]){$result}else{$result.StagingPath};$state.SourceArchive=if($result-isnot[string]){$result.SourceArchive}else{$null};$state.SourceArchiveReceipt=if($result-isnot[string]){$result.SourceArchiveReceipt}else{$null}}
                 'Publish'{$state.DeliveryPath=[string]$result}
             }
         }

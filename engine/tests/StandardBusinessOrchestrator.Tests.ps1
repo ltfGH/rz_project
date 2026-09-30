@@ -33,7 +33,12 @@ function New-StandardOverrides([Collections.Generic.List[string]]$Calls,[string]
             }
             if ($captured -eq 'VerifyDomain') { Assert-Equal $state.Resources.resourcesPath 'resources' }
             if ($captured -eq 'VerifyPackagedWorkflow') { Assert-Equal ($null -eq $state.CredentialDigests) $true }
-            if ($captured -eq 'PackageBusinessDelivery') { return (Join-Path $state.Context.WorkspacePath 'standard-publish-staging') }
+            if ($captured -eq 'BuildBusinessMaterials') { return [pscustomobject]@{ receipt=[pscustomobject]@{ receiptVersion='1.0'; status='passed'; factsSha256=('1'*64) } } }
+            if ($captured -eq 'PackageBusinessDelivery') {
+                Assert-Equal $state.MaterialReceipt.receiptVersion '1.0'
+                Assert-Equal $state.MaterialReceipt.factsSha256 ('1'*64)
+                return (Join-Path $state.Context.WorkspacePath 'standard-publish-staging')
+            }
             if ($captured -eq 'Publish') { return $state.Context.RequestedDeliveryPath }
             return [pscustomobject]@{ status='passed'; stage=$captured }
         }.GetNewClosure()

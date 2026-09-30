@@ -1,266 +1,142 @@
 ﻿Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'StandardSourceMaterial.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'StandardMaterialRendering.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'StandardBusinessDiagrams.psm1') -Force -DisableNameChecking
+
 $script:ContractPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'config\standard-material-contract.json'
-$script:TemplateRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'template-standard\materials\content'
+$script:DefaultMaterialFactsTool = Join-Path (Split-Path -Parent $PSScriptRoot) 'desktop-runtime\tools\build-material-facts.cjs'
+$script:DefaultWordWorker = Join-Path (Split-Path -Parent $PSScriptRoot) 'template\tools\word-export-worker.ps1'
+$script:DefaultQualityModule = Join-Path $PSScriptRoot 'StandardDocumentQuality.psm1'
 $script:DomainScreenshotActions = [ordered]@{
     'projects.create_project' = [pscustomobject]@{ DomainActionId='project.create'; Label='创建项目'; Scope='module' }
 }
 
-function ConvertTo-MaterialHtmlText {
-    param($Value)
-    return [Net.WebUtility]::HtmlEncode([string]$Value)
-}
-
-function Assert-SafeMaterialText {
-    param([Parameter(Mandatory)][string]$Value, [Parameter(Mandatory)][string]$Name)
-    if ($Value -match '(?i)gh[pousr]_[A-Za-z0-9_]{16,}' -or $Value -match '(?i)(password|token)\s*[:=]\s*\S+' -or
-        $Value -match '(?i)([A-Z]:\\|file://|https?://|\\\\[^\\]+\\)') {
-        throw "Unsafe value was rejected for material field '$Name'."
-    }
-}
-
-function ConvertTo-HtmlList {
-    param([object[]]$Items, [scriptblock]$Renderer)
-    if (@($Items).Count -eq 0) { return '<p>无。</p>' }
-    return '<ul>' + ((@($Items) | ForEach-Object { '<li>' + (& $Renderer $_) + '</li>' }) -join '') + '</ul>'
-}
-
 function Get-StandardScreenshotPlan {
-    [CmdletBinding()]
-    param([Parameter(Mandatory)]$Blueprint)
-
+    [CmdletBinding()]param([Parameter(Mandatory)]$Blueprint)
     $modules = @($Blueprint.modules | Where-Object { $_.id -ne 'maintenance' })
     if ($modules.Count -eq 0) { throw 'Blueprint has no business modules for screenshots.' }
-    $primary = @($modules | Where-Object { @($_.actions) -contains 'view' })[0]
-    if ($null -eq $primary) { $primary = $modules[0] }
+    $primary = @($modules | Where-Object { @($_.actions) -contains 'view' })[0]; if ($null -eq $primary) { $primary = $modules[0] }
     $workflowRows = @($Blueprint.workflows | Where-Object { @($_.transitions).Count -gt 0 })
-    $actionModule = $null; $action = ''; $actionLabel = ''; $actionType = ''; $actionScope = ''; $actionPermission = ''
+    $actionModule=$null;$action='';$actionLabel='';$actionType='';$actionScope='';$actionPermission=''
     if ($workflowRows.Count -gt 0) {
-        $workflow = $workflowRows[0]
-        $actionModule = @($modules | Where-Object entity -eq $workflow.entity)[0]
-        if ($null -eq $actionModule) { throw "Workflow '$($workflow.id)' has no visible module." }
-        $transition = @($workflow.transitions)[0]
-        $action = [string]$transition.id; $actionLabel = [string]$transition.name
-        $actionPermission = [string]$transition.permission; $actionType = 'workflow'; $actionScope = 'record'
+        $workflow=$workflowRows[0];$actionModule=@($modules|Where-Object entity -eq $workflow.entity)[0]
+        if($null-eq$actionModule){throw "Workflow '$($workflow.id)' has no visible module."}
+        $transition=@($workflow.transitions)[0];$action=[string]$transition.id;$actionLabel=[string]$transition.name;$actionPermission=[string]$transition.permission;$actionType='workflow';$actionScope='record'
+    } else {
+        foreach($module in $modules){foreach($moduleAction in @($module.actions)){$key='{0}.{1}'-f$module.id,$moduleAction;if($script:DomainScreenshotActions.Contains($key)){$definition=$script:DomainScreenshotActions[$key];$actionModule=$module;$action=[string]$definition.DomainActionId;$actionLabel=[string]$definition.Label;$actionPermission=$key;$actionType='domain';$actionScope=[string]$definition.Scope;break}};if($null-ne$actionModule){break}}
+        if($null-eq$actionModule){throw 'Blueprint has no supported action for a screenshot.'}
     }
-    else {
-        foreach ($module in $modules) {
-            foreach ($moduleAction in @($module.actions)) {
-                $key = '{0}.{1}' -f $module.id,$moduleAction
-                if ($script:DomainScreenshotActions.Contains($key)) {
-                    $definition = $script:DomainScreenshotActions[$key]
-                    $actionModule = $module; $action = [string]$definition.DomainActionId; $actionLabel = [string]$definition.Label
-                    $actionPermission = $key; $actionType = 'domain'; $actionScope = [string]$definition.Scope
-                    break
-                }
-            }
-            if ($null -ne $actionModule) { break }
-        }
-        if ($null -eq $actionModule) { throw 'Blueprint has no supported action for a screenshot.' }
-    }
-    $actionRole = $null
-    foreach ($roleId in @('operations_dispatcher','operations_operator','operations_reviewer','operations_admin')) {
-        $matchedRole = @($Blueprint.roles | Where-Object { $_.id -eq $roleId -and @($_.permissions) -contains $actionPermission })
-        if ($matchedRole.Count -eq 1) { $actionRole = $matchedRole[0]; break }
-    }
-    if ($null -eq $actionRole) { throw "No composite role can display action '$actionPermission'." }
-    $secondary = @($modules | Where-Object id -ne $primary.id)[0]
-    if ($null -eq $secondary) { $secondary = $primary }
-
+    $actionRole=$null
+    foreach($roleId in @('operations_dispatcher','operations_operator','operations_reviewer','operations_admin')){$matchedRole=@($Blueprint.roles|Where-Object{$_.id-eq$roleId-and@($_.permissions)-contains$actionPermission});if($matchedRole.Count-eq1){$actionRole=$matchedRole[0];break}}
+    if($null-eq$actionRole){throw "No composite role can display action '$actionPermission'."}
+    $secondary=@($modules|Where-Object id -ne $primary.id)[0];if($null-eq$secondary){$secondary=$primary}
     return @(
-        [pscustomobject]@{ id='dashboard'; kind='dashboard'; moduleId=$null; actionId=$null; roleId='operations_admin'; fileName='dashboard-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('list-' + $primary.id); kind='list'; moduleId=[string]$primary.id; actionId='list'; roleId='operations_admin'; fileName='records-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('detail-' + $primary.id); kind='detail'; moduleId=[string]$primary.id; actionId='view'; roleId='operations_admin'; fileName='detail-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('action-' + $actionModule.id + '-' + $action); kind='action'; moduleId=[string]$actionModule.id; actionId=[string]$action; actionLabel=$actionLabel; actionType=$actionType; actionScope=$actionScope; roleId=[string]$actionRole.id; fileName='operation-desktop.png'; viewport='desktop' },
-        [pscustomobject]@{ id=('mobile-' + $secondary.id); kind='list'; moduleId=[string]$secondary.id; actionId='list'; roleId='operations_admin'; fileName='records-mobile.png'; viewport='mobile' }
+        [pscustomobject]@{id='dashboard';kind='dashboard';moduleId=$null;actionId=$null;roleId='operations_admin';fileName='dashboard-desktop.png';viewport='desktop'},
+        [pscustomobject]@{id=('list-'+$primary.id);kind='list';moduleId=[string]$primary.id;actionId='list';roleId='operations_admin';fileName='records-desktop.png';viewport='desktop'},
+        [pscustomobject]@{id=('detail-'+$primary.id);kind='detail';moduleId=[string]$primary.id;actionId='view';roleId='operations_admin';fileName='detail-desktop.png';viewport='desktop'},
+        [pscustomobject]@{id=('action-'+$actionModule.id+'-'+$action);kind='action';moduleId=[string]$actionModule.id;actionId=[string]$action;actionLabel=$actionLabel;actionType=$actionType;actionScope=$actionScope;roleId=[string]$actionRole.id;fileName='operation-desktop.png';viewport='desktop'},
+        [pscustomobject]@{id=('mobile-'+$secondary.id);kind='list';moduleId=[string]$secondary.id;actionId='list';roleId='operations_admin';fileName='records-mobile.png';viewport='mobile'}
     )
 }
 
-function New-RenderedMaterialHtml {
-    param(
-        [Parameter(Mandatory)][string]$TemplatePath,
-        [Parameter(Mandatory)][hashtable]$Values,
-        [Parameter(Mandatory)][string]$OutputPath
-    )
-    $content = [IO.File]::ReadAllText($TemplatePath, [Text.UTF8Encoding]::new($false))
-    foreach ($key in $Values.Keys) { $content = $content.Replace('{{' + $key + '}}', [string]$Values[$key]) }
-    $unresolved = [regex]::Match($content, '\{\{[A-Z_]+\}\}')
-    if ($unresolved.Success) { throw "Material template contains unresolved token '$($unresolved.Value)'." }
-    [IO.File]::WriteAllText($OutputPath, $content, [Text.UTF8Encoding]::new($false))
-    return $OutputPath
+function Assert-StandardMaterialNoReparseAncestors($Item,[string]$Name) {
+    $current=$Item
+    while($null -ne $current){if(($current.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw "Material input '$Name' path must not contain a reparse point."};$current=if($current -is [IO.FileInfo]){$current.Directory}else{$current.Parent}}
+}
+function Assert-StandardMaterialFile {
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$Name)
+    if(-not[IO.Path]::IsPathRooted($Path)-or-not(Test-Path -LiteralPath $Path -PathType Leaf)){throw "Material input '$Name' is missing or not absolute."}
+    $item=Get-Item -LiteralPath $Path -Force;Assert-StandardMaterialNoReparseAncestors $item $Name;return $item.FullName
+}
+function Assert-StandardMaterialDirectory {
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][string]$Name)
+    if(-not[IO.Path]::IsPathRooted($Path)-or-not(Test-Path -LiteralPath $Path -PathType Container)){throw "Material input '$Name' is missing or not absolute."}
+    $item=Get-Item -LiteralPath $Path -Force;Assert-StandardMaterialNoReparseAncestors $item $Name;return $item.FullName
 }
 
-function New-SourceMaterialHtml {
-    param(
-        [Parameter(Mandatory)]$SourceManifest,
-        [Parameter(Mandatory)][string]$Title,
-        [Parameter(Mandatory)][string]$OutputPath,
-        [string]$RepositoryRoot
+function Invoke-StandardMaterialFactsBuilder {
+    param([string]$ToolPath,[string]$ResourceDirectory,[string]$SourceManifestPath,[string]$ScreenshotManifestPath,[string]$AcceptanceReceiptPath,[string]$TemplateId,[string]$OutputPath)
+    $previous=$ErrorActionPreference
+    try{$ErrorActionPreference='Continue';$builderOutput=& node $ToolPath '--resources' $ResourceDirectory '--source-manifest' $SourceManifestPath '--screenshots' $ScreenshotManifestPath '--acceptance' $AcceptanceReceiptPath '--template' $TemplateId '--output' $OutputPath 2>&1|Out-String;$exitCode=$LASTEXITCODE}finally{$ErrorActionPreference=$previous}
+    if($exitCode-ne0-or-not(Test-Path -LiteralPath $OutputPath -PathType Leaf)){throw 'Material facts builder failed.'}
+    try{$result=$builderOutput.Trim()|ConvertFrom-Json -ErrorAction Stop}catch{throw 'Material facts builder returned an invalid result.'}
+    if($result.ok-ne$true-or[string]$result.output-cne'material-facts.json'){throw 'Material facts builder returned an invalid result.'}
+}
+
+function Get-StandardMaterialDocumentDefinitions {
+    return @(
+        [pscustomobject]@{id='introduction';html='introduction.html';pdf=$false;source=$false;application=$false},
+        [pscustomobject]@{id='feature-table';html='feature-table.html';pdf=$false;source=$false;application=$false},
+        [pscustomobject]@{id='manual';html='manual.html';pdf=$true;source=$false;application=$false},
+        [pscustomobject]@{id='database-design';html='database-design.html';pdf=$false;source=$false;application=$false},
+        [pscustomobject]@{id='runtime';html='runtime.html';pdf=$false;source=$false;application=$false},
+        [pscustomobject]@{id='prototype';html='prototype.html';pdf=$false;source=$false;application=$false},
+        [pscustomobject]@{id='application-info';html='application-info.html';pdf=$true;source=$false;application=$true},
+        [pscustomobject]@{id='source';html='source.html';pdf=$true;source=$true;application=$false}
     )
-    $builder = [Text.StringBuilder]::new('<!doctype html><html><head><meta charset="UTF-8"><title>')
-    [void]$builder.Append((ConvertTo-MaterialHtmlText $Title)).Append('</title></head><body><h1>').Append((ConvertTo-MaterialHtmlText $Title)).Append(' 源程序清单</h1>')
-    [void]$builder.Append('<p>以下内容来自生成与源码归档共同使用的确定性清单。</p>')
-    foreach ($file in @($SourceManifest.files)) {
-        [void]$builder.Append('<h2>').Append((ConvertTo-MaterialHtmlText $file.path)).Append('</h2>')
-        if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
-            [void]$builder.Append('<p class="code-line">').Append((ConvertTo-MaterialHtmlText ('{0} lines | sha256:{1}' -f $file.lines,$file.sha256))).Append('</p>')
-            continue
-        }
-        $root = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\')
-        $sourcePath = [IO.Path]::GetFullPath((Join-Path $root ([string]$file.path).Replace('/','\')))
-        if (-not $sourcePath.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Source manifest path escaped the repository root.' }
-        if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw "Manifest source file is missing: $($file.path)" }
-        $actualHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actualHash -cne [string]$file.sha256) { throw "Manifest source file changed: $($file.path)" }
-        $lineNumber = 0
-        foreach ($line in [IO.File]::ReadAllLines($sourcePath, [Text.UTF8Encoding]::new($false))) {
-            $lineNumber++
-            [void]$builder.Append('<p class="code-line">').Append((ConvertTo-MaterialHtmlText ('{0,5}  {1}' -f $lineNumber,$line))).Append('</p>')
-        }
+}
+
+function Invoke-StandardMaterialWordExport {
+    param([string]$WorkerPath,[string]$ProjectRoot,[string]$WorkPath,$WorkItem)
+    $completed=$false
+    for($attempt=1;$attempt-le3;$attempt++){
+        foreach($path in @($WorkItem.DocxPath,$WorkItem.PdfPath)){if($null-ne$path-and(Test-Path -LiteralPath $path)){Remove-Item -LiteralPath $path -Force}}
+        $previous=$ErrorActionPreference
+        try{$ErrorActionPreference='Continue';$workerOutput=& powershell -NoProfile -ExecutionPolicy Bypass -File $WorkerPath -ProjectRoot $ProjectRoot -WorkItemsPath $WorkPath 2>&1|Out-String;$exitCode=$LASTEXITCODE}finally{$ErrorActionPreference=$previous}
+        if($exitCode-eq0){$completed=$true;break}
     }
-    [void]$builder.Append('</body></html>')
-    [IO.File]::WriteAllText($OutputPath, $builder.ToString(), [Text.UTF8Encoding]::new($false))
+    if(-not$completed){throw 'Word material export failed.'}
 }
 
 function Build-StandardBusinessMaterials {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)][string]$OutputDirectory,
-        [Parameter(Mandatory)]$Blueprint,
-        [Parameter(Mandatory)]$Template,
-        [Parameter(Mandatory)]$Profile,
-        [Parameter(Mandatory)]$ProjectLock,
-        [Parameter(Mandatory)]$ScreenshotManifest,
-        [Parameter(Mandatory)]$SourceManifest,
-        [Parameter(Mandatory)]$VerificationReceipt,
-        [Parameter(Mandatory)]$EvidenceHashes,
-        [switch]$SkipDocumentExport,
-        [string]$RepositoryRoot,
-        [string]$ScreenshotRoot,
-        [string]$WordWorkerPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'template\tools\word-export-worker.ps1')
-    )
-
-    $contract = Get-Content -Raw -Encoding UTF8 -LiteralPath $script:ContractPath | ConvertFrom-Json
-    if ($contract.contractVersion -ne '1.0') { throw 'Unsupported standard material contract.' }
-    if ([string]$VerificationReceipt.status -ne 'passed') { throw 'Materials require a passed verification receipt.' }
-    foreach($name in @('executableSha256','blueprintSha256')){
-        if([string]$EvidenceHashes.$name -notmatch '^[0-9a-f]{64}$'){throw "Material evidence hash '$name' is invalid."}
-        if([string]$ScreenshotManifest.$name -cne [string]$EvidenceHashes.$name){throw "Screenshot evidence $name hash mismatch."}
-    }
-    $modules = @($Blueprint.modules)
-    $moduleIds = @($modules | ForEach-Object id)
-    $captures = @($ScreenshotManifest.captures)
-    $isV2 = $null -ne $ScreenshotManifest.PSObject.Properties['manifestVersion'] -and [string]$ScreenshotManifest.manifestVersion -eq '2.0'
-    if ($isV2) {
-        if ($captures.Count -lt [int]$contract.minimumCaptureCount -or $captures.Count -gt [int]$contract.captureLimit) { throw 'Screenshot manifest count is outside the version 2 contract.' }
-    }
-    else {
-        foreach ($kind in @($contract.requiredCaptureKinds)) {
-            if (@($captures | Where-Object kind -eq $kind).Count -eq 0) { throw "Screenshot manifest is missing '$kind'." }
-        }
-    }
-    if ($captures.Count -gt [int]$contract.captureLimit) { throw 'Screenshot manifest exceeds the capture limit.' }
-    foreach ($capture in $captures) {
-        if ($null -ne $capture.moduleId -and -not [string]::IsNullOrWhiteSpace([string]$capture.moduleId) -and $moduleIds -cnotcontains [string]$capture.moduleId) { throw "Screenshot references unknown module '$($capture.moduleId)'." }
-        $captureHash = if ($isV2) { [string]$capture.imageSha256 } else { [string]$capture.sha256 }
-        if ($captureHash -notmatch '^[0-9a-f]{64}$') { throw 'Screenshot hash is invalid.' }
-        $requiresControl = if ($isV2) { -not [string]::IsNullOrWhiteSpace([string]$capture.actionId) } else { [string]$capture.kind -eq 'action' }
-        if($requiresControl -and $capture.controlVerified -ne $true){throw 'Action screenshot did not verify its planned control.'}
-    }
-    foreach ($pair in @(
-        @('softwareName',[string]$Profile.softwareName), @('purpose',[string]$Profile.purpose), @('industry',[string]$Profile.industry),
-        @('software.name',[string]$Blueprint.software.name), @('software.version',[string]$Blueprint.software.version)
-    )) { Assert-SafeMaterialText -Name $pair[0] -Value $pair[1] }
-
-    $output = [IO.Path]::GetFullPath($OutputDirectory)
-    if (Test-Path -LiteralPath $output) { throw "Refusing to overwrite material output: $output" }
-    $renderRoot = Join-Path $output 'rendered'
-    $documentRoot = Join-Path $output 'documents'
-    New-Item -ItemType Directory -Path $renderRoot -Force | Out-Null
-    New-Item -ItemType Directory -Path $documentRoot -Force | Out-Null
-    try {
-        $moduleHtml = ConvertTo-HtmlList $modules { param($item) (ConvertTo-MaterialHtmlText ('{0}（{1}）：{2}' -f $item.name,$item.id,(@($item.actions) -join '、'))) }
-        $workflowHtml = ConvertTo-HtmlList @($Blueprint.workflows) { param($item) (ConvertTo-MaterialHtmlText ('{0}：{1}' -f $item.name,(@($item.states) -join ' → '))) }
-        $roleHtml = ConvertTo-HtmlList @($Blueprint.roles) { param($item) (ConvertTo-MaterialHtmlText ('{0}（{1}）' -f $item.name,$item.id)) }
-        $boundaryHtml = ConvertTo-HtmlList @($Blueprint.software.boundaries) { param($item) (ConvertTo-MaterialHtmlText $item) }
-        $captureItems = [Collections.Generic.List[string]]::new()
-        if (-not $SkipDocumentExport) {
-            if ([string]::IsNullOrWhiteSpace($ScreenshotRoot)) { throw 'ScreenshotRoot is required for document export.' }
-            $screenshotOutput = Join-Path $renderRoot 'screenshots'
-            New-Item -ItemType Directory -Path $screenshotOutput -Force | Out-Null
-            $captureRoot = [IO.Path]::GetFullPath($ScreenshotRoot).TrimEnd('\')
-            foreach ($capture in $captures) {
-                $captureName = if ($isV2) { [string]$capture.fileName } else { [string]$capture.path }
-                $captureHash = if ($isV2) { [string]$capture.imageSha256 } else { [string]$capture.sha256 }
-                $captureId = if ($isV2) { [string]$capture.scenarioId } else { [string]$capture.id }
-                $sourcePath = [IO.Path]::GetFullPath((Join-Path $captureRoot $captureName))
-                if (-not $sourcePath.StartsWith($captureRoot + '\', [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw 'Screenshot manifest contains an invalid path.' }
-                if ((Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -cne $captureHash) { throw "Screenshot changed after capture: $captureId" }
-                $name = [IO.Path]::GetFileName($sourcePath)
-                Copy-Item -LiteralPath $sourcePath -Destination (Join-Path $screenshotOutput $name)
-                $caption = ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $captureId,$capture.moduleId,$capture.actionId)
-                $captureItems.Add(('<figure><img src="screenshots/{0}" style="max-width:100%"><figcaption>{1}</figcaption></figure>' -f (ConvertTo-MaterialHtmlText $name),$caption))
+    [CmdletBinding()]param(
+        [Parameter(Mandatory)][string]$OutputDirectory,[Parameter(Mandatory)]$Template,
+        [Parameter(Mandatory)][string]$ResourceDirectory,[Parameter(Mandatory)][string]$SourceManifestPath,
+        [Parameter(Mandatory)][string]$ScreenshotManifestPath,[Parameter(Mandatory)][string]$AcceptanceReceiptPath,
+        [Parameter(Mandatory)][string]$RepositoryRoot,[Parameter(Mandatory)][string]$ScreenshotRoot,
+        [switch]$SkipDocumentExport,[string]$MaterialFactsToolPath=$script:DefaultMaterialFactsTool,
+        [string]$WordWorkerPath=$script:DefaultWordWorker,[string]$DocumentQualityModulePath=$script:DefaultQualityModule)
+    $contract=Get-Content -Raw -Encoding UTF8 -LiteralPath $script:ContractPath|ConvertFrom-Json
+    if([string]$contract.contractVersion-ne'2.0'){throw 'Unsupported standard material contract.'}
+    $output=[IO.Path]::GetFullPath($OutputDirectory);if(Test-Path -LiteralPath $output){throw 'Refusing to overwrite material output.'}
+    $parent=Split-Path -Parent $output;if(-not(Test-Path -LiteralPath $parent -PathType Container)){New-Item -ItemType Directory -Path $parent -Force|Out-Null};[void](Assert-StandardMaterialDirectory $parent 'output parent')
+    $stage=Join-Path $parent ('.standard-materials.staging-'+[guid]::NewGuid().ToString('N'))
+    $resources=Assert-StandardMaterialDirectory $ResourceDirectory 'resources';$repository=Assert-StandardMaterialDirectory $RepositoryRoot 'repository';$screenshots=Assert-StandardMaterialDirectory $ScreenshotRoot 'screenshots'
+    $sourceInput=Assert-StandardMaterialFile $SourceManifestPath 'source manifest';$screenshotInput=Assert-StandardMaterialFile $ScreenshotManifestPath 'screenshot manifest';$acceptanceInput=Assert-StandardMaterialFile $AcceptanceReceiptPath 'acceptance receipt';$factsTool=Assert-StandardMaterialFile $MaterialFactsToolPath 'material facts tool'
+    if(-not$SkipDocumentExport){$wordWorker=Assert-StandardMaterialFile $WordWorkerPath 'Word worker';$qualityModule=Assert-StandardMaterialFile $DocumentQualityModulePath 'document quality module'}
+    try{
+        New-Item -ItemType Directory -Path $stage|Out-Null;$renderRoot=Join-Path $stage 'rendered';$documentRoot=Join-Path $stage 'documents';New-Item -ItemType Directory -Path $renderRoot|Out-Null;New-Item -ItemType Directory -Path $documentRoot|Out-Null
+        $factsPath=Join-Path $stage 'material-facts.json';Invoke-StandardMaterialFactsBuilder $factsTool $resources $sourceInput $screenshotInput $acceptanceInput ([string]$Template.id) $factsPath
+        $facts=Get-Content -Raw -Encoding UTF8 -LiteralPath $factsPath|ConvertFrom-Json -ErrorAction Stop
+        if([string]$facts.factVersion-ne'1.0'-or[string]$facts.templateId-cne[string]$Template.id){throw 'Material facts do not match the selected template.'}
+        $diagramRoot=Join-Path $renderRoot 'diagrams';$diagramResults=@(New-StandardBusinessDiagrams -Facts $facts -OutputDirectory $diagramRoot)
+        $htmlNames=@('introduction.html','feature-table.html','manual.html','database-design.html','runtime.html','prototype.html','application-info.html','source.html')
+        [void](Render-StandardIntroductionHtml -Facts $facts -OutputPath (Join-Path $renderRoot 'introduction.html'))
+        [void](Render-StandardFeatureTableHtml -Facts $facts -OutputPath (Join-Path $renderRoot 'feature-table.html'))
+        [void](Render-StandardManualHtml -Facts $facts -ScreenshotRoot $screenshots -OutputPath (Join-Path $renderRoot 'manual.html'))
+        [void](Render-StandardDatabaseHtml -Facts $facts -DiagramRoot $diagramRoot -OutputPath (Join-Path $renderRoot 'database-design.html'))
+        [void](Render-StandardRuntimeHtml -Facts $facts -OutputPath (Join-Path $renderRoot 'runtime.html'))
+        [void](Render-StandardPrototypeHtml -Facts $facts -DiagramRoot $diagramRoot -OutputPath (Join-Path $renderRoot 'prototype.html'))
+        [void](Render-StandardApplicantHtml -Facts $facts -OutputPath (Join-Path $renderRoot 'application-info.html'))
+        $sourceManifest=Get-Content -Raw -Encoding UTF8 -LiteralPath $sourceInput|ConvertFrom-Json -ErrorAction Stop;$sourcePlan=Get-StandardSourcePrintPlan -RepositoryRoot $repository -SourceManifest $sourceManifest
+        $sourcePlanPath=Join-Path $renderRoot 'source-plan.json';[IO.File]::WriteAllText($sourcePlanPath,($sourcePlan|ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false));$sourceHtml=Join-Path $renderRoot 'source.html';[void](Write-StandardSourceHtml -Plan $sourcePlan -SoftwareName ([string]$facts.software.name) -Version ([string]$facts.software.version) -OutputPath $sourceHtml)
+        $receipt=$null
+        if(-not$SkipDocumentExport){
+            $applicationTemplate=Assert-StandardMaterialFile (Join-Path (Split-Path -Parent $PSScriptRoot) 'template\materials\application-form-template.docx') 'application form template'
+            foreach($definition in Get-StandardMaterialDocumentDefinitions){
+                $docx=Join-Path $documentRoot ($definition.id+'.docx');$pdf=if($definition.pdf){Join-Path $documentRoot ($definition.id+'.pdf')}else{$null};$isSource=[bool]$definition.source
+                $workItem=[pscustomobject]@{HtmlPath=(Join-Path $renderRoot $definition.html);DocxPath=$docx;PdfPath=$pdf;SourceDocument=$isSource;ExplicitSourceDocument=$isSource;SourcePlanPath=if($isSource){$sourcePlanPath}else{$null};ExpectedSourcePages=if($isSource){[int]$sourcePlan.expectedPageCount}else{0};SourceManifestSha256=if($isSource){[string]$sourcePlan.sourceManifestSha256}else{$null};SelectionSha256=if($isSource){[string]$sourcePlan.selectionSha256}else{$null};SourceHtmlSha256=if($isSource){(Get-FileHash $sourceHtml -Algorithm SHA256).Hash.ToLowerInvariant()}else{$null};SourceTotalFiles=if($isSource){[int]$sourcePlan.totalFiles}else{0};SourceTotalLogicalLines=if($isSource){[int]$sourcePlan.totalLogicalLines}else{0};SourceTotalPrintLines=if($isSource){[int]$sourcePlan.totalPrintLines}else{0};PrototypeDocument=$false;ApplicationDocument=[bool]$definition.application;ApplicationTemplatePath=if($definition.application){$applicationTemplate}else{$null};SoftwareName=[string]$facts.software.name;Version=[string]$facts.software.version}
+                $workPath=Join-Path $renderRoot ($definition.id+'.work.json');[IO.File]::WriteAllText($workPath,($workItem|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false));Invoke-StandardMaterialWordExport $wordWorker $repository $workPath $workItem
             }
+            Import-Module $qualityModule -Force -DisableNameChecking;$expectedScreenshots=@($facts.screenshots.captures|ForEach-Object{Join-Path $screenshots ([string]$_.fileName)});$receipt=Test-StandardDocumentSet -Facts $facts -DocumentRoot $documentRoot -ExpectedScreenshots $expectedScreenshots -SourcePlan $sourcePlan
+            [IO.File]::WriteAllText((Join-Path $stage 'material-receipt.json'),($receipt|ConvertTo-Json -Depth 20),[Text.UTF8Encoding]::new($false))
         }
-        else {
-            foreach ($capture in $captures) { $captureId=if($isV2){[string]$capture.scenarioId}else{[string]$capture.id};$captureItems.Add((ConvertTo-MaterialHtmlText ('{0} / module={1} / action={2}' -f $captureId,$capture.moduleId,$capture.actionId))) }
-        }
-        $captureHtml = if ($SkipDocumentExport) { '<ul>' + (($captureItems | ForEach-Object { '<li>' + $_ + '</li>' }) -join '') + '</ul>' } else { $captureItems -join '' }
-        $runtimeVersion = if($null-ne $ProjectLock.PSObject.Properties['runtime']){[string]$ProjectLock.runtime.desktop}else{[string]$ProjectLock.desktopRuntimeVersion}
-        $electronVersion = if($null-ne $ProjectLock.PSObject.Properties['runtime']){[string]$ProjectLock.runtime.electron}else{[string]$ProjectLock.electronVersion}
-        $values = @{
-            TITLE=ConvertTo-MaterialHtmlText $Blueprint.software.name; VERSION=ConvertTo-MaterialHtmlText $Blueprint.software.version
-            PURPOSE=ConvertTo-MaterialHtmlText $Profile.purpose; INDUSTRY=ConvertTo-MaterialHtmlText $Profile.industry
-            MODULES=$moduleHtml; WORKFLOWS=$workflowHtml; ROLES=$roleHtml; BOUNDARIES=$boundaryHtml
-            SCREENSHOTS=$captureHtml; SCREENSHOT_PLAN=$captureHtml; SOURCE_LINES=[string]$SourceManifest.totalLines; SOURCE_FILES=[string]$SourceManifest.totalFiles
-            RUNTIME_VERSION=ConvertTo-MaterialHtmlText $runtimeVersion; ELECTRON_VERSION=ConvertTo-MaterialHtmlText $electronVersion
-            DATABASE_VERSION=ConvertTo-MaterialHtmlText $ProjectLock.databaseSchemaVersion; VERIFICATION_STATUS='passed'; BUSINESS_ROWS=ConvertTo-MaterialHtmlText $VerificationReceipt.businessRows
-        }
-        $html = [Collections.Generic.List[string]]::new()
-        foreach ($name in @('manual','application-info','runtime','prototype')) {
-            $path = Join-Path $renderRoot ($name + '.html')
-            $templateName = if ($name -in @('manual','application-info','runtime','prototype')) { $name + '-legacy' } else { $name }
-            [void]$html.Add((New-RenderedMaterialHtml -TemplatePath (Join-Path $script:TemplateRoot ($templateName + '.html')) -Values $values -OutputPath $path))
-        }
-        $sourceHtml = Join-Path $renderRoot 'source.html'
-        if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) { throw 'RepositoryRoot is required for source material planning.' }
-        $sourcePlan = Get-StandardSourcePrintPlan -RepositoryRoot $RepositoryRoot -SourceManifest $SourceManifest
-        $sourcePlanPath = Join-Path $renderRoot 'source-plan.json'
-        [IO.File]::WriteAllText($sourcePlanPath, ($sourcePlan | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
-        [void](Write-StandardSourceHtml -Plan $sourcePlan -SoftwareName ([string]$Blueprint.software.name) -Version ([string]$Blueprint.software.version) -OutputPath $sourceHtml)
-        $sourceHtmlSha256 = (Get-FileHash -LiteralPath $sourceHtml -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($SkipDocumentExport) { return [pscustomobject]@{ html=$html.ToArray(); documents=@(); sourceHtml=$sourceHtml; sourcePlan=$sourcePlan } }
-
-        if (-not (Test-Path -LiteralPath $WordWorkerPath -PathType Leaf)) { throw 'Word material worker was not found.' }
-        $definitions = @(
-            [pscustomobject]@{ id='manual'; html=(Join-Path $renderRoot 'manual.html'); pdf=$true; source=$false },
-            [pscustomobject]@{ id='source'; html=$sourceHtml; pdf=$true; source=$true },
-            [pscustomobject]@{ id='application-info'; html=(Join-Path $renderRoot 'application-info.html'); pdf=$true; source=$false },
-            [pscustomobject]@{ id='runtime'; html=(Join-Path $renderRoot 'runtime.html'); pdf=$false; source=$false },
-            [pscustomobject]@{ id='prototype'; html=(Join-Path $renderRoot 'prototype.html'); pdf=$false; source=$false }
-        )
-        $documents = [Collections.Generic.List[string]]::new()
-        $applicationTemplatePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'template\materials\application-form-template.docx'
-        if (-not (Test-Path -LiteralPath $applicationTemplatePath -PathType Leaf)) { throw 'Application form template was not found.' }
-        foreach ($definition in $definitions) {
-            $docx = Join-Path $documentRoot ($definition.id + '.docx')
-            $pdf = if ($definition.pdf) { Join-Path $documentRoot ($definition.id + '.pdf') } else { $null }
-            $isApplication = $definition.id -eq 'application-info'; $isSource = [bool]$definition.source
-            $workItem = [pscustomobject]@{ HtmlPath=$definition.html; DocxPath=$docx; PdfPath=$pdf; SourceDocument=$isSource; ExplicitSourceDocument=$isSource; SourcePlanPath=if($isSource){$sourcePlanPath}else{$null}; ExpectedSourcePages=if($isSource){[int]$sourcePlan.expectedPageCount}else{0}; SourceManifestSha256=if($isSource){[string]$sourcePlan.sourceManifestSha256}else{$null}; SelectionSha256=if($isSource){[string]$sourcePlan.selectionSha256}else{$null}; SourceHtmlSha256=if($isSource){$sourceHtmlSha256}else{$null}; SourceTotalFiles=if($isSource){[int]$sourcePlan.totalFiles}else{0}; SourceTotalLogicalLines=if($isSource){[int]$sourcePlan.totalLogicalLines}else{0}; SourceTotalPrintLines=if($isSource){[int]$sourcePlan.totalPrintLines}else{0}; PrototypeDocument=$false; ApplicationDocument=$isApplication; ApplicationTemplatePath=if($isApplication){$applicationTemplatePath}else{$null}; SoftwareName=[string]$Blueprint.software.name; Version=[string]$Blueprint.software.version }
-            $workPath = Join-Path $renderRoot ($definition.id + '.work.json')
-            [IO.File]::WriteAllText($workPath, ($workItem | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
-            $workerOutput = (& powershell -NoProfile -ExecutionPolicy Bypass -File $WordWorkerPath -ProjectRoot $output -WorkItemsPath $workPath 2>&1 | Out-String)
-            if ($LASTEXITCODE -ne 0) { throw "Word material export failed for $($definition.id): $($workerOutput.Trim())" }
-            [void]$documents.Add($docx); if ($null -ne $pdf) { [void]$documents.Add($pdf) }
-        }
-        foreach ($path in $documents) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Material document is missing: $path" } }
-        return [pscustomobject]@{ html=$html.ToArray(); documents=$documents.ToArray(); sourceHtml=$sourceHtml }
-    }
-    catch {
-        if (Test-Path -LiteralPath $output) { Remove-Item -LiteralPath $output -Recurse -Force }
-        throw
-    }
+        try{[IO.Directory]::Move($stage,$output)}catch [IO.IOException]{if(Test-Path -LiteralPath $output){throw 'Refusing to overwrite material output.'};throw}
+        $documentPaths=if($SkipDocumentExport){@()}else{@(Get-StandardMaterialDocumentDefinitions|ForEach-Object{Join-Path $output ('documents\'+$_.id+'.docx');if($_.pdf){Join-Path $output ('documents\'+$_.id+'.pdf')}})}
+        return [pscustomobject]@{root=$output;factsPath=(Join-Path $output 'material-facts.json');receiptPath=if($SkipDocumentExport){$null}else{Join-Path $output 'material-receipt.json'};html=@($htmlNames|ForEach-Object{Join-Path $output ('rendered\'+$_)});diagrams=@($diagramResults|ForEach-Object{Join-Path $output ('rendered\diagrams\'+$_.fileName)});documents=$documentPaths;sourcePlan=$sourcePlan;receipt=$receipt}
+    }finally{if(Test-Path -LiteralPath $stage){Remove-Item -LiteralPath $stage -Recurse -Force}}
 }
 
-Export-ModuleMember -Function Get-StandardScreenshotPlan, Build-StandardBusinessMaterials
+Export-ModuleMember -Function Get-StandardScreenshotPlan,Build-StandardBusinessMaterials

@@ -457,29 +457,30 @@ git commit -m "feat: enforce final material quality gates"
 - Modify: `engine/lib/StandardBusinessPublisher.psm1`
 - Modify: `engine/config/standard-material-contract.json`
 - Modify: `engine/tests/StandardBusinessMaterials.Tests.ps1`
+- Modify: `engine/tests/StandardBusinessOrchestrator.Tests.ps1`
 - Modify: `engine/tests/StandardBusinessPublisher.Tests.ps1`
 
 **Interfaces:**
 - `Build-StandardBusinessMaterials` first builds `material-facts.json`, renders all documents under sibling staging, invokes Word workers, runs `Test-StandardDocumentSet`, and atomically promotes output.
 - Standard publisher expects exactly eighteen artifacts and creates a seventeen-entry complete ZIP.
 
-- [ ] **Step 1: Write failing exact eighteen-file contract tests**
+- [x] **Step 1: Write failing exact eighteen-file contract tests**
 
 Assert introduction, feature table, and database design names are required; staging has eighteen flat regular files; complete ZIP has seventeen entries; missing, extra, duplicate, reparse, old fifteen-file, or stale material receipt sets fail before publication.
 
-- [ ] **Step 2: Replace placeholder rendering with the fact pipeline**
+- [x] **Step 2: Replace placeholder rendering with the fact pipeline**
 
 Invoke `build-material-facts.cjs`, all deterministic renderers, diagram generator, applicant exporter, source exporter, and Word workers. Render outputs under `.standard-materials.staging-<guid>` and remove it on every failure.
 
-- [ ] **Step 3: Run final document quality inspection before packaging**
+- [x] **Step 3: Run final document quality inspection before packaging**
 
 Use the returned material receipt in publisher evidence binding. Stop publication if any document hash or facts/source/screenshot hash differs.
 
-- [ ] **Step 4: Update publisher copy map and validation report**
+- [x] **Step 4: Update publisher copy map and validation report**
 
 Copy all eleven material document names plus installer/source/evidence files. State measured page/image/table counts in the redacted validation report, not a generic success sentence.
 
-- [ ] **Step 5: Run focused material and publisher tests and commit**
+- [x] **Step 5: Run focused material and publisher tests and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardBusinessMaterials.Tests.ps1
