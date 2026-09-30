@@ -1,0 +1,13 @@
+{
+  "qualityVersion": "1.0",
+  "documents": [
+    {"id":"introduction","docx":"introduction.docx","pdf":null,"minPages":3,"maxPages":5,"minCharacters":1200,"minParagraphs":1,"minTables":0,"minMedia":0,"maxMedia":null,"requiredHeadings":["建设目的","适用用户","业务范围","完整业务流程","数据特征","技术架构","能力边界"],"requiredText":[],"moduleCoverage":true,"entityCoverage":false,"internalIdScan":true},
+    {"id":"feature-table","docx":"feature-table.docx","pdf":null,"minPages":6,"maxPages":10,"minCharacters":2500,"minParagraphs":1,"minTables":1,"minMedia":0,"maxMedia":null,"requiredHeadings":["软件功能表"],"requiredText":[],"moduleCoverage":true,"entityCoverage":false,"internalIdScan":true},
+    {"id":"manual","docx":"manual.docx","pdf":"manual.pdf","minPages":15,"maxPages":25,"minCharacters":3000,"minParagraphs":1,"minTables":0,"minMedia":12,"maxMedia":18,"requiredHeadings":["操作手册","完整业务流程","备份与恢复"],"requiredText":["步骤 1"],"moduleCoverage":true,"entityCoverage":false,"internalIdScan":true},
+    {"id":"database-design","docx":"database-design.docx","pdf":null,"minPages":12,"maxPages":20,"minCharacters":3500,"minParagraphs":1,"minTables":1,"minMedia":1,"maxMedia":null,"requiredHeadings":["数据库设计","核心数据字典","实体关系"],"requiredText":[],"moduleCoverage":false,"entityCoverage":true,"internalIdScan":false},
+    {"id":"runtime","docx":"runtime.docx","pdf":null,"minPages":3,"maxPages":5,"minCharacters":800,"minParagraphs":1,"minTables":2,"minMedia":0,"maxMedia":null,"requiredHeadings":["运行环境说明","安装准备","备份与恢复"],"requiredText":[],"moduleCoverage":false,"entityCoverage":false,"internalIdScan":true},
+    {"id":"prototype","docx":"prototype.docx","pdf":null,"minPages":6,"maxPages":12,"minCharacters":0,"minParagraphs":1,"minTables":0,"minMedia":5,"maxMedia":null,"requiredHeadings":["导航层级","列表、详情与表单","角色操作矩阵","业务流程","实体关系"],"requiredText":[],"moduleCoverage":false,"entityCoverage":true,"internalIdScan":true},
+    {"id":"application-info","docx":"application-info.docx","pdf":"application-info.pdf","minPages":2,"maxPages":2,"minCharacters":0,"minParagraphs":1,"minTables":1,"minMedia":0,"maxMedia":null,"requiredHeadings":["计算机软件著作权登记申请信息"],"requiredText":["【申请人填写】","【生成时按实际源码统计填写】"],"moduleCoverage":false,"entityCoverage":false,"internalIdScan":true},
+    {"id":"source","docx":"source.docx","pdf":"source.pdf","minPages":1,"maxPages":60,"minCharacters":0,"minParagraphs":1,"minTables":0,"minMedia":0,"maxMedia":null,"requiredHeadings":[],"requiredText":[],"moduleCoverage":false,"entityCoverage":false,"internalIdScan":false}
+  ]
+}

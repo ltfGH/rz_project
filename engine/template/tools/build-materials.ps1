@@ -466,6 +466,23 @@ function Close-MaterialsWordSession {
     [GC]::WaitForPendingFinalizers()
 }
 
+function Clear-MaterialsDocumentIdentity {
+    param([Parameter(Mandatory)]$Document)
+    foreach($name in @('Author','Last Author','Company','Manager')){
+        try{$Document.BuiltInDocumentProperties.Item($name).Value=''}catch{}
+        try{$Document.CustomDocumentProperties.Item($name).Delete()}catch{}
+    }
+}
+
+function Clear-MaterialsPackageIdentity {
+    param([Parameter(Mandatory)][string]$Path)
+    Add-Type -AssemblyName System.IO.Compression;Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive=[IO.Compression.ZipFile]::Open($Path,[IO.Compression.ZipArchiveMode]::Update)
+    try{
+        foreach($name in @('docProps/core.xml','docProps/app.xml')){$entry=$archive.GetEntry($name);if($null-eq$entry){continue};$reader=[IO.StreamReader]::new($entry.Open(),[Text.Encoding]::UTF8,$true);try{[xml]$xml=$reader.ReadToEnd()}finally{$reader.Dispose()};foreach($node in @($xml.SelectNodes('//*[local-name()="creator" or local-name()="lastModifiedBy" or local-name()="Company" or local-name()="Manager"]'))){$node.InnerText=''};$entry.Delete();$replacement=$archive.CreateEntry($name);$writer=[IO.StreamWriter]::new($replacement.Open(),[Text.UTF8Encoding]::new($false));try{$writer.Write($xml.OuterXml)}finally{$writer.Dispose()}}
+    }finally{$archive.Dispose()}
+}
+
 function Get-MaterialsApplicationFormValues {
     param([Parameter(Mandatory)][string]$HtmlPath)
 
@@ -516,6 +533,7 @@ function Export-MaterialsApplicationForm {
     if ($pageCount -ne 2) {
         throw "Application form has $pageCount pages after filling the sample template; expected 2."
     }
+    Clear-MaterialsDocumentIdentity -Document $document
     $document.SaveAs2($DocxPath, 12)
     if (-not [string]::IsNullOrWhiteSpace($PdfPath)) { $document.ExportAsFixedFormat($PdfPath, 17) }
 }
@@ -742,6 +760,7 @@ function Export-MaterialsHtml {
         $prototypePages = [int]$document.ComputeStatistics(2)
         if ($prototypePages -ne 2) { throw "Prototype document has $prototypePages pages; expected 2." }
     }
+    Clear-MaterialsDocumentIdentity -Document $document
     $document.SaveAs2($DocxPath, 12)
     if (-not [string]::IsNullOrWhiteSpace($PdfPath)) { $document.ExportAsFixedFormat($PdfPath, 17) }
     if ($SourceDocument -and $ExplicitSourceDocument) {
@@ -812,6 +831,7 @@ function Invoke-MaterialsWordWorker {
     finally {
         Close-MaterialsWordSession -Word $word -OpenDocuments $openDocuments
     }
+    foreach($item in $items){Clear-MaterialsPackageIdentity -Path ([string]$item.DocxPath)}
     foreach ($item in $items) {
         if ([bool]$item.SourceDocument -or ($null -ne $item.PSObject.Properties['PrototypeDocument'] -and [bool]$item.PrototypeDocument)) {
             Set-MaterialsDocumentPrintView -Path ([string]$item.DocxPath)

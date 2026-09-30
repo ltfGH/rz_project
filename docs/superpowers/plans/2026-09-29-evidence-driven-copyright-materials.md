@@ -420,28 +420,30 @@ git commit -m "fix: enforce canonical sixty-page source materials"
 - Create: `engine/lib/StandardDocumentQuality.psm1`
 - Create: `engine/config/standard-document-quality.json`
 - Create: `engine/tests/StandardDocumentQuality.Tests.ps1`
+- Create: `engine/template/tools/word-page-inspector.ps1`
+- Modify: `engine/template/tools/build-materials.ps1`
 
 **Interfaces:**
-- Produces `Test-StandardDocumentSet -Facts -DocumentRoot -ExpectedScreenshots` returning a redacted receipt.
+- Produces `Test-StandardDocumentSet -Facts -DocumentRoot -ExpectedScreenshots -SourcePlan` returning a redacted receipt.
 - The quality config contains exact page/character/table/media limits from the design.
 
-- [ ] **Step 1: Write failing malformed and thin-document tests**
+- [x] **Step 1: Write failing malformed and thin-document tests**
 
 Generate fixture DOCX/PDF files that are readable but too short, table-free, image-free, wrong-page, duplicate-image, wrong-title, or contain internal IDs/local paths. Assert each fails with document ID and redacted issue code.
 
-- [ ] **Step 2: Implement post-save Word/OpenXML/PDF inspection**
+- [x] **Step 2: Implement post-save Word/OpenXML/PDF inspection**
 
 Measure final pages, non-whitespace characters, paragraphs, tables, embedded media and hashes. Check required headings/bookmarks, software name/version, image uniqueness, and forbidden content. Never trust pre-export HTML counts.
 
-- [ ] **Step 3: Emit a canonical material receipt**
+- [x] **Step 3: Emit a canonical material receipt**
 
 Receipt binds facts hash, executable/resource/blueprint/source hashes, each document hash, measured metrics, screenshot digest, and status `passed`; it contains no absolute path.
 
-- [ ] **Step 4: Run fixture tests and commit**
+- [x] **Step 4: Run fixture tests and commit**
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File engine/tests/StandardDocumentQuality.Tests.ps1
-git add engine/lib/StandardDocumentQuality.psm1 engine/config/standard-document-quality.json engine/tests/StandardDocumentQuality.Tests.ps1
+git add engine/lib/StandardDocumentQuality.psm1 engine/config/standard-document-quality.json engine/tests/StandardDocumentQuality.Tests.ps1 engine/template/tools/word-page-inspector.ps1 engine/template/tools/build-materials.ps1
 git commit -m "feat: enforce final material quality gates"
 ```
 
