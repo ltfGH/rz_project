@@ -14,6 +14,8 @@ __pycache__/
 /.application-cli-output/
 /engine/desktop-runtime/.standard-*/
 /engine/desktop-runtime/standard-output/
+**/.standard-materials.staging-*/
+**/.standard-delivery.staging-*/
 *.sqlite
 *.sqlite3
 *.db

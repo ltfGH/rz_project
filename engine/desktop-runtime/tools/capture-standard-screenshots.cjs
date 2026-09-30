@@ -5,12 +5,14 @@ const crypto=require('node:crypto');
 const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
+const{DatabaseSync}=require('node:sqlite');
 const{_electron:electron}=require('playwright');
 const{loadRuntimeBlueprint}=require('../src/core/blueprint-loader.ts');
 const{PluginHost}=require('../src/core/plugin-host.ts');
 const{PluginRegistry}=require('../src/core/plugin-registry.ts');
 const{loadProductionPluginCatalog}=require('../src/core/production-plugin-loader.ts');
 const{verifyProjectResources}=require('../src/core/project-lock.ts');
+const{verifyPassword}=require('../src/core/passwords.ts');
 const{getMaterialDescriptor}=require('../src/generator/material-descriptors.ts');
 const{assertScreenshotEvidence,assertWorkflowCaptureBinding,assertWorkflowCaptureMetadata,buildStandardScreenshotPlan,inspectPng}=require('../src/generator/screenshot-evidence.ts');
 
@@ -35,11 +37,13 @@ async function main(){
   for(const scenarioId of workflow.keys())if(!descriptor.screenshotScenarioIds.includes(scenarioId))throw new Error(`Workflow capture scenario '${scenarioId}' is not declared.`);
   const accounts={operations_dispatcher:['dispatcher',process.env.RZ_E2E_DISPATCHER_PASSWORD],operations_operator:['operator',process.env.RZ_E2E_OPERATOR_PASSWORD],operations_reviewer:['reviewer',process.env.RZ_E2E_REVIEWER_PASSWORD],operations_admin:['administrator',process.env.RZ_E2E_ADMINISTRATOR_PASSWORD]};
   for(const[role,account]of Object.entries(accounts))if(!account[1])throw new Error(`Capture credential is unavailable for '${role}'.`);
+  const seedUsers=new Map(JSON.parse(verified.seedText).users.map((user)=>[user.username,user]));
+  for(const[role,[username,password]]of Object.entries(accounts)){const user=seedUsers.get(username);if(!user||!await verifyPassword(password,user.passwordDigest))throw new Error(`Capture credential does not match packaged seed for '${role}'.`);}
   let app;
   try{
     app=await electron.launch({executablePath,env:{...process.env,RZ_RUNTIME_USER_DATA:userData}});const page=await app.firstWindow();let currentRole;
     const logout=async()=>{if(!currentRole)return;const button=page.getByRole('button',{name:'退出登录'});if(await button.count())await button.click();await page.getByLabel('账号').waitFor();currentRole=undefined;};
-    const login=async(roleId)=>{if(currentRole===roleId)return;await logout();const account=accounts[roleId];await page.getByLabel('账号').fill(account[0]);await page.getByLabel('密码').fill(account[1]);await page.getByRole('button',{name:'登录'}).click();await page.getByRole('navigation',{name:'主导航'}).waitFor();currentRole=roleId;};
+    const login=async(roleId)=>{if(currentRole===roleId)return;await logout();const account=accounts[roleId],usernameInput=page.getByLabel('账号'),passwordInput=page.getByLabel('密码');let inputMatches=false;for(let attempt=0;attempt<3;attempt++){await usernameInput.fill(account[0]);await passwordInput.fill(account[1]);await page.waitForTimeout(50);inputMatches=(await usernameInput.inputValue())===account[0]&&(await passwordInput.inputValue())===account[1];if(inputMatches)break;}if(!inputMatches)throw new Error(`Capture login inputs did not settle for ${roleId}.`);await page.getByRole('button',{name:'登录'}).click();try{await page.getByRole('navigation',{name:'主导航'}).waitFor();}catch{const loginVisible=await usernameInput.isVisible().catch(()=>false),alerts=await page.getByRole('alert').allTextContents().catch(()=>[]),windows=app.windows().length,seedUser=seedUsers.get(account[0]);let databaseState='unavailable';try{const database=new DatabaseSync(path.join(userData,'runtime.sqlite'),{readOnly:true});try{const row=database.prepare('SELECT password_digest,enabled,failed_attempts,locked_until FROM sys_user WHERE username=?').get(account[0]);databaseState=row?`digestMatchesSeed=${row.password_digest===seedUser.passwordDigest},enabled=${row.enabled},failedAttempts=${row.failed_attempts},locked=${Boolean(row.locked_until)}`:'missing-user';}finally{database.close();}}catch{}throw new Error(`Capture login failed for ${roleId}; loginVisible=${loginVisible}; windows=${windows}; alerts=${alerts.join('|')||'none'}; ${databaseState}`);}currentRole=roleId;};
     const closePanels=async()=>{for(const name of ['取消','关闭详情']){const buttons=page.getByRole('button',{name,exact:true});if(await buttons.count()&&await buttons.first().isVisible())await buttons.first().click().catch(()=>undefined);}};
     const navigate=async(moduleId)=>{const module=modules.get(moduleId);if(!module)throw new Error(`Capture plan references unknown module '${moduleId}'.`);await closePanels();await page.getByRole('button',{name:module.name,exact:true}).click();if(moduleId!=='maintenance')await page.getByPlaceholder('搜索记录').waitFor();return module;};
     const openDetail=async(offset=0)=>{const views=page.getByRole('button',{name:/^查看 /}),count=await views.count();if(count===0)throw new Error('Capture module has no record detail.');await views.nth(offset%Math.min(count,20)).click();await page.getByRole('complementary',{name:'记录详情'}).waitFor();};

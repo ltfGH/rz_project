@@ -504,23 +504,23 @@ git commit -m "feat: publish eighteen-file verified materials"
 **Interfaces:**
 - `Test-All.ps1 -IncludeStandardBusinessAcceptance` validates the new material contract.
 
-- [ ] **Step 1: Extend lightweight acceptance to all eight fact/document plans**
+- [x] **Step 1: Extend lightweight acceptance to all eight fact/document plans**
 
 For all templates build resources and `MaterialFacts`; assert exact modules/workflows/schema/source facts and render every HTML/diagram without Word. Assert application/inventory/project action UI descriptors cover their primary flow. Run the existing `LegacyDemo` material contract test unchanged and assert it still publishes exactly twelve files.
 
-- [ ] **Step 2: Run three representative complete workflow/material builds**
+- [x] **Step 2: Run three representative complete workflow/material builds**
 
 Asset remediation, inventory approval, and project task management each run packaged workflow screenshots and material rendering. Project task management additionally runs installer lifecycle and eighteen-file publication.
 
-- [ ] **Step 3: Inspect representative outputs quantitatively and visually**
+- [x] **Step 3: Inspect representative outputs quantitatively and visually**
 
 Open every DOCX/PDF, assert design bounds, compare screenshot pixels for nonblank/nonduplicate content, and inspect representative manual/application/database pages. Record metrics in the acceptance receipt.
 
-- [ ] **Step 4: Update user documentation**
+- [x] **Step 4: Update user documentation**
 
 Document eighteen files, material page ranges, placeholder responsibilities, expected generation time, Word requirement, failure retention, and that videos are excluded.
 
-- [ ] **Step 5: Run the full verification ladder**
+- [x] **Step 5: Run the full verification ladder**
 
 ```powershell
 .\verify-dev.bat
@@ -531,11 +531,11 @@ git diff --check
 
 Expected: all checks pass; no secret/path scan matches; representative output satisfies every quality metric.
 
-- [ ] **Step 6: Request final code review and resolve every Critical/Important finding**
+- [x] **Step 6: Request final code review and resolve every Critical/Important finding**
 
 Review from this plan commit through implementation head for truthfulness, document structure, screenshot evidence, source selection, security, and legacy compatibility. Re-run the owning test after every fix.
 
-- [ ] **Step 7: Commit and push final acceptance**
+- [x] **Step 7: Commit and push final acceptance**
 
 ```powershell
 git add README.md README.txt docs/generator-usage-and-filing-guide.md tools/Test-All.ps1 .gitignore engine/tests/StandardBusinessAcceptance.Tests.ps1

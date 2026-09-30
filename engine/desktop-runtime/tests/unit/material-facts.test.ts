@@ -26,6 +26,7 @@ test('builds deeply frozen evidence-bound facts for every standard template',t=>
     for(const command of facts.commands){assert.ok(command.moduleId,`${template.id}:${command.id}:module`);assert.ok(Array.isArray(command.inputLabels),`${template.id}:${command.id}:inputs`);assert.ok(command.precondition&&command.result&&command.failure,`${template.id}:${command.id}:behavior`);assert.equal(facts.modules.find((module)=>module.id===command.moduleId)?.operations.includes(command.id),true,`${template.id}:${command.id}:ownership`);}
     assert.deepEqual(facts.workflows[0]?.steps.map((item)=>item.id),descriptor.workflowSteps.map((item)=>item.id));
     assert.ok(facts.workflows[0]!.steps.length>=4,template.id);
+    assert.deepEqual(facts.screenshots,fixture.screenshotManifest);
     assert.equal(facts.screenshots.captures.length,descriptor.screenshotScenarioIds.length);
     assert.equal(facts.source.totalLines,200);assert.equal(facts.evidence.status,'passed');
     assert.equal(Object.isFrozen(facts),true);assert.equal(Object.isFrozen(facts.database.tables),true);

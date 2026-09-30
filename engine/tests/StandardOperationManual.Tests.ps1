@@ -95,9 +95,10 @@ try{
     $missingStep=[string]$workflowSteps[-1].id;$replacementStep=[string]$workflowSteps[0].id
     foreach($capture in @($unboundFacts.screenshots.captures)){if([string]$capture.workflowStepId-eq$missingStep){$capture.workflowStepId=$replacementStep}}
     $unboundOutput=Join-Path $testRoot 'unbound-output\manual.html'
-    $message=Get-ExceptionMessage {Render-StandardManualHtml -Facts $unboundFacts -ScreenshotRoot $unboundRoot -OutputPath $unboundOutput|Out-Null}
-    Assert-Equal $message 'Every workflow step requires screenshot evidence.' 'Every workflow step must have bound screenshot evidence.'
-    Assert-Equal (Test-Path -LiteralPath $unboundOutput) $false 'An unbound workflow must not publish HTML.'
+    $unboundHtml=Render-StandardManualHtml -Facts $unboundFacts -ScreenshotRoot $unboundRoot -OutputPath $unboundOutput
+    $unboundVisible=Visible-Text $unboundHtml
+    foreach($step in $workflowSteps){Assert-Match $unboundVisible ([regex]::Escape([string]$step.label)) 'Workflow text must remain complete when screenshots sample key steps.'}
+    Assert-Equal @([regex]::Matches($unboundHtml,'<img\s+[^>]*src="([^"]+)"[^>]*>')).Count @($unboundFacts.screenshots.captures).Count 'Every supplied screenshot must still be rendered once.'
 
     $mismatchFacts=Get-Content -LiteralPath $factFiles[0].FullName -Raw -Encoding UTF8|ConvertFrom-Json
     $mismatchRoot=Join-Path $testRoot 'mismatch-source'

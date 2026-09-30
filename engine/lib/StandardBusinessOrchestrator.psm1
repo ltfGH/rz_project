@@ -160,9 +160,15 @@ function Invoke-StandardDefaultAction {
             $receipt=Get-Content -Raw -Encoding UTF8 -LiteralPath $receiptPath|ConvertFrom-Json
             if([string]$receipt.executableSha256-cne[string]$State.DomainReceipt.executableSha256-or[string]$receipt.resourceManifestSha256-cne[string]$State.DomainReceipt.resourceManifestSha256){throw 'Packaged workflow receipt hash mismatch.'}
             $workflowLevel=if($specialized.ContainsKey([string]$State.Template.id)){'full'}else{'smoke'}
-            $receipt|Add-Member -NotePropertyName workflowLevel -NotePropertyValue $workflowLevel
-            [IO.File]::WriteAllText($receiptPath,($receipt|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
-            return $receipt
+            if([string]$receipt.status-ne'passed'-or[int]$receipt.businessRows-ne1000-or$receipt.restartPersistence-ne$true){throw 'Packaged workflow acceptance checks did not pass.'}
+            $normalized=[pscustomobject][ordered]@{
+                receiptVersion='1.0';status='passed';generatedAt=[string]$receipt.generatedAt;templateId=[string]$State.Template.id;businessRows=1000
+                executableSha256=[string]$receipt.executableSha256;blueprintSha256=[string]$State.DomainReceipt.blueprintSha256;resourceManifestSha256=[string]$receipt.resourceManifestSha256
+                checks=[pscustomobject][ordered]@{package='passed';workflow='passed';persistence='passed'}
+            }
+            [IO.File]::WriteAllText($receiptPath,($normalized|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+            $normalized|Add-Member -NotePropertyName workflowLevel -NotePropertyValue $workflowLevel
+            return $normalized
         }
         'CaptureDesktopScreenshots' {
             $executable=Get-StandardExecutable $State.DesktopBuild.path

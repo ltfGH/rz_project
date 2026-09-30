@@ -63,7 +63,7 @@ Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'build')
 if ($IncludeE2E) { Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'test:e2e') }
 if ($IncludeReferenceE2E) { Invoke-Checked $desktopRoot 'npm.cmd' @('run', 'test:e2e:reference') }
 if ($IncludeStandardBusinessAcceptance) {
-    Invoke-Checked $root 'powershell' @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $engineTests 'StandardBusinessAcceptance.Tests.ps1'),'-IncludeRepresentativeDelivery')
+    Invoke-Checked $root 'powershell' @('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $engineTests 'StandardBusinessAcceptance.Tests.ps1'),'-IncludeRepresentativeDelivery','-KeepFailedWorkspace')
 }
 
 Write-Host 'All requested checks passed.'

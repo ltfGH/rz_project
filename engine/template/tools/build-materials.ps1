@@ -418,6 +418,26 @@ function Set-MaterialsDocumentPrintView {
     finally { $archive.Dispose() }
 }
 
+function Set-MaterialsDocumentPageMetadata {
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][int]$Pages)
+    if($Pages-lt1){throw 'Final document page count is invalid.'}
+    Add-Type -AssemblyName System.IO.Compression;Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive=[IO.Compression.ZipFile]::Open($Path,[IO.Compression.ZipArchiveMode]::Update)
+    try{$entry=$archive.GetEntry('docProps/app.xml');if($null-eq$entry){throw 'DOCX is missing docProps/app.xml.'};$reader=[IO.StreamReader]::new($entry.Open(),[Text.Encoding]::UTF8,$true);try{[xml]$xml=$reader.ReadToEnd()}finally{$reader.Dispose()};$node=$xml.SelectSingleNode('//*[local-name()="Pages"]');if($null-eq$node){throw 'DOCX page metadata is missing.'};$node.InnerText=[string]$Pages;$entry.Delete();$replacement=$archive.CreateEntry('docProps/app.xml');$writer=[IO.StreamWriter]::new($replacement.Open(),[Text.UTF8Encoding]::new($false));try{$writer.Write($xml.OuterXml)}finally{$writer.Dispose()}}finally{$archive.Dispose()}
+}
+
+function Get-MaterialsFinalPageCount {
+    param([Parameter(Mandatory)][string]$Path,[string]$PdfPath)
+    $inspector=Join-Path $PSScriptRoot 'word-page-inspector.ps1';$previous=$ErrorActionPreference
+    if(-not[string]::IsNullOrWhiteSpace($PdfPath)-and(Test-Path -LiteralPath $PdfPath)){Remove-Item -LiteralPath $PdfPath -Force}
+    $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$inspector,'-DocxPath',$Path)
+    if(-not[string]::IsNullOrWhiteSpace($PdfPath)){$arguments+=@('-ReferencePdfPath',$PdfPath)}
+    try{$ErrorActionPreference='Continue';$output=& powershell @arguments 2>&1|Out-String;$exitCode=$LASTEXITCODE}finally{$ErrorActionPreference=$previous}
+    if($exitCode-ne0){throw 'Final document page inspection failed.'}
+    try{$json=@($output-split"`r?`n"|ForEach-Object{$_.Trim()}|Where-Object{$_-match'^\{.*\}$'});if($json.Count-ne1){throw 'invalid'};$result=$json[0]|ConvertFrom-Json -ErrorAction Stop}catch{throw 'Final document page inspection returned an invalid result.'}
+    if($result.ok-ne$true-or[int]$result.pages-lt1){throw 'Final document page inspection returned an invalid result.'};return [int]$result.pages
+}
+
 function Assert-MaterialsSourceDocument {
     param([Parameter(Mandatory)][string]$Path)
 
@@ -624,6 +644,7 @@ function Export-MaterialsHtml {
         [Parameter(Mandatory)][string]$HtmlPath,
         [Parameter(Mandatory)][string]$DocxPath,
         [string]$PdfPath,
+        [string]$DocumentId,
         [switch]$SourceDocument,
         [switch]$PrototypeDocument,
         [switch]$ApplicationDocument,
@@ -652,6 +673,32 @@ function Export-MaterialsHtml {
     }
     else { $document = $Word.Documents.Open((Resolve-Path -LiteralPath $HtmlPath).Path, $false, $true) }
     $OpenDocuments.Add($document)
+    if (-not $SourceDocument) {
+        $document.Windows.Item(1).View.Type = 3
+        $document.PageSetup.PageWidth = 595.3
+        $document.PageSetup.PageHeight = 841.9
+        $document.PageSetup.TopMargin = 62.36
+        $document.PageSetup.BottomMargin = 56.7
+        $document.PageSetup.LeftMargin = 51.02
+        $document.PageSetup.RightMargin = 51.02
+        $document.Content.ParagraphFormat.KeepWithNext = 0
+        $document.Content.ParagraphFormat.KeepTogether = 0
+        $document.Content.ParagraphFormat.WidowControl = 0
+        if(-not$PrototypeDocument){
+            $imagePaths=[Collections.Generic.List[string]]::new()
+            for($fieldIndex=1;$fieldIndex-le$document.Fields.Count;$fieldIndex++){$field=$document.Fields.Item($fieldIndex);if($field.Code.Text-match'INCLUDEPICTURE'){$match=[regex]::Match($field.Code.Text,'"([^"]+)"');if(-not$match.Success){throw 'Could not read material image path.'};$imagePaths.Add($match.Groups[1].Value)}}
+            for($fieldIndex=$document.Fields.Count;$fieldIndex-ge1;$fieldIndex--){$field=$document.Fields.Item($fieldIndex);if($field.Code.Text-match'INCLUDEPICTURE'){$field.Unlink()}}
+            if($imagePaths.Count-ne$document.InlineShapes.Count){throw 'Material image fields and inline shapes do not match.'}
+            for($imageIndex=1;$imageIndex-le$imagePaths.Count;$imageIndex++){$shape=$document.InlineShapes.Item($imageIndex);$imageRange=$shape.Range.Duplicate;$start=$imageRange.Start;$shape.Delete();$imageRange.SetRange($start,$start);[void]$document.InlineShapes.AddPicture($imagePaths[$imageIndex-1],$false,$true,$imageRange)}
+        }
+        for($shapeIndex=1;$shapeIndex-le$document.InlineShapes.Count;$shapeIndex++){
+            $shape=$document.InlineShapes.Item($shapeIndex);$shape.LockAspectRatio=-1
+            if($shape.Width-gt430){$shape.Width=430}
+            if($shape.Height-gt340){$shape.Height=340}
+        }
+        if($DocumentId-eq'manual'){$breakRange=$document.Content.Duplicate;if(-not$breakRange.Find.Execute('七、备份与恢复')){throw 'Operation manual backup heading was not found.'};$breakRange.Collapse(1);$breakRange.InsertBreak(7)}
+        $document.Repaginate()
+    }
     if ($SourceDocument) {
         $eastAsianFont = -join @([char]0x5B8B, [char]0x4F53)
         if ([string]::IsNullOrWhiteSpace($SoftwareName) -or [string]::IsNullOrWhiteSpace($Version)) { throw 'Source document export requires software name and version.' }
@@ -825,6 +872,7 @@ function Invoke-MaterialsWordWorker {
             }
             if ($null -ne $item.PSObject.Properties['SoftwareName']) { $parameters.SoftwareName = [string]$item.SoftwareName }
             if ($null -ne $item.PSObject.Properties['Version']) { $parameters.Version = [string]$item.Version }
+            if ($null -ne $item.PSObject.Properties['DocumentId']) { $parameters.DocumentId = [string]$item.DocumentId }
             Export-MaterialsHtml @parameters
         }
     }
@@ -833,9 +881,10 @@ function Invoke-MaterialsWordWorker {
     }
     foreach($item in $items){Clear-MaterialsPackageIdentity -Path ([string]$item.DocxPath)}
     foreach ($item in $items) {
-        if ([bool]$item.SourceDocument -or ($null -ne $item.PSObject.Properties['PrototypeDocument'] -and [bool]$item.PrototypeDocument)) {
-            Set-MaterialsDocumentPrintView -Path ([string]$item.DocxPath)
-        }
+        $path=[string]$item.DocxPath
+        Set-MaterialsDocumentPrintView -Path $path
+        $finalPdf=if($null-eq$item.PdfPath){$null}else{[string]$item.PdfPath}
+        Set-MaterialsDocumentPageMetadata -Path $path -Pages (Get-MaterialsFinalPageCount -Path $path -PdfPath $finalPdf)
     }
 }
 

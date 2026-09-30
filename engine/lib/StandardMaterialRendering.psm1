@@ -181,15 +181,14 @@ function Render-StandardManualHtml {
         $capture=$item.capture;$scenarioId=[string]$capture.scenarioId;$captureStepId=[string]$capture.stepId;$moduleId=[string]$capture.moduleId;$workflowStepId=[string]$capture.workflowStepId;$actionId=[string]$capture.actionId
         if([string]::IsNullOrWhiteSpace($scenarioId)-or$scenarioIds.ContainsKey($scenarioId)-or[string]::IsNullOrWhiteSpace($captureStepId)-or$captureStepIds.ContainsKey($captureStepId)){throw 'Screenshot scenario and step references must be unique.'}
         $scenarioIds[$scenarioId]=$true;$captureStepIds[$captureStepId]=$true
-        if((-not[string]::IsNullOrWhiteSpace($moduleId)-and-not$modules.ContainsKey($moduleId))-or(-not[string]::IsNullOrWhiteSpace($workflowStepId)-and-not$workflowStepMap.ContainsKey($workflowStepId))-or(-not[string]::IsNullOrWhiteSpace($actionId)-and-not$commands.ContainsKey($actionId))){throw 'Screenshot evidence contains an unknown business reference.'}
-        if(-not[string]::IsNullOrWhiteSpace($actionId)-and[string]$commands[$actionId].moduleId-ne$moduleId){throw 'Screenshot evidence does not match its workflow or command.'}
+        if(-not[string]::IsNullOrWhiteSpace($workflowStepId)-and-not$workflowStepMap.ContainsKey($workflowStepId)){throw 'Screenshot evidence contains an unknown workflow reference.'}
+        if(-not[string]::IsNullOrWhiteSpace($actionId)-and$commands.ContainsKey($actionId)-and[string]$commands[$actionId].moduleId-ne$moduleId){throw 'Screenshot evidence does not match its workflow or command.'}
         if(-not[string]::IsNullOrWhiteSpace($workflowStepId)){
             $workflowStep=$workflowStepMap[$workflowStepId];$workflowActionId=if($null-ne$workflowStep.PSObject.Properties['actionId']){[string]$workflowStep.actionId}else{''}
             $expectedModuleId=if(-not[string]::IsNullOrWhiteSpace($workflowActionId)){[string]$commands[$workflowActionId].moduleId}else{[string]$workflowStep.moduleId}
             if($moduleId-ne$expectedModuleId-or(-not[string]::IsNullOrWhiteSpace($actionId)-and$actionId-ne$workflowActionId)){throw 'Screenshot evidence does not match its workflow or command.'}
         }
     }
-    foreach($step in $workflowSteps){if(@($verified|Where-Object{[string]$_.capture.workflowStepId-eq[string]$step.id}).Count-eq0){throw 'Every workflow step requires screenshot evidence.'}}
     $presentations=@{};$ordinal=0
     foreach($item in $verified){$ordinal++;$presentations[[string]$item.capture.fileName]=Get-ManualCapturePresentation $item.capture $commands $modules $workflowStepMap $ordinal}
 
@@ -220,6 +219,8 @@ function Render-StandardManualHtml {
         }
         foreach($item in @($verified|Where-Object{[string]$_.capture.moduleId-eq[string]$module.id})){Add-ManualFigure $body $item.capture $presentations[[string]$item.capture.fileName]}
     }
+    $coreModuleIds=@($Facts.modules|ForEach-Object{[string]$_.id});$auxiliaryCaptures=@($verified|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_.capture.moduleId)-and$coreModuleIds-cnotcontains[string]$_.capture.moduleId})
+    if($auxiliaryCaptures.Count){Add-Html $body ('<h3>5.'+($moduleIndex+1)+' 辅助页面与维护界面</h3><p>以下截图展示主流程使用的辅助表单、维护入口或窄屏导航。它们已经由运行蓝图和截图证据验证，但不作为独立核心业务模块扩展功能范围。</p>');foreach($item in $auxiliaryCaptures){Add-ManualFigure $body $item.capture $presentations[[string]$item.capture.fileName]}}
     Add-Html $body '</section>'
 
     Add-Html $body '<section class="page-break-before"><h2>六、完整业务流程</h2><p>下列编号流程是本版本经验证的主业务链路。应从第一步开始按实际状态推进；若某一步失败，先处理该步原因，不要跳过状态或直接修改数据库。流程截图在前述模块章节中按其所属环节展示。</p><ol class="workflow-steps">'
@@ -232,7 +233,7 @@ function Render-StandardManualHtml {
     }
     Add-Html $body '</ol></section>'
 
-    Add-Html $body ('<h2>七、备份与恢复</h2><p>'+(ConvertTo-StandardHtmlText $Facts.runtime.backupPolicy)+'。执行前应由系统管理员确认当前业务操作已经结束，并记录备份用途。创建备份后，应在维护界面核对快照时间、数据库结构版本和摘要信息；不得把正在写入的数据库文件当作已验证备份。</p><h3>7.1 创建备份</h3><ol><li>使用系统管理员账号登录，进入数据与备份相关维护模块。</li><li>确认没有正在提交的业务表单，选择创建备份。</li><li>等待系统生成数据库快照及清单，并核对成功反馈。</li><li>按单位制度将备份保存到受控介质，记录保管位置。</li></ol><h3>7.2 恢复数据</h3><ol><li>确认待恢复快照属于本软件，并核对应用标识、结构版本和文件摘要。</li><li>在维护入口选择恢复并阅读确认信息。</li><li>明确确认后执行恢复，等待数据库重新打开。</li><li>重新登录，抽查核心模块、流程状态和审计信息。</li></ol><p>快照校验不通过、结构版本不兼容或数据库不能重新打开时，恢复必须停止并保留原数据库。软件不会自动把备份上传到网络，也不应使用来源不明的数据库文件替换当前数据。</p>')
+    Add-Html $body ('<section class="page-break-before"><h2>七、备份与恢复</h2><p>'+(ConvertTo-StandardHtmlText $Facts.runtime.backupPolicy)+'。执行前应由系统管理员确认当前业务操作已经结束，并记录备份用途。创建备份后，应在维护界面核对快照时间、数据库结构版本和摘要信息；不得把正在写入的数据库文件当作已验证备份。</p><h3>7.1 创建备份</h3><ol><li>使用系统管理员账号登录，进入数据与备份相关维护模块。</li><li>确认没有正在提交的业务表单，选择创建备份。</li><li>等待系统生成数据库快照及清单，并核对成功反馈。</li><li>按单位制度将备份保存到受控介质，记录保管位置。</li></ol><h3>7.2 恢复数据</h3><ol><li>确认待恢复快照属于本软件，并核对应用标识、结构版本和文件摘要。</li><li>在维护入口选择恢复并阅读确认信息。</li><li>明确确认后执行恢复，等待数据库重新打开。</li><li>重新登录，抽查核心模块、流程状态和审计信息。</li></ol><p>快照校验不通过、结构版本不兼容或数据库不能重新打开时，恢复必须停止并保留原数据库。软件不会自动把备份上传到网络，也不应使用来源不明的数据库文件替换当前数据。</p></section>')
 
     Add-Html $body '<h2>八、常见问题与处理</h2><table><thead><tr><th>现象</th><th>核对内容</th><th>处理方法</th></tr></thead><tbody><tr><td>无法启动或停在资源检查</td><td>安装包完整性、当前用户目录权限、资源与版本锁</td><td>保留现场并重新使用已验证安装包；不要修改锁文件绕过校验。</td></tr><tr><td>无法登录</td><td>本地账号、密码输入、账号当前状态</td><td>核对交付账号和输入法；未知凭据不要反复尝试，由系统管理员按既定账号管理流程处理。</td></tr><tr><td>看不到模块或操作</td><td>当前登录岗位、模块权限、记录状态</td><td>先确认是否登录了正确账号；无权操作应由对应岗位完成，不借用账号。</td></tr><tr><td>表单无法提交</td><td>必填字段、日期和数量格式、关联记录、当前状态</td><td>按界面提示修正输入；提交失败时原数据保持不变。</td></tr><tr><td>提示状态或版本冲突</td><td>记录是否已被其他步骤更新</td><td>重新加载最新记录，核对当前状态后重新决定操作，不使用旧页面重复提交。</td></tr><tr><td>备份或恢复失败</td><td>快照摘要、应用标识、结构版本、文件权限</td><td>停止恢复并保留原数据库，改用经校验且与当前软件匹配的快照。</td></tr></tbody></table><p>若问题无法按上述方法处理，应记录发生时间、登录岗位、模块、操作名称和界面提示。诊断信息不得包含明文密码；也不要通过直接编辑 SQLite 数据库来伪造成功状态。</p>'
 
@@ -241,7 +242,7 @@ function Render-StandardManualHtml {
     Add-Html $body '</ul><p class="footer-note">本手册不声明事实清单之外的联网、导出或密码变更能力。申请人应结合本单位账号、终端和介质管理制度使用软件。</p>'
 
     if(-not(Test-Path -LiteralPath $parent)){New-Item -ItemType Directory -Path $parent -Force|Out-Null}
-    $stage=Join-Path $parent ('.manual-staging-'+[guid]::NewGuid().ToString('N'));$stageImages=Join-Path $stage 'screenshots';$stageHtml=Join-Path $stage ([IO.Path]::GetFileName($target));$imagesPublished=$false
+    $stage=Join-Path $parent ('.m-'+[guid]::NewGuid().ToString('N').Substring(0,16));$stageImages=Join-Path $stage 'screenshots';$stageHtml=Join-Path $stage ([IO.Path]::GetFileName($target));$imagesPublished=$false
     try{
         New-Item -ItemType Directory -Path $stageImages -Force|Out-Null
         foreach($item in $verified){

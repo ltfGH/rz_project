@@ -89,6 +89,7 @@ test('maps distinct inventory form scenarios to distinct real commands',()=>{
   const template=loadStandardTemplateCatalog().templates.find((entry)=>entry.id==='inventory_application_approval')!,plan=buildStandardScreenshotPlan(getMaterialDescriptor(template.id),builtTemplate(template).blueprint);
   assert.equal(plan.find((item)=>item.scenarioId==='material_create_form')?.actionId,'inventory.material.create');
   assert.equal(plan.find((item)=>item.scenarioId==='batch_receive_form')?.actionId,'inventory.batch.receive_new');
+  assert.equal(plan.find((item)=>item.scenarioId==='inventory_ledger')?.moduleId,'inventory_transactions');
 });
 
 test('rejects workflow captures produced by another executable or blueprint',()=>{

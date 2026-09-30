@@ -65,6 +65,7 @@ const ACTION_MODULES:Readonly<Record<string,string>>=Object.freeze({
   'inventory.material.create':'materials','inventory.batch.receive_new':'inventory_batches','inventory.application.create':'inventory_batches',
   'project.create':'projects','project.activate':'projects','project.milestone.create':'projects','project.task.create':'projects','project.risk.create':'projects','project.deliverable.submit':'projects','project.deliverable.review':'deliverables','project.delivery.archive':'projects','project.request_close':'projects'
 });
+const SCENARIO_MODULES:Readonly<Record<string,string>>=Object.freeze({inventory_ledger:'inventory_transactions'});
 export function moduleForMaterialAction(actionId:string,fallbackModuleId:string):string{return ACTION_MODULES[actionId]??fallbackModuleId;}
 const SCENARIO_ACTIONS:Readonly<Record<string,Readonly<{id:string;label:string}>>>=Object.freeze({
   application_create_form:Object.freeze({id:'application.create',label:'创建申请'}),material_create_form:Object.freeze({id:'inventory.material.create',label:'创建物料'}),batch_receive_form:Object.freeze({id:'inventory.batch.receive_new',label:'新批次入库'}),
@@ -80,6 +81,7 @@ function actionForScenario(descriptor:MaterialDescriptor,scenarioId:string){
 export function buildStandardScreenshotPlan(descriptor:MaterialDescriptor,blueprint:RuntimeBlueprint):readonly StandardScreenshotPlanItem[]{
   const modules=blueprint.modules??[],businessModules=modules.filter((module)=>module.id!=='maintenance');if(businessModules.length===0)return fail('PLAN_MODULES_MISSING');
   const moduleFor=(scenarioId:string,fallback:string)=>{
+    const explicit=SCENARIO_MODULES[scenarioId];if(explicit&&modules.some((module)=>module.id===explicit))return explicit;
     const score=(entityId:string)=>scenarioId.includes(entityId)?100+entityId.length:entityId.split('_').filter((token)=>token.length>3&&scenarioId.includes(token)).reduce((sum,token)=>sum+token.length,0),matched=[...businessModules].sort((left,right)=>score(right.entity)-score(left.entity))[0];
     if(matched&&score(matched.entity)===0)return modules.find((module)=>module.id===fallback)?.id??businessModules[0]!.id;
     return matched?.id??(modules.some((module)=>module.id===fallback)?fallback:businessModules[0]!.id);
