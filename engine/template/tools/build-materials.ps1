@@ -579,8 +579,8 @@ function Get-ExplicitSourcePlan {
     if (($expectedSourcePages -join ',') -cne (@($pages | ForEach-Object { [int]$_.sourcePage }) -join ',')) { throw 'Explicit source print plan page selection is invalid.' }
     $canonical = [Collections.Generic.List[string]]::new(); $selectedLineCount = 0; $selectedFiles = [Collections.Generic.List[string]]::new()
     for ($pageIndex = 0; $pageIndex -lt $pages.Count; $pageIndex++) {
-        $lines = @($pages[$pageIndex].lines);$mappings=@($pages[$pageIndex].mappings);$physicalCount=$lines.Count+$mappings.Count
-        if ([int]$pages[$pageIndex].outputPage -ne $pageIndex + 1 -or $physicalCount -lt $(if ($pageIndex -eq $pages.Count - 1) { 1 } else { 45 }) -or $physicalCount -gt 55) { throw 'Explicit source print plan contains an invalid page.' }
+        $lines = @($pages[$pageIndex].lines);$mappings=@($pages[$pageIndex].mappings);$visibleLineCount=$lines.Count
+        if ([int]$pages[$pageIndex].outputPage -ne $pageIndex + 1 -or $visibleLineCount -lt $(if ($pageIndex -eq $pages.Count - 1) { 1 } else { 50 }) -or $visibleLineCount -gt 50) { throw 'Explicit source print plan contains an invalid page.' }
         $expectedMappingPaths=@($lines|ForEach-Object{[string]$_.path}|Select-Object -Unique);$actualMappingPaths=@($mappings|ForEach-Object{[string]$_.path}|Select-Object -Unique);if(($expectedMappingPaths-join"`n")-cne($actualMappingPaths-join"`n")){throw 'Explicit source print plan file mappings are invalid.'};foreach($mappingPath in $expectedMappingPaths){$parts=@($mappings|Where-Object{[string]$_.path-ceq$mappingPath}|Sort-Object part);if(($parts|ForEach-Object{[int]$_.part})-join','-cne((0..($parts.Count-1))-join',')-or($parts|ForEach-Object{[string]$_.text})-join''-cne$mappingPath-or@($parts|Where-Object{[Globalization.StringInfo]::ParseCombiningCharacters([string]$_.text).Count-gt48}).Count){throw 'Explicit source print plan file mappings are invalid.'}}
         foreach ($line in $lines) {
             $path = [string]$line.path; $segments = @($path.Split('/'))
@@ -626,11 +626,8 @@ function Add-ExplicitSourceContent {
     foreach ($page in @($Plan.pages)) {
         if ([int]$page.outputPage -gt 1) { $breakRange = $Document.Range($Document.Content.End - 1, $Document.Content.End - 1); $breakRange.InsertBreak(7) }
         $pageText = [Text.StringBuilder]::new()
-        [void]$pageText.Append('打印页 ').Append($page.outputPage).Append('/').Append($Plan.expectedPageCount).Append('　源码页 ').Append($page.sourcePage).Append('/').Append($Plan.totalSourcePages).Append("`r")
-        foreach($mapping in @($page.mappings)){$fileIndex=[Array]::IndexOf([object[]]@($Plan.selectedFiles),[object][string]$mapping.path)+1;$prefix=if([int]$mapping.part-eq0){'F{0:D3} = '-f$fileIndex}else{'       '};[void]$pageText.Append($prefix).Append([string]$mapping.text).Append("`r")}
         foreach ($line in @($page.lines)) {
-            $fileIndex=[Array]::IndexOf([object[]]@($Plan.selectedFiles),[object][string]$line.path)+1;$location=('F{0:D3}:{1}'-f$fileIndex,[int]$line.lineNumber)+$(if([int]$line.continuation-gt0){'.'+[int]$line.continuation}else{''})
-            [void]$pageText.Append($location).Append("`t").Append([string]$line.text).Append("`r")
+            [void]$pageText.Append([string]$line.text).Append("`r")
         }
         $range = $Document.Range($Document.Content.End - 1, $Document.Content.End - 1)
         $range.InsertAfter($pageText.ToString())
