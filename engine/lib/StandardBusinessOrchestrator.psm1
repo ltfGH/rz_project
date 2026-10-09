@@ -179,8 +179,7 @@ function Invoke-StandardDefaultAction {
                 $captureParameters=@{ExecutablePath=$executable.FullName;BlueprintPath=(Join-Path $State.Resources.resourcesPath 'blueprint.json');TemplateId=[string]$State.Template.id;OutputDirectory=$output}
                 $workflowCaptureRoot=Join-Path $State.Context.WorkspacePath 'workflow-screenshots'
                 if(Test-Path -LiteralPath $workflowCaptureRoot -PathType Container){$captureParameters.WorkflowCaptureDirectory=$workflowCaptureRoot}
-                & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $desktopRoot 'tools\capture-standard-screenshots.ps1') @captureParameters | Out-Host
-                if($LASTEXITCODE-ne 0){throw 'Standard desktop screenshot capture failed.'}
+                & (Join-Path $desktopRoot 'tools\capture-standard-screenshots.ps1') @captureParameters | Out-Host
             }
             return Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $output 'screenshot-manifest.json')|ConvertFrom-Json
         }

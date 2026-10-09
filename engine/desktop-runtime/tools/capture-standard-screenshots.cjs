@@ -20,6 +20,23 @@ function argument(name){const indexes=process.argv.flatMap((value,index)=>value=
 function requiredPath(name,kind){const value=argument(name);if(!value||!path.isAbsolute(value))throw new Error(`${name} must be an absolute path.`);const resolved=path.resolve(value),stat=fs.lstatSync(resolved);if(stat.isSymbolicLink()||(kind==='file'&&!stat.isFile())||(kind==='directory'&&!stat.isDirectory()))throw new Error(`${name} has an invalid type.`);return resolved;}
 function requiredTemplate(){const value=argument('--template');if(!value||!/^[a-z][a-z0-9_]{1,63}$/.test(value))throw new Error('--template is invalid.');return value;}
 function sha256(filename){return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');}
+function transientLaunchFailure(error){const message=error instanceof Error?error.message:String(error);return /timeout[^\r\n]*(?:electron|window)|(?:electron|window)[^\r\n]*timeout/i.test(message);}
+async function launchCaptureApplication(electronApi,launchOptions){
+  let lastError;
+  for(let attempt=0;attempt<2;attempt++){
+    let application;
+    try{
+      application=await electronApi.launch({...launchOptions,timeout:60_000});
+      const page=await application.firstWindow({timeout:60_000});
+      return{app:application,page};
+    }catch(error){
+      lastError=error;
+      if(application)await application.close().catch(()=>undefined);
+      if(attempt!==0||!transientLaunchFailure(error))throw error;
+    }
+  }
+  throw lastError;
+}
 function workflowCaptures(){
   const value=argument('--workflow-captures');if(!value)return new Map();if(!path.isAbsolute(value))throw new Error('--workflow-captures must be absolute.');const root=path.resolve(value),stat=fs.lstatSync(root);if(!stat.isDirectory()||stat.isSymbolicLink())throw new Error('--workflow-captures has an invalid type.');
   const result=new Map();for(const indexName of fs.readdirSync(root).filter((name)=>name.endsWith('.captures.json')).sort()){
@@ -41,7 +58,7 @@ async function main(){
   for(const[role,[username,password]]of Object.entries(accounts)){const user=seedUsers.get(username);if(!user||!await verifyPassword(password,user.passwordDigest))throw new Error(`Capture credential does not match packaged seed for '${role}'.`);}
   let app;
   try{
-    app=await electron.launch({executablePath,env:{...process.env,RZ_RUNTIME_USER_DATA:userData}});const page=await app.firstWindow();let currentRole;
+    const launched=await launchCaptureApplication(electron,{executablePath,env:{...process.env,RZ_RUNTIME_USER_DATA:userData}});app=launched.app;const page=launched.page;let currentRole;
     const logout=async()=>{if(!currentRole)return;const button=page.getByRole('button',{name:'退出登录'});if(await button.count())await button.click();await page.getByLabel('账号').waitFor();currentRole=undefined;};
     const login=async(roleId)=>{if(currentRole===roleId)return;await logout();const account=accounts[roleId],usernameInput=page.getByLabel('账号'),passwordInput=page.getByLabel('密码');let inputMatches=false;for(let attempt=0;attempt<3;attempt++){await usernameInput.fill(account[0]);await passwordInput.fill(account[1]);await page.waitForTimeout(50);inputMatches=(await usernameInput.inputValue())===account[0]&&(await passwordInput.inputValue())===account[1];if(inputMatches)break;}if(!inputMatches)throw new Error(`Capture login inputs did not settle for ${roleId}.`);await page.getByRole('button',{name:'登录'}).click();try{await page.getByRole('navigation',{name:'主导航'}).waitFor();}catch{const loginVisible=await usernameInput.isVisible().catch(()=>false),alerts=await page.getByRole('alert').allTextContents().catch(()=>[]),windows=app.windows().length,seedUser=seedUsers.get(account[0]);let databaseState='unavailable';try{const database=new DatabaseSync(path.join(userData,'runtime.sqlite'),{readOnly:true});try{const row=database.prepare('SELECT password_digest,enabled,failed_attempts,locked_until FROM sys_user WHERE username=?').get(account[0]);databaseState=row?`digestMatchesSeed=${row.password_digest===seedUser.passwordDigest},enabled=${row.enabled},failedAttempts=${row.failed_attempts},locked=${Boolean(row.locked_until)}`:'missing-user';}finally{database.close();}}catch{}throw new Error(`Capture login failed for ${roleId}; loginVisible=${loginVisible}; windows=${windows}; alerts=${alerts.join('|')||'none'}; ${databaseState}`);}currentRole=roleId;};
     const closePanels=async()=>{for(const name of ['取消','关闭详情']){const buttons=page.getByRole('button',{name,exact:true});if(await buttons.count()&&await buttons.first().isVisible())await buttons.first().click().catch(()=>undefined);}};
@@ -83,4 +100,5 @@ async function main(){
   }finally{if(app)await app.close().catch(()=>undefined);fs.rmSync(userData,{recursive:true,force:true});}
 }
 
+module.exports={launchCaptureApplication};
 if(require.main===module)main().catch((error)=>{process.stderr.write(`${error instanceof Error?error.message:String(error)}\n`);process.exitCode=1;});

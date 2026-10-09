@@ -22,6 +22,7 @@ if (Test-Path -LiteralPath $output) { throw "Refusing to overwrite screenshot ou
 $parent = Split-Path -Parent $output
 if (-not (Test-Path -LiteralPath $parent -PathType Container)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
 $staging = Join-Path $parent ('.' + (Split-Path -Leaf $output) + '.staging-' + [guid]::NewGuid().ToString('N'))
+$diagnostic = $output + '.error.log'
 $captureScript = Join-Path $PSScriptRoot 'capture-standard-screenshots.cjs'
 try {
     New-Item -ItemType Directory -Path $staging | Out-Null
@@ -31,11 +32,22 @@ try {
         if (-not (Test-Path -LiteralPath $workflowRoot -PathType Container)) { throw 'Workflow capture directory was not found.' }
         $arguments += @('--workflow-captures',$workflowRoot)
     }
-    & node @arguments
-    if ($LASTEXITCODE -ne 0) { throw "Packaged screenshot capture failed with exit code $LASTEXITCODE." }
+    $previousPreference=$ErrorActionPreference
+    try{$ErrorActionPreference='Continue';$nativeOutput=(& node @arguments 2>&1|Out-String);$nativeExit=$LASTEXITCODE}
+    finally{$ErrorActionPreference=$previousPreference}
+    if ($nativeExit -ne 0) {
+        $safe=[string]$nativeOutput
+        foreach($role in @('DISPATCHER','OPERATOR','REVIEWER','ADMINISTRATOR')){$secret=[Environment]::GetEnvironmentVariable("RZ_E2E_${role}_PASSWORD");if(-not[string]::IsNullOrEmpty($secret)){$safe=$safe.Replace($secret,'<redacted-password>')}}
+        $safe=[regex]::Replace($safe,'(?i)(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})','<redacted-token>').Trim()
+        if([string]::IsNullOrWhiteSpace($safe)){$safe='Screenshot capture process returned no diagnostic output.'}
+        if($safe.Length-gt4000){$safe=$safe.Substring(0,4000)}
+        [IO.File]::WriteAllText($diagnostic,$safe,[Text.UTF8Encoding]::new($false))
+        throw "Packaged screenshot capture failed with exit code $nativeExit. $safe"
+    }
     $manifestPath = Join-Path $staging 'screenshot-manifest.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Screenshot capture did not create its manifest.' }
     Move-Item -LiteralPath $staging -Destination $output
+    if(Test-Path -LiteralPath $diagnostic){Remove-Item -LiteralPath $diagnostic -Force}
     Get-Item -LiteralPath (Join-Path $output 'screenshot-manifest.json')
 }
 catch {
