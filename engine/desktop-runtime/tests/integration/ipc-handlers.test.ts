@@ -64,7 +64,12 @@ function services(observed: ActorDto[]): RuntimeServices {
       }
     },
     domain: { execute: (_commandId, _payload, current) => { observed.push(current); return {}; } },
-    dashboard: { read: () => [] },
+    dashboard: {
+      read: (current) => {
+        observed.push(current);
+        return { metrics: [], sections: [] };
+      }
+    },
     maintenance: {
       createBackup: async () => ({ fileName: 'backup.sqlite' }),
       inspectBackup: () => ({ valid: true }),
@@ -99,6 +104,33 @@ test('returns structured validation errors before calling services', async () =>
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'VALIDATION_FAILED');
   assert.deepEqual(observed, []);
+});
+
+test('dashboard read accepts only a token and resolves the actor from its session', async () => {
+  const observed: ActorDto[] = [];
+  const ipc = new TestIpc();
+  registerIpcHandlers(ipc, services(observed));
+
+  const result = await ipc.invoke(IPC_CHANNELS.dashboardRead, { token: 'renderer-token' }) as {
+    ok: boolean;
+    data: { metrics: unknown[]; sections: unknown[] };
+  };
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.data, { metrics: [], sections: [] });
+  assert.deepEqual(observed, [actor]);
+
+  for (const injected of [
+    { commandId: 'project.dashboard_summary' },
+    { dataSource: 'project.dashboard_summary' },
+    { sectionId: 'project_dashboard' }
+  ]) {
+    const rejected = await ipc.invoke(IPC_CHANNELS.dashboardRead, {
+      token: 'renderer-token', ...injected
+    }) as { ok: boolean; error: { code: string } };
+    assert.equal(rejected.ok, false);
+    assert.equal(rejected.error.code, 'VALIDATION_FAILED');
+  }
+  assert.deepEqual(observed, [actor]);
 });
 
 test('converts unexpected diagnostics to a redacted internal error', async () => {

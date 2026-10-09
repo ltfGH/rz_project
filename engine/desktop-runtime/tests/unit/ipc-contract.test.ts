@@ -30,6 +30,11 @@ test('exposes only named business methods and no generic IPC escape hatch', () =
     channel: IPC_CHANNELS.domainExecute,
     request: { token: 'token', commandId: 'asset.change_status', payload: { assetId: 9 } }
   });
+  void api.dashboard.read('dashboard-token');
+  assert.deepEqual(calls[2], {
+    channel: IPC_CHANNELS.dashboardRead,
+    request: { token: 'dashboard-token' }
+  });
 });
 
 test('strict request schemas reject identity injection and oversized pages', () => {
@@ -52,4 +57,13 @@ test('strict request schemas reject identity injection and oversized pages', () 
   assert.equal(IPC_REQUEST_SCHEMAS[IPC_CHANNELS.domainExecute].safeParse({
     token: 'token', commandId: 'asset.change_status', payload: { assetId: 1 }, actor: { userId: 9 }
   }).success, false);
+  for (const injected of [
+    { commandId: 'project.dashboard_summary' },
+    { dataSource: 'project.dashboard_summary' },
+    { sectionId: 'project_dashboard' }
+  ]) {
+    assert.equal(IPC_REQUEST_SCHEMAS[IPC_CHANNELS.dashboardRead].safeParse({
+      token: 'token', ...injected
+    }).success, false);
+  }
 });
