@@ -12,6 +12,11 @@ export interface WorkOrderUiExtension {
   readonly viewId?: string;
   readonly dataSource?: string;
   readonly actionIds?: readonly string[];
+  readonly presentation?: Readonly<{groups:readonly Readonly<{
+    id:string;label:string;kind:'status'|'attention';items:readonly Readonly<{
+      id:string;sourceKey:string;label:string;tone:'neutral'|'teal'|'amber'|'red';moduleId:string
+    }>[]
+  }>[]}>;
 }
 
 const extensions: readonly WorkOrderUiExtension[] = Object.freeze([
@@ -38,7 +43,14 @@ const extensions: readonly WorkOrderUiExtension[] = Object.freeze([
   Object.freeze({
     id: 'work_order.sla.dashboard', slot: 'dashboard.sections',
     label: 'SLA状态', order: 20, viewId: 'work_order_sla_dashboard',
-    dataSource: 'work_order.dashboard_summary'
+    dataSource: 'work_order.dashboard_summary', presentation:Object.freeze({groups:Object.freeze([
+      Object.freeze({id:'work_order_status',label:'工单状态',kind:'status',items:Object.freeze([
+        Object.freeze({id:'total',sourceKey:'total',label:'工单总数',tone:'neutral',moduleId:'work_orders'}),Object.freeze({id:'closed',sourceKey:'closed',label:'已关闭',tone:'teal',moduleId:'work_orders'})
+      ])}),
+      Object.freeze({id:'work_order_attention',label:'需要关注',kind:'attention',items:Object.freeze([
+        Object.freeze({id:'pending_reviews',sourceKey:'pendingReview',label:'待复核工单',tone:'amber',moduleId:'work_orders'}),Object.freeze({id:'overdue',sourceKey:'overdue',label:'SLA已逾期',tone:'red',moduleId:'work_orders'})
+      ])})
+    ])})
   }),
   Object.freeze({
     id: 'sla_policy.manage.actions', slot: 'entity.detail.actions', entityId: 'sla_policy',
