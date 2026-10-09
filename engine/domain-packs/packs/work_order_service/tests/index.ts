@@ -85,7 +85,7 @@ export function runWorkOrderAcceptanceScenario(
     dependencies.context(database as unknown as DatabaseSync, dispatcher)
   );
   const metrics = new Map(
-    dashboard.read(dispatcher).map((metric) => [metric.id, metric.value] as const)
+    dashboard.read(dispatcher).metrics.map((metric) => [metric.id, metric.value] as const)
   );
   const eventCount = database.prepare(
     'SELECT COUNT(*) AS count FROM biz_work_order_event WHERE work_order_code = ?'

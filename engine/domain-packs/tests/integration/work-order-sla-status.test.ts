@@ -126,7 +126,7 @@ test('reports deterministic dashboard counts for work order states', (t) => {
   const metrics = new Map(
     new DashboardService(runtime.database, runtime.blueprint, runtime.schema)
       .read(dispatcher)
-      .map((metric) => [metric.id, metric.value] as const)
+      .metrics.map((metric) => [metric.id, metric.value] as const)
   );
   assert.deepEqual(Object.fromEntries(metrics), {
     work_order_total: 4,

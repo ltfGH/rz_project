@@ -61,7 +61,7 @@ export function runAssetAcceptanceScenario(
   }, dependencies.context(connection)));
 
   const metricValues = new Map(
-    dashboard.read(actor).map((metric) => [metric.id, metric.value] as const)
+    dashboard.read(actor).metrics.map((metric) => [metric.id, metric.value] as const)
   );
   const responsibilityCount = database.prepare(
     'SELECT COUNT(*) AS count FROM biz_asset_responsibility'

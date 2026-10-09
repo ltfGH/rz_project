@@ -76,7 +76,6 @@ async function start(): Promise<void> {
   const auth = new AuthService(database);
   const entities = new EntityRepository(database, blueprint, schema);
   const workflows = new WorkflowEngine(database, blueprint, schema, permissions, audit);
-  const dashboard = new DashboardService(database, blueprint, schema);
   const backup = new BackupService({
     databasePath,
     appId: blueprint.software.id,
@@ -92,6 +91,11 @@ async function start(): Promise<void> {
     plugins,
     permissions,
     audit
+  });
+  const dashboard = new DashboardService(database, blueprint, schema, {
+    plugins,
+    permissions,
+    domain
   });
   const services: RuntimeServices = {
     auth,

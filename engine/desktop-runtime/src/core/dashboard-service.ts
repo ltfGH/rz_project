@@ -1,9 +1,12 @@
 import type { SQLInputValue } from 'node:sqlite';
 
 import type { RuntimeBlueprint } from '../shared/blueprint';
-import type { ActorDto } from '../shared/dto';
+import type { ActorDto, DashboardMetricDto, DashboardSnapshotDto } from '../shared/dto';
 import { AppError } from '../shared/errors';
+import { normalizeDashboardSection, parseDashboardContributions } from './dashboard-contributions';
 import type { RuntimeDatabase } from './database';
+import type { ActivatedPluginHost } from './plugin-host';
+import type { PermissionService } from './permission-service';
 import type { CompiledSchema } from './schema-compiler';
 
 interface DashboardDefinition {
@@ -15,11 +18,10 @@ interface DashboardDefinition {
   readonly filters: readonly { field: string; operator: string; value: unknown }[];
 }
 
-export interface DashboardMetric {
-  readonly id: string;
-  readonly name: string;
-  readonly value: number;
-  readonly tone: 'teal' | 'amber' | 'red' | 'neutral';
+interface DashboardEnhancements {
+  readonly plugins: ActivatedPluginHost;
+  readonly permissions: PermissionService;
+  readonly domain: { execute(commandId: string, raw: unknown, actor: ActorDto): unknown };
 }
 
 const identifier = (value: string) => {
@@ -28,15 +30,23 @@ const identifier = (value: string) => {
 };
 
 export class DashboardService {
+  readonly #enhancements: DashboardEnhancements | undefined;
+  readonly #sections;
+
   constructor(
     private readonly database: RuntimeDatabase,
     private readonly blueprint: RuntimeBlueprint,
-    private readonly schema: CompiledSchema
-  ) {}
+    private readonly schema: CompiledSchema,
+    enhancements?: DashboardEnhancements
+  ) {
+    this.#enhancements = enhancements;
+    this.#sections = enhancements
+      ? parseDashboardContributions(enhancements.plugins.uiExtensions, enhancements.plugins.domainActions, blueprint)
+      : Object.freeze([]);
+  }
 
-  read(actor: ActorDto): readonly DashboardMetric[] {
-    void actor;
-    return Object.freeze((this.blueprint.dashboards ?? []).map((raw, index) => {
+  read(actor: ActorDto): DashboardSnapshotDto {
+    const metrics: readonly DashboardMetricDto[] = Object.freeze((this.blueprint.dashboards ?? []).map((raw, index) => {
       const item = raw as unknown as DashboardDefinition;
       const table = this.schema.entityTables[item.entity];
       if (!table) throw new AppError('BLUEPRINT_INCOMPATIBLE', `仪表盘实体 '${item.entity}' 不存在。`);
@@ -59,5 +69,20 @@ export class DashboardService {
       const tones = ['teal', 'amber', 'red'] as const;
       return Object.freeze({ id: item.id, name: item.name, value: Number(row.value), tone: tones[index] ?? 'neutral' });
     }));
+    const sections = this.#enhancements
+      ? Object.freeze(this.#sections.flatMap((definition) => {
+          const contribution = this.#enhancements?.plugins.domainActions[definition.dataSource];
+          const permission = (contribution?.value as { permission?: unknown } | undefined)?.permission;
+          if (typeof permission !== 'string') {
+            throw new AppError('BLUEPRINT_INCOMPATIBLE', 'Dashboard summary permission is invalid.');
+          }
+          if (!this.#enhancements?.permissions.allows(actor, permission)) return [];
+          return [normalizeDashboardSection(
+            definition,
+            this.#enhancements.domain.execute(definition.dataSource, Object.freeze({}), actor)
+          )];
+        }))
+      : Object.freeze([]);
+    return Object.freeze({ metrics, sections });
   }
 }
