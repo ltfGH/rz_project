@@ -87,7 +87,7 @@ async function main(){
       }
       await page.setViewportSize(item.viewport==='minimum'?{width:1100,height:760}:{width:1440,height:960});let roleId=item.roleId,controlVerified=false;
       if(item.kind==='login'){await logout();await page.getByLabel('账号').fill('');await page.getByLabel('密码').fill('');if(await page.getByLabel('密码').inputValue()!=='')throw new Error('Password field was not empty before capture.');}
-      else if(item.kind==='dashboard'){await login('operations_admin');await page.getByRole('button',{name:'运维总览',exact:true}).click();}
+      else if(item.kind==='dashboard'){await login('operations_admin');await page.getByRole('button',{name:'运维总览',exact:true}).click();await page.getByRole('region',{name:'核心指标'}).waitFor();await page.locator('[data-dashboard-section]').first().waitFor();}
       else if(item.kind==='backup'){await login('operations_admin');await navigate(item.moduleId);}
       else if(item.kind==='action'){roleId=await openAction(item);controlVerified=true;}
       else{await login('operations_admin');await navigate(item.moduleId);if(item.kind==='detail'||item.kind==='state')await openDetail(planIndex);}

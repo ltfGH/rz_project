@@ -18,7 +18,7 @@ async function login(page: Page, username: string, password: string): Promise<vo
 }
 
 async function openFirstTask(page: Page): Promise<void> {
-  await page.getByRole('button', { name: '任务协同' }).click();
+  await page.getByRole('button', { name: '任务协同', exact: true }).click();
   await expect(page.getByText(taskCode)).toBeVisible();
   await page.getByRole('button', { name: `查看 ${taskCode}` }).click();
 }

@@ -20,7 +20,13 @@ return async function runStandardSmoke() {
       const session = await login(page, username, password);
       const metadata = unwrap(await page.evaluate((token) => window.businessApi.metadata.read(token), session.token));
       if (!Array.isArray(metadata.modules) || metadata.modules.length < 2) throw new Error(`${username} received no modules.`);
-      unwrap(await page.evaluate((token) => window.businessApi.dashboard.read(token), session.token));
+      const dashboard = unwrap(await page.evaluate((token) => window.businessApi.dashboard.read(token), session.token));
+      if (!dashboard || !Array.isArray(dashboard.metrics) || !Array.isArray(dashboard.sections)) {
+        throw new Error(`${username} received an invalid dashboard snapshot.`);
+      }
+      if (username === 'administrator' && dashboard.sections.length < 1) {
+        throw new Error('Administrator received no operational dashboard sections.');
+      }
       if (username === 'administrator') {
         const module = metadata.modules.find((entry) => entry.id !== 'maintenance');
         const listed = unwrap(await page.evaluate(([token, entity]) => window.businessApi.entities.list(token, entity, { page: 1, pageSize: 5 }), [session.token, module.entity]));

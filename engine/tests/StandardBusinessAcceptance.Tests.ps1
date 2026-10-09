@@ -135,6 +135,7 @@ try {
                 Assert-Match (Get-AcceptanceDocxXml (Join-Path $documentRoot 'database-design.docx')) '核心数据字典'
                 $screenshotManifest=Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $context.WorkspacePath 'screenshots\screenshot-manifest.json')|ConvertFrom-Json
                 Assert-Equal (@($screenshotManifest.captures).Count-ge12-and@($screenshotManifest.captures).Count-le18) $true
+                Assert-Equal @($screenshotManifest.captures|Where-Object scenarioId -eq 'dashboard').Count 1
                 Assert-Equal @($screenshotManifest.captures.imageSha256|Sort-Object -Unique).Count @($screenshotManifest.captures).Count
                 $actionCaptures=@($screenshotManifest.captures|Where-Object{$null-ne$_.actionId-and$_.controlVerified});Assert-Equal ($actionCaptures.Count-gt0) $true
                 $imageFiles=@(Get-ChildItem -LiteralPath (Join-Path $context.WorkspacePath 'screenshots') -Filter '*.png' -File);Assert-Equal $imageFiles.Count @($screenshotManifest.captures).Count

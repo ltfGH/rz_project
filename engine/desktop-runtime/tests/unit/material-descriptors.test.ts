@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { productionPluginDescriptors } from '../../../domain-packs/src/runtime/production-catalog';
+import { parseDashboardContributions } from '../../src/core/dashboard-contributions';
 import { PluginHost } from '../../src/core/plugin-host';
 import { PluginRegistry } from '../../src/core/plugin-registry';
 import {
@@ -68,6 +69,24 @@ test('references only entities modules roles and actions present in each real te
       assert.equal(entities.has(step.entityId),true,`${material.id}:${step.id}:${step.entityId}`);
       if(step.actionId){assert.equal(actions.has(step.actionId),true,`${material.id}:${step.id}:${step.actionId}`);assert.ok(material.operationLabels[step.actionId]);}
     }
+  }
+});
+
+test('gives the administrator a valid operational dashboard section in every template',()=>{
+  for(const template of loadStandardTemplateCatalog().templates){
+    const built=builtTemplate(template),registry=new PluginRegistry();
+    for(const plugin of productionPluginDescriptors)registry.register(plugin);
+    const host=new PluginHost();registry.activate(built.blueprint.plugins,host);
+    const plugins=host.freeze();
+    const definitions=parseDashboardContributions(plugins.uiExtensions,plugins.domainActions,built.blueprint);
+    const administrator=built.blueprint.roles?.find((role)=>role.id==='operations_admin');
+    assert.ok(administrator,`${template.id}:operations_admin`);
+    const permissions=new Set(administrator.permissions);
+    const visible=definitions.filter((definition)=>{
+      const action=plugins.domainActions[definition.dataSource]?.value as{permission?:unknown}|undefined;
+      return typeof action?.permission==='string'&&permissions.has(action.permission);
+    });
+    assert.ok(visible.length>0,`${template.id}:dashboard`);
   }
 });
 

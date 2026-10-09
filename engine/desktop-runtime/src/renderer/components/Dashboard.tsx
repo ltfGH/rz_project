@@ -48,7 +48,7 @@ export function Dashboard({ state, modules, onRefresh, onNavigate }: DashboardPr
           <h3>状态概览</h3>
           {model.statusGroups.length === 0 ? <p className="dashboard-empty">暂无可查看的业务状态</p> :
             model.statusGroups.map((group) => (
-              <div className="status-group" key={`${group.sectionId}:${group.id}`}>
+              <div className="status-group" data-dashboard-section={group.sectionId} key={`${group.sectionId}:${group.id}`}>
                 <div className="dashboard-group-title"><strong>{group.sectionLabel}</strong><span>{group.label}</span></div>
                 <div className="status-list">
                   {group.items.map((item) => (
