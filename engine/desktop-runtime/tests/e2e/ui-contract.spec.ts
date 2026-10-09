@@ -47,7 +47,7 @@ async function installApi(page: Page): Promise<void> {
                 { id: 'status', name: '状态', type: 'enum', required: true, unique: false, options: ['active', 'inactive'] }
               ], relations: []
             }],
-            domainActions: [{ id: 'asset.change_status', label: '状态操作', entityId: 'asset', order: 10 }]
+            domainActions: [{ id: 'asset.change_status', label: '状态操作', entityId: 'asset', order: 10, scope: 'record' }]
           })
         },
         entities: {
@@ -70,11 +70,40 @@ async function installApi(page: Page): Promise<void> {
           }
         },
         dashboard: {
-          read: () => success([
-            { id: 'assets', name: '纳管资产', value: 120, tone: 'teal' },
-            { id: 'tasks', name: '待办任务', value: 18, tone: 'amber' },
-            { id: 'alerts', name: '未恢复异常', value: 7, tone: 'red' }
-          ])
+          read: () => {
+            const target = window as typeof window & { __dashboardMode?: string; __dashboardCalls?: number };
+            target.__dashboardCalls = (target.__dashboardCalls ?? 0) + 1;
+            if (target.__dashboardMode === 'error') {
+              return Promise.resolve({ ok: false, error: { code: 'INTERNAL_ERROR', message: '暂时不可用' } });
+            }
+            const empty = target.__dashboardMode === 'empty';
+            return success({
+              metrics: [
+                { id: 'assets', name: '纳管资产', value: 120, tone: 'teal' },
+                { id: 'tasks', name: '待办任务', value: 18, tone: 'amber' },
+                { id: 'alerts', name: '未恢复异常', value: 7, tone: 'red' }
+              ],
+              sections: [{
+                id: 'asset_dashboard', label: '资产运行情况', order: 10,
+                groups: [
+                  {
+                    id: 'asset_status', label: '状态分布', kind: 'status',
+                    items: [
+                      { id: 'active', label: '正常运行', value: 80, tone: 'teal', moduleId: 'assets' },
+                      { id: 'inactive', label: '暂停使用', value: 40, tone: 'neutral', moduleId: 'assets' }
+                    ]
+                  },
+                  {
+                    id: 'asset_attention', label: '需要关注', kind: 'attention',
+                    items: [
+                      { id: 'overdue', label: '超过计划完成时间且仍未处理的巡检任务', value: empty ? 0 : 4, tone: 'red', moduleId: 'tasks' },
+                      { id: 'pending_review', label: '待复核任务', value: empty ? 0 : 2, tone: 'amber', moduleId: 'tasks' }
+                    ]
+                  }
+                ]
+              }]
+            });
+          }
         },
         maintenance: {
           backup: () => success({}), inspectRestore: () => success({}), restore: () => success({})
@@ -90,6 +119,7 @@ test('executes an authorized domain action from record detail', async ({ page })
   await page.getByLabel('账号').fill('admin');
   await page.getByLabel('密码').fill('Secret123!');
   await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '资产台账', exact: true }).click();
   await page.getByRole('button', { name: '查看 AST-001' }).click();
   await page.getByRole('button', { name: '变更状态' }).click();
   await page.getByLabel('目标状态').selectOption('inactive');
@@ -107,6 +137,7 @@ test('creates a record through the metadata form', async ({ page }) => {
   await page.getByLabel('账号').fill('admin');
   await page.getByLabel('密码').fill('Secret123!');
   await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '资产台账', exact: true }).click();
   await page.getByRole('button', { name: '新增' }).click();
   await expect(page.getByRole('complementary', { name: '记录编辑' })).toBeVisible();
   await page.getByLabel('资产编码').fill('AST-002');
@@ -135,12 +166,45 @@ for (const viewport of [
     await expect(page.getByRole('heading', { name: '企业资产协同管理软件' })).toBeVisible();
     await expect(page.getByText('系统管理员')).toBeVisible();
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.locator('[data-ui="list-toolbar"]')).toBeVisible();
-    await expect(page.locator('[data-ui="pagination"]')).toBeVisible();
+    await expect(page.getByRole('region', { name: '核心指标' })).toBeVisible();
+    await expect(page.getByRole('region', { name: '状态概览' })).toBeVisible();
+    await expect(page.getByRole('region', { name: '待办工作' }).getByText('待复核任务')).toBeVisible();
+    await expect(page.getByRole('region', { name: '业务入口' })).toBeVisible();
+    await expect(page.getByText('没有需要立即处理的业务事项。')).toHaveCount(0);
     await expect(page.locator('[data-state="loading"]')).toHaveCount(0);
+
+    const clipped = await page.locator('.dashboard-workspace').evaluate((root) => {
+      const elements = [...root.querySelectorAll<HTMLElement>('*')];
+      return elements.some((element) => element.scrollWidth > element.clientWidth + 1 &&
+        getComputedStyle(element).overflowX === 'visible');
+    });
+    expect(clipped).toBe(false);
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     expect(overflow).toBe(false);
     await page.screenshot({ path: `test-results/ui-${viewport.name}.png`, fullPage: true });
   });
 }
+
+test('supports dashboard navigation, empty data, failure, and retry', async ({ page }) => {
+  await installApi(page);
+  await page.goto('/');
+  await page.getByLabel('账号').fill('admin');
+  await page.getByLabel('密码').fill('Secret123!');
+  await page.getByRole('button', { name: '登录' }).click();
+
+  await page.getByRole('button', { name: '查看任务协同' }).first().click();
+  await expect(page.getByRole('heading', { name: '任务协同' })).toBeVisible();
+  await page.getByRole('button', { name: '运维总览' }).click();
+
+  await page.evaluate(() => { (window as typeof window & { __dashboardMode?: string }).__dashboardMode = 'empty'; });
+  await page.getByRole('button', { name: '刷新仪表盘' }).click();
+  await expect(page.getByText('没有需要立即处理的业务事项。')).toBeVisible();
+
+  await page.evaluate(() => { (window as typeof window & { __dashboardMode?: string }).__dashboardMode = 'error'; });
+  await page.getByRole('button', { name: '刷新仪表盘' }).click();
+  await expect(page.getByRole('alert')).toContainText('仪表盘加载失败');
+  await page.evaluate(() => { (window as typeof window & { __dashboardMode?: string }).__dashboardMode = 'ready'; });
+  await page.getByRole('button', { name: '重试' }).click();
+  await expect(page.getByRole('region', { name: '待办工作' }).getByText('待复核任务')).toBeVisible();
+});
