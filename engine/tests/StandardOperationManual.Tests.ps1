@@ -64,6 +64,13 @@ try{
         $imageMatches=@([regex]::Matches($html,'<img\s+[^>]*src="([^"]+)"[^>]*>'))
         Assert-Equal ($imageMatches.Count-ge12-and$imageMatches.Count-le18) $true 'The manual must contain 12-18 screenshots.'
         Assert-Equal @($imageMatches|ForEach-Object{$_.Groups[1].Value}|Sort-Object -Unique).Count $imageMatches.Count 'Screenshot paths must be distinct.'
+        $figureBlocks=@([regex]::Matches($html,'(?s)<div class="manual-figure">.*?</div>'))
+        $imageParagraphs=@([regex]::Matches($html,'(?s)<p class="figure-image">\s*<img\s+[^>]+>\s*</p>'))
+        $captionParagraphs=@([regex]::Matches($html,'(?s)<p class="figure-caption">[^<]+</p>'))
+        Assert-Equal $figureBlocks.Count $imageMatches.Count 'Every screenshot must have its own figure block.'
+        Assert-Equal $imageParagraphs.Count $imageMatches.Count 'Every screenshot must have its own image paragraph.'
+        Assert-Equal $captionParagraphs.Count $imageMatches.Count 'Every screenshot must have its own caption paragraph.'
+        foreach($block in $figureBlocks){Assert-Equal ([regex]::Matches($block.Value,'<img\s').Count) 1 'A figure block must not contain multiple screenshots.'}
         foreach($capture in @($facts.screenshots.captures)){
             $relative='screenshots/'+[string]$capture.fileName
             Assert-Equal @($imageMatches|Where-Object{$_.Groups[1].Value-eq$relative}).Count 1 "Screenshot $relative must be bound once."

@@ -693,7 +693,17 @@ function Export-MaterialsHtml {
             if($shape.Width-gt430){$shape.Width=430}
             if($shape.Height-gt340){$shape.Height=340}
         }
-        if($DocumentId-eq'manual'){$breakRange=$document.Content.Duplicate;if(-not$breakRange.Find.Execute('七、备份与恢复')){throw 'Operation manual backup heading was not found.'};$breakRange.Collapse(1);$breakRange.InsertBreak(7)}
+        if($DocumentId-eq'manual'){
+            $imageParagraphs=[Collections.Generic.HashSet[int]]::new()
+            for($shapeIndex=1;$shapeIndex-le$document.InlineShapes.Count;$shapeIndex++){
+                $paragraph=$document.InlineShapes.Item($shapeIndex).Range.Paragraphs.Item(1)
+                if(-not$imageParagraphs.Add([int]$paragraph.Range.Start)){throw 'Operation manual contains multiple screenshots in one paragraph.'}
+                $caption=$paragraph.Next();if($null-eq$caption-or[string]::IsNullOrWhiteSpace(([string]$caption.Range.Text).Trim([char]13,[char]7,[char]32))){throw 'Operation manual screenshot caption is missing.'}
+                $paragraph.Format.KeepWithNext=-1;$paragraph.Format.KeepTogether=-1;$paragraph.Format.SpaceAfter=0
+                $caption.Format.KeepTogether=-1;$caption.Format.Alignment=1
+            }
+            $breakRange=$document.Content.Duplicate;if(-not$breakRange.Find.Execute('七、备份与恢复')){throw 'Operation manual backup heading was not found.'};$breakRange.Collapse(1);$breakRange.InsertBreak(7)
+        }
         $document.Repaginate()
     }
     if ($SourceDocument) {

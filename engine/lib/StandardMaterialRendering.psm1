@@ -134,7 +134,7 @@ function Get-ManualCapturePresentation($Capture,$CommandMap,$ModuleMap,$Workflow
 
 function Add-ManualFigure($Body,$Capture,$Presentation){
     $source='screenshots/'+[uri]::EscapeDataString([string]$Capture.fileName)
-    Add-Html $Body ('<figure><img src="'+(ConvertTo-StandardHtmlText $source)+'" alt="'+(ConvertTo-StandardHtmlText $Presentation.alt)+'"><figcaption>'+(ConvertTo-StandardHtmlText $Presentation.caption)+'</figcaption></figure>')
+    Add-Html $Body ('<div class="manual-figure"><p class="figure-image"><img src="'+(ConvertTo-StandardHtmlText $source)+'" alt="'+(ConvertTo-StandardHtmlText $Presentation.alt)+'"></p><p class="figure-caption">'+(ConvertTo-StandardHtmlText $Presentation.caption)+'</p></div>')
 }
 
 function Get-VerifiedManualCaptures($Facts,[string]$ScreenshotRoot){

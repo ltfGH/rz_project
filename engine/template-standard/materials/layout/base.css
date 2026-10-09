@@ -41,4 +41,8 @@ th { background: #e9eef1; font-family: "Microsoft YaHei", "SimSun", sans-serif; 
 figure { margin: 12pt 0; page-break-inside: avoid; text-align: center; }
 figure img { max-width: 100%; height: auto; }
 figcaption { margin-top: 5pt; color: #52636d; font-size: 9pt; }
+.manual-figure { margin: 12pt 0; page-break-inside: avoid; }
+.manual-figure .figure-image { margin: 0; text-align: center; page-break-after: avoid; }
+.manual-figure .figure-image img { max-width: 100%; height: auto; }
+.manual-figure .figure-caption { margin: 5pt 0 0; color: #52636d; font-size: 9pt; text-align: center; }
 .footer-note { margin-top: 18pt; padding-top: 7pt; border-top: 1px solid #aeb8be; color: #5d6971; font-size: 9pt; }
